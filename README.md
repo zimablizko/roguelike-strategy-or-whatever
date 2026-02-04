@@ -175,13 +175,6 @@ onPreUpdate(engine: Engine, delta: number): void {
   updateMySystem(this.gameEntities);
 }
 ```
-    for (const entity of relevantEntities) {
-      const component = entity.get(MyComponent);
-      // Your game logic here
-    }
-  }
-}
-```
 
 ## License
 
