@@ -2,32 +2,12 @@ import { Actor, Engine, Keys, Vector } from 'excalibur';
 import { VelocityComponent, PositionComponent, PlayerControlledComponent } from '../components';
 
 /**
- * Base class for all ECS systems
- * Systems contain game logic and operate on entities with specific components
- */
-export abstract class System {
-  public readonly name: string;
-
-  constructor(name: string) {
-    this.name = name;
-  }
-
-  /**
-   * Update the system
-   * @param entities - All entities in the scene
-   * @param delta - Time since last update in milliseconds
-   */
-  abstract update(entities: Actor[], delta: number): void;
-}
-
-/**
  * System for handling player input and movement
  */
-export class PlayerMovementSystem extends System {
+export class PlayerMovementSystem {
   private engine: Engine;
 
   constructor(engine: Engine) {
-    super('playerMovement');
     this.engine = engine;
   }
 
@@ -73,11 +53,7 @@ export class PlayerMovementSystem extends System {
 /**
  * System for updating entity positions based on velocity
  */
-export class MovementSystem extends System {
-  constructor() {
-    super('movement');
-  }
-
+export class MovementSystem {
   update(entities: Actor[], _delta: number): void {
     for (const entity of entities) {
       if (entity.has(PositionComponent) && entity.has(VelocityComponent)) {

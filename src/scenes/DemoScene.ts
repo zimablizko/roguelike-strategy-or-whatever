@@ -1,21 +1,22 @@
 import { Scene, Color, Label, vec, Font, TextAlign, Engine, Actor } from 'excalibur';
 import { createPlayer, createEnemy, createWall, createItem } from '../ecs/entities';
-import { PlayerMovementSystem, MovementSystem, System } from '../ecs/systems';
+import { PlayerMovementSystem, MovementSystem } from '../ecs/systems';
 
 /**
  * Demo scene showcasing the ECS pattern
  */
 export class DemoScene extends Scene {
   private gameEntities: Actor[] = [];
-  private systems: System[] = [];
+  private playerMovementSystem!: PlayerMovementSystem;
+  private movementSystem!: MovementSystem;
 
   onInitialize(engine: Engine): void {
     // Set background color
     this.backgroundColor = Color.fromHex('#2c3e50');
 
     // Initialize systems
-    this.systems.push(new PlayerMovementSystem(engine));
-    this.systems.push(new MovementSystem());
+    this.playerMovementSystem = new PlayerMovementSystem(engine);
+    this.movementSystem = new MovementSystem();
 
     // Create title label
     const title = new Label({
@@ -66,7 +67,7 @@ export class DemoScene extends Scene {
 
     // Status info
     const status = new Label({
-      text: `Entities: ${this.gameEntities.length} | Systems: ${this.systems.length}`,
+      text: `Entities: ${this.gameEntities.length}`,
       pos: vec(engine.drawWidth / 2, engine.drawHeight - 30),
       font: new Font({
         size: 12,
@@ -79,9 +80,8 @@ export class DemoScene extends Scene {
 
   onPreUpdate(_engine: Engine, delta: number): void {
     // Update all systems
-    for (const system of this.systems) {
-      system.update(this.gameEntities, delta);
-    }
+    this.playerMovementSystem.update(this.gameEntities, delta);
+    this.movementSystem.update(this.gameEntities, delta);
   }
 
   private createEnemy(x: number, y: number): void {

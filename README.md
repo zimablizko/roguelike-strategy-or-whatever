@@ -119,7 +119,7 @@ Entities are Excalibur `Actor` objects with components attached:
 - `Item` - Yellow collectibles
 
 ### Systems
-Systems contain game logic and operate on entities:
+Systems are plain classes with an `update` method that process entities:
 - `PlayerMovementSystem` - Handles player input and movement
 - `MovementSystem` - Updates entity positions
 
@@ -153,11 +153,11 @@ export function createMyEntity(x: number, y: number): Actor {
 
 ### Adding a New System
 
-Create a new system in `src/ecs/systems/index.ts`:
+Create a new system class in `src/ecs/systems/index.ts`:
 ```typescript
 import { Actor } from 'excalibur';
 
-export class MySystem extends System {
+export class MySystem {
   update(entities: Actor[], delta: number): void {
     // Filter entities that have the components you need
     const relevantEntities = entities.filter(e => e.has(MyComponent));
@@ -169,6 +169,15 @@ export class MySystem extends System {
     }
   }
 }
+```
+
+Then add it to your scene:
+```typescript
+// In your scene's onInitialize
+this.mySystem = new MySystem();
+
+// In your scene's onPreUpdate
+this.mySystem.update(this.gameEntities, delta);
 ```
 
 ## License
