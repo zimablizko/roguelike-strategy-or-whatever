@@ -1,22 +1,16 @@
 import { Scene, Color, Label, vec, Font, TextAlign, Engine, Actor } from 'excalibur';
 import { createPlayer, createEnemy, createWall, createItem } from '../ecs/entities';
-import { PlayerMovementSystem, MovementSystem } from '../ecs/systems';
+import { updatePlayerMovement, updateMovement } from '../ecs/systems';
 
 /**
  * Demo scene showcasing the ECS pattern
  */
 export class DemoScene extends Scene {
   private gameEntities: Actor[] = [];
-  private playerMovementSystem!: PlayerMovementSystem;
-  private movementSystem!: MovementSystem;
 
   onInitialize(engine: Engine): void {
     // Set background color
     this.backgroundColor = Color.fromHex('#2c3e50');
-
-    // Initialize systems
-    this.playerMovementSystem = new PlayerMovementSystem(engine);
-    this.movementSystem = new MovementSystem();
 
     // Create title label
     const title = new Label({
@@ -78,10 +72,10 @@ export class DemoScene extends Scene {
     this.add(status);
   }
 
-  onPreUpdate(_engine: Engine, delta: number): void {
-    // Update all systems
-    this.playerMovementSystem.update(this.gameEntities, delta);
-    this.movementSystem.update(this.gameEntities, delta);
+  onPreUpdate(engine: Engine, _delta: number): void {
+    // Update game systems
+    updatePlayerMovement(this.gameEntities, engine);
+    updateMovement(this.gameEntities);
   }
 
   private createEnemy(x: number, y: number): void {

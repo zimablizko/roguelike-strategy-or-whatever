@@ -119,9 +119,9 @@ Entities are Excalibur `Actor` objects with components attached:
 - `Item` - Yellow collectibles
 
 ### Systems
-Systems are plain classes with an `update` method that process entities:
-- `PlayerMovementSystem` - Handles player input and movement
-- `MovementSystem` - Updates entity positions
+Systems are functions that contain game logic and operate on entities:
+- `updatePlayerMovement` - Handles player input and movement
+- `updateMovement` - Updates entity positions
 
 ## Extending the Game
 
@@ -151,33 +151,36 @@ export function createMyEntity(x: number, y: number): Actor {
 }
 ```
 
-### Adding a New System
+### Adding a New System Function
 
-Create a new system class in `src/ecs/systems/index.ts`:
+Create a new system function in `src/ecs/systems/index.ts`:
 ```typescript
 import { Actor } from 'excalibur';
 
-export class MySystem {
-  update(entities: Actor[], delta: number): void {
-    // Filter entities that have the components you need
-    const relevantEntities = entities.filter(e => e.has(MyComponent));
-    
-    // Process each entity
+export function updateMySystem(entities: Actor[]): void {
+  // Filter entities that have the components you need
+  const relevantEntities = entities.filter(e => e.has(MyComponent));
+  
+  // Process each entity
+  for (const entity of relevantEntities) {
+    const component = entity.get(MyComponent)!;
+    // Your game logic here
+  }
+}
+```
+
+Then call it in your scene's `onPreUpdate` method:
+```typescript
+onPreUpdate(engine: Engine, delta: number): void {
+  updateMySystem(this.gameEntities);
+}
+```
     for (const entity of relevantEntities) {
       const component = entity.get(MyComponent);
       // Your game logic here
     }
   }
 }
-```
-
-Then add it to your scene:
-```typescript
-// In your scene's onInitialize
-this.mySystem = new MySystem();
-
-// In your scene's onPreUpdate
-this.mySystem.update(this.gameEntities, delta);
 ```
 
 ## License
