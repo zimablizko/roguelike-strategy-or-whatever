@@ -100,7 +100,7 @@ Systems contain game logic and operate on entities:
 
 Create a new component in `src/ecs/components/index.ts`:
 ```typescript
-export class MyComponent extends Component {
+export class MyComponent extends GameComponent {
   constructor(public myData: any) {
     super('myComponent');
   }
@@ -111,9 +111,9 @@ export class MyComponent extends Component {
 
 Create a factory function in `src/ecs/entities/factories.ts`:
 ```typescript
-export function createMyEntity(x: number, y: number): Entity {
-  const entity = new Entity({ pos: vec(x, y) });
-  entity.addComponent(new MyComponent(data));
+export function createMyEntity(x: number, y: number): GameEntity {
+  const entity = new GameEntity({ pos: vec(x, y) });
+  entity.addGameComponent(new MyComponent(data));
   return entity;
 }
 ```
@@ -123,7 +123,7 @@ export function createMyEntity(x: number, y: number): Entity {
 Create a new system in `src/ecs/systems/index.ts`:
 ```typescript
 export class MySystem extends System {
-  update(entities: Entity[], delta: number): void {
+  update(entities: GameEntity[], delta: number): void {
     // Your game logic here
   }
 }
