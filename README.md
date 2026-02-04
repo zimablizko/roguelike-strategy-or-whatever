@@ -67,17 +67,30 @@ npm run preview
 
 ### Deploying to GitHub Pages
 
-Deploy the game to GitHub Pages:
+#### Manual Deployment
+
+Deploy the game to GitHub Pages manually:
 ```bash
 npm run deploy
 ```
 
 This will:
-1. Build the project with the correct base path
-2. Push the built files to the `gh-pages` branch
-3. Make the game available at: https://zimablizko.github.io/roguelike-strategy-or-whatever/
+1. Build the project with the correct base path for GitHub Pages
+2. Create a `.nojekyll` file to prevent Jekyll processing
+3. Initialize a git repository in the dist folder
+4. Push the built files to the `gh-pages` branch
+5. Make the game available at: https://zimablizko.github.io/roguelike-strategy-or-whatever/
 
-**Automated Deployment**: The project includes a GitHub Actions workflow that automatically deploys to GitHub Pages on every push to the main branch.
+#### Automated Deployment
+
+The project includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys to GitHub Pages:
+- **Triggers**: On every push to `main` or `master` branch
+- **Manual trigger**: Can be triggered manually from the Actions tab in GitHub
+- **What it does**: Installs dependencies, builds the project, and deploys to gh-pages branch
+
+After deployment, your game will be live at: https://zimablizko.github.io/roguelike-strategy-or-whatever/
+
+> **Note**: The first deployment may take a few minutes to become available. Subsequent deployments are usually faster.
 
 ## How to Play
 
