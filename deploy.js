@@ -1,14 +1,22 @@
 import { execSync } from 'child_process';
-import { existsSync, writeFileSync } from 'fs';
+import { existsSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Deploy script for GitHub Pages
  * This script builds the project and deploys it to the gh-pages branch
  */
 
+// Read configuration from package.json
+const packageJson = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'));
+const repoName = packageJson.name;
 const distDir = 'dist';
-const repoUrl = 'https://github.com/zimablizko/roguelike-strategy-or-whatever.git';
+const repoUrl = `https://github.com/zimablizko/${repoName}.git`;
 
 console.log('🚀 Starting GitHub Pages deployment...\n');
 
@@ -52,7 +60,7 @@ try {
   console.log('✅ Pushed to gh-pages branch');
 
   console.log('\n🎉 Deployment successful!');
-  console.log('📍 Your site will be available at: https://zimablizko.github.io/roguelike-strategy-or-whatever/');
+  console.log(`📍 Your site will be available at: https://zimablizko.github.io/${repoName}/`);
   console.log('⏳ Note: It may take a few minutes for GitHub Pages to update.');
 
 } catch (error) {
