@@ -1,0 +1,21 @@
+{
+  "name": "rougelike-strategy-or-whatever",
+  "version": "1.0.0",
+  "description": "Roguelike strategy game built with Excalibur.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["game", "excalibur", "roguelike", "ecs"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "excalibur": "^0.32.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
