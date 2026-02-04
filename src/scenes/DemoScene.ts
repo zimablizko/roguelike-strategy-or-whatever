@@ -1,12 +1,12 @@
-import { Scene, Color, Label, vec, Font, TextAlign, Engine } from 'excalibur';
-import { GameEntity, createPlayer, createEnemy, createWall, createItem } from '../ecs/entities';
+import { Scene, Color, Label, vec, Font, TextAlign, Engine, Actor } from 'excalibur';
+import { createPlayer, createEnemy, createWall, createItem } from '../ecs/entities';
 import { PlayerMovementSystem, MovementSystem, System } from '../ecs/systems';
 
 /**
  * Demo scene showcasing the ECS pattern
  */
 export class DemoScene extends Scene {
-  private gameEntities: GameEntity[] = [];
+  private gameEntities: Actor[] = [];
   private systems: System[] = [];
 
   onInitialize(engine: Engine): void {

@@ -101,16 +101,18 @@ After deployment, your game will be live at: https://zimablizko.github.io/roguel
 
 ## ECS Architecture
 
+This project uses Excalibur.js's built-in Entity-Component-System (ECS) pattern for clean, modular game architecture.
+
 ### Components
-Components are pure data containers that define properties:
-- `PositionComponent` - Entity position
+Components are data containers that extend Excalibur's `Component` class:
+- `PositionComponent` - Entity position tracking
 - `VelocityComponent` - Movement speed
 - `SpriteComponent` - Visual properties
 - `PlayerControlledComponent` - Player control marker
 - `HealthComponent` - Health and damage system
 
 ### Entities
-Entities are game objects composed of components:
+Entities are Excalibur `Actor` objects with components attached:
 - `Player` - Blue controllable character
 - `Enemy` - Red obstacles
 - `Wall` - Gray barriers
@@ -127,9 +129,11 @@ Systems contain game logic and operate on entities:
 
 Create a new component in `src/ecs/components/index.ts`:
 ```typescript
-export class MyComponent extends GameComponent {
+import { Component } from 'excalibur';
+
+export class MyComponent extends Component {
   constructor(public myData: any) {
-    super('myComponent');
+    super();
   }
 }
 ```
@@ -138,9 +142,11 @@ export class MyComponent extends GameComponent {
 
 Create a factory function in `src/ecs/entities/factories.ts`:
 ```typescript
-export function createMyEntity(x: number, y: number): GameEntity {
-  const entity = new GameEntity({ pos: vec(x, y) });
-  entity.addGameComponent(new MyComponent(data));
+import { Actor, vec } from 'excalibur';
+
+export function createMyEntity(x: number, y: number): Actor {
+  const entity = new Actor({ pos: vec(x, y) });
+  entity.addComponent(new MyComponent(data));
   return entity;
 }
 ```
@@ -149,9 +155,18 @@ export function createMyEntity(x: number, y: number): GameEntity {
 
 Create a new system in `src/ecs/systems/index.ts`:
 ```typescript
+import { Actor } from 'excalibur';
+
 export class MySystem extends System {
-  update(entities: GameEntity[], delta: number): void {
-    // Your game logic here
+  update(entities: Actor[], delta: number): void {
+    // Filter entities that have the components you need
+    const relevantEntities = entities.filter(e => e.has(MyComponent));
+    
+    // Process each entity
+    for (const entity of relevantEntities) {
+      const component = entity.get(MyComponent);
+      // Your game logic here
+    }
   }
 }
 ```

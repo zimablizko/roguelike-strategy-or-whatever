@@ -1,6 +1,5 @@
-import { Engine, Keys, Vector } from 'excalibur';
-import { GameEntity } from '../entities/Entity';
-import { VelocityComponent, PositionComponent } from '../components';
+import { Actor, Engine, Keys, Vector } from 'excalibur';
+import { VelocityComponent, PositionComponent, PlayerControlledComponent } from '../components';
 
 /**
  * Base class for all ECS systems
@@ -18,7 +17,7 @@ export abstract class System {
    * @param entities - All entities in the scene
    * @param delta - Time since last update in milliseconds
    */
-  abstract update(entities: GameEntity[], delta: number): void;
+  abstract update(entities: Actor[], delta: number): void;
 }
 
 /**
@@ -32,13 +31,13 @@ export class PlayerMovementSystem extends System {
     this.engine = engine;
   }
 
-  update(entities: GameEntity[], _delta: number): void {
+  update(entities: Actor[], _delta: number): void {
     const players = entities.filter(e => 
-      e.hasGameComponent('playerControlled') && e.hasGameComponent('velocity')
+      e.has(PlayerControlledComponent) && e.has(VelocityComponent)
     );
 
     for (const player of players) {
-      const velocity = player.getGameComponent<VelocityComponent>('velocity');
+      const velocity = player.get(VelocityComponent);
       if (!velocity) continue;
 
       const movement = new Vector(0, 0);
@@ -81,10 +80,10 @@ export class MovementSystem extends System {
     super('movement');
   }
 
-  update(entities: GameEntity[], _delta: number): void {
+  update(entities: Actor[], _delta: number): void {
     for (const entity of entities) {
-      if (entity.hasGameComponent('position') && entity.hasGameComponent('velocity')) {
-        const position = entity.getGameComponent<PositionComponent>('position');
+      if (entity.has(PositionComponent) && entity.has(VelocityComponent)) {
+        const position = entity.get(PositionComponent);
         if (position) {
           position.x = entity.pos.x;
           position.y = entity.pos.y;
