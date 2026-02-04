@@ -37,9 +37,7 @@ export class PlayerMovementSystem extends System {
     );
 
     for (const player of players) {
-      const velocity = player.get(VelocityComponent);
-      if (!velocity) continue;
-
+      const velocity = player.get(VelocityComponent)!; // Non-null assertion safe due to filter above
       const movement = new Vector(0, 0);
       const speed = velocity.speed;
 
@@ -83,11 +81,9 @@ export class MovementSystem extends System {
   update(entities: Actor[], _delta: number): void {
     for (const entity of entities) {
       if (entity.has(PositionComponent) && entity.has(VelocityComponent)) {
-        const position = entity.get(PositionComponent);
-        if (position) {
-          position.x = entity.pos.x;
-          position.y = entity.pos.y;
-        }
+        const position = entity.get(PositionComponent)!; // Non-null assertion safe due to has() check
+        position.x = entity.pos.x;
+        position.y = entity.pos.y;
       }
     }
   }
