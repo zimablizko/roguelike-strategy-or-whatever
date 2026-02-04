@@ -36,7 +36,7 @@ src/
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd rougelike-strategy-or-whatever
+cd roguelike-strategy-or-whatever
 ```
 
 2. Install dependencies:
@@ -64,6 +64,20 @@ Preview the production build:
 ```bash
 npm run preview
 ```
+
+### Deploying to GitHub Pages
+
+Deploy the game to GitHub Pages:
+```bash
+npm run deploy
+```
+
+This will:
+1. Build the project with the correct base path
+2. Push the built files to the `gh-pages` branch
+3. Make the game available at: https://zimablizko.github.io/roguelike-strategy-or-whatever/
+
+**Automated Deployment**: The project includes a GitHub Actions workflow that automatically deploys to GitHub Pages on every push to the main branch.
 
 ## How to Play
 
