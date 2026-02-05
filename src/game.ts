@@ -1,5 +1,5 @@
-import { Engine, DisplayMode, Color } from 'excalibur';
-import { DemoScene } from './scenes';
+import { Color, DisplayMode, Engine } from 'excalibur';
+import { GameplayScene, InitializationScene, MainMenu } from './scenes';
 
 /**
  * Main game class that initializes and manages the Excalibur engine
@@ -21,10 +21,11 @@ export class Game {
    */
   async initialize(): Promise<void> {
     // Add scenes
-    this.engine.add('demo', new DemoScene());
+    this.engine.add('gameplay', new GameplayScene());
+    this.engine.add('preparation', new InitializationScene());
+    this.engine.add('main-menu', new MainMenu());
 
-    // Start with demo scene
-    await this.engine.goToScene('demo');
+    await this.engine.goToScene('main-menu');
   }
 
   /**

@@ -1,11 +1,5 @@
 import { Actor, Color, vec } from 'excalibur';
-import {
-  PositionComponent,
-  SpriteComponent,
-  VelocityComponent,
-  PlayerControlledComponent,
-  HealthComponent,
-} from '../components';
+import { PositionComponent } from '../components';
 
 /**
  * Factory functions for creating pre-configured entities
@@ -23,10 +17,6 @@ export function createPlayer(x: number, y: number): Actor {
   });
 
   player.addComponent(new PositionComponent(x, y));
-  player.addComponent(new SpriteComponent('#4a90e2', 32, 32));
-  player.addComponent(new VelocityComponent(200));
-  player.addComponent(new PlayerControlledComponent());
-  player.addComponent(new HealthComponent(100, 100));
 
   return player;
 }
@@ -43,9 +33,6 @@ export function createEnemy(x: number, y: number): Actor {
   });
 
   enemy.addComponent(new PositionComponent(x, y));
-  enemy.addComponent(new SpriteComponent('#e74c3c', 32, 32));
-  enemy.addComponent(new VelocityComponent(80));
-  enemy.addComponent(new HealthComponent(50, 50));
 
   return enemy;
 }
@@ -62,7 +49,6 @@ export function createWall(x: number, y: number): Actor {
   });
 
   wall.addComponent(new PositionComponent(x, y));
-  wall.addComponent(new SpriteComponent('#7f8c8d', 32, 32));
 
   return wall;
 }
@@ -79,7 +65,6 @@ export function createItem(x: number, y: number): Actor {
   });
 
   item.addComponent(new PositionComponent(x, y));
-  item.addComponent(new SpriteComponent('#f1c40f', 24, 24));
 
   return item;
 }

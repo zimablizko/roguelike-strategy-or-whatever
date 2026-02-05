@@ -19,7 +19,7 @@ src/
 │   ├── entities/       # Game objects (Player, Enemy, Wall, Item)
 │   └── systems/        # Game logic (PlayerMovement, Movement)
 ├── scenes/
-│   └── DemoScene.ts    # Demo scene showcasing ECS pattern
+│   └── GameplayScene.ts    # Demo scene showcasing ECS pattern
 ├── game.ts             # Game initialization and configuration
 └── main.ts             # Application entry point
 ```

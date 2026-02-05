@@ -1,11 +1,10 @@
-import { Scene, Color, Label, vec, Font, TextAlign, Engine, Actor } from 'excalibur';
-import { createPlayer, createEnemy, createWall, createItem } from '../ecs/entities';
-import { updatePlayerMovement, updateMovement } from '../ecs/systems';
+import { Actor, Color, Engine, Font, Label, Scene, TextAlign, vec } from 'excalibur';
+import { createEnemy, createItem, createPlayer, createWall } from '../ecs/entities';
 
 /**
  * Demo scene showcasing the ECS pattern
  */
-export class DemoScene extends Scene {
+export class GameplayScene extends Scene {
   private gameEntities: Actor[] = [];
 
   onInitialize(engine: Engine): void {
@@ -72,12 +71,6 @@ export class DemoScene extends Scene {
     this.add(status);
   }
 
-  onPreUpdate(engine: Engine, _delta: number): void {
-    // Update game systems
-    updatePlayerMovement(this.gameEntities, engine);
-    updateMovement(this.gameEntities);
-  }
-
   private createEnemy(x: number, y: number): void {
     const enemy = createEnemy(x, y);
     this.gameEntities.push(enemy);
@@ -92,8 +85,8 @@ export class DemoScene extends Scene {
 
   private createWallLine(startX: number, startY: number, count: number, vertical: boolean): void {
     for (let i = 0; i < count; i++) {
-      const x = vertical ? startX : startX + (i * 40);
-      const y = vertical ? startY + (i * 40) : startY;
+      const x = vertical ? startX : startX + i * 40;
+      const y = vertical ? startY + i * 40 : startY;
       this.createWall(x, y);
     }
   }

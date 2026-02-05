@@ -9,14 +9,15 @@
     "preview": "vite preview",
     "deploy": "npm run build && node deploy.js"
   },
-  "keywords": ["game", "excalibur", "roguelike", "ecs"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "excalibur": "^0.32.0"
+    "excalibur": "^0.32.0",
+    "lit": "^3.3.2"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "ts-lit-plugin": "^2.0.2"
   }
 }
