@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Money icon - stack of coins -->
+  <!-- Bottom coin -->
+  <ellipse cx="32" cy="48" rx="22" ry="8" fill="#C9A020"/>
+  <rect x="10" y="44" width="44" height="4" fill="#C9A020"/>
+  <ellipse cx="32" cy="44" rx="22" ry="8" fill="#E8C840"/>
+  <!-- Middle coin -->
+  <ellipse cx="32" cy="38" rx="22" ry="8" fill="#C9A020"/>
+  <rect x="10" y="34" width="44" height="4" fill="#C9A020"/>
+  <ellipse cx="32" cy="34" rx="22" ry="8" fill="#E8C840"/>
+  <!-- Top coin -->
+  <ellipse cx="32" cy="28" rx="22" ry="8" fill="#C9A020"/>
+  <rect x="10" y="24" width="44" height="4" fill="#C9A020"/>
+  <ellipse cx="32" cy="24" rx="22" ry="8" fill="#E8C840"/>
+  <!-- Dollar symbol on top coin -->
+  <text x="32" y="29" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#A08018">$</text>
+</svg>

@@ -5,7 +5,7 @@ import { Game } from './game';
  */
 async function main() {
   const game = new Game();
-  
+
   try {
     await game.start();
     console.log('Game started successfully!');

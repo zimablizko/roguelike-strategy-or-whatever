@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Wheat stalk - a classic strategy game food icon -->
+  <!-- Stem -->
+  <line x1="32" y1="58" x2="32" y2="18" stroke="#8B7355" stroke-width="3" stroke-linecap="round"/>
+  <!-- Grain kernels (left) -->
+  <ellipse cx="26" cy="16" rx="5" ry="9" fill="#DAA520" transform="rotate(-20 26 16)"/>
+  <ellipse cx="24" cy="28" rx="5" ry="9" fill="#DAA520" transform="rotate(-25 24 28)"/>
+  <ellipse cx="26" cy="40" rx="4" ry="8" fill="#DAA520" transform="rotate(-20 26 40)"/>
+  <!-- Grain kernels (right) -->
+  <ellipse cx="38" cy="16" rx="5" ry="9" fill="#DAA520" transform="rotate(20 38 16)"/>
+  <ellipse cx="40" cy="28" rx="5" ry="9" fill="#DAA520" transform="rotate(25 40 28)"/>
+  <ellipse cx="38" cy="40" rx="4" ry="8" fill="#DAA520" transform="rotate(20 38 40)"/>
+  <!-- Top kernel -->
+  <ellipse cx="32" cy="8" rx="4" ry="8" fill="#DAA520"/>
+</svg>

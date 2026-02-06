@@ -1,5 +1,14 @@
-import { Actor, Color, Engine, Font, Label, Scene, TextAlign, vec } from 'excalibur';
-import { createEnemy, createItem, createPlayer, createWall } from '../ecs/entities';
+import {
+  Actor,
+  Color,
+  Engine,
+  Font,
+  Label,
+  Scene,
+  TextAlign,
+  vec,
+} from 'excalibur';
+import { ScreenButton } from '../ui/elements/ScreenButton';
 
 /**
  * Demo scene showcasing the ECS pattern
@@ -35,29 +44,6 @@ export class GameplayScene extends Scene {
     });
     this.add(instructions);
 
-    // Create player in the center
-    const player = createPlayer(400, 300);
-    this.gameEntities.push(player);
-    this.add(player);
-
-    // Create some enemies
-    this.createEnemy(200, 200);
-    this.createEnemy(600, 200);
-    this.createEnemy(200, 400);
-    this.createEnemy(600, 400);
-
-    // Create walls/obstacles
-    this.createWallLine(150, 250, 5, true);
-    this.createWallLine(650, 250, 5, true);
-    this.createWallLine(350, 150, 3, false);
-    this.createWallLine(350, 450, 3, false);
-
-    // Create some collectible items
-    this.createItem(300, 300);
-    this.createItem(500, 300);
-    this.createItem(400, 200);
-    this.createItem(400, 400);
-
     // Status info
     const status = new Label({
       text: `Entities: ${this.gameEntities.length}`,
@@ -69,31 +55,21 @@ export class GameplayScene extends Scene {
       }),
     });
     this.add(status);
+    this.addButtons(engine);
   }
 
-  private createEnemy(x: number, y: number): void {
-    const enemy = createEnemy(x, y);
-    this.gameEntities.push(enemy);
-    this.add(enemy);
-  }
-
-  private createWall(x: number, y: number): void {
-    const wall = createWall(x, y);
-    this.gameEntities.push(wall);
-    this.add(wall);
-  }
-
-  private createWallLine(startX: number, startY: number, count: number, vertical: boolean): void {
-    for (let i = 0; i < count; i++) {
-      const x = vertical ? startX : startX + i * 40;
-      const y = vertical ? startY + i * 40 : startY;
-      this.createWall(x, y);
-    }
-  }
-
-  private createItem(x: number, y: number): void {
-    const item = createItem(x, y);
-    this.gameEntities.push(item);
-    this.add(item);
+  private addButtons(engine: Engine) {
+    // little Back to Main Menu button in left top corner
+    const backButton = new ScreenButton({
+      x: 20,
+      y: 20,
+      width: 150,
+      height: 40,
+      title: 'Exit',
+    });
+    this.add(backButton);
+    backButton.on('pointerup', () => {
+      engine.goToScene('main-menu');
+    });
   }
 }

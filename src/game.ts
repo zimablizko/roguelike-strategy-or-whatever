@@ -1,4 +1,5 @@
 import { Color, DisplayMode, Engine } from 'excalibur';
+import { CONFIG } from './_common/config';
 import { GameplayScene, InitializationScene, MainMenu } from './scenes';
 
 /**
@@ -9,10 +10,12 @@ export class Game {
 
   constructor() {
     this.engine = new Engine({
-      width: 800,
-      height: 600,
+      width: CONFIG.GAME_WIDTH,
+      height: CONFIG.GAME_HEIGHT,
       displayMode: DisplayMode.FitScreen,
       backgroundColor: Color.Black,
+      canvasElementId: 'game',
+      antialiasing: true,
     });
   }
 
@@ -24,6 +27,15 @@ export class Game {
     this.engine.add('gameplay', new GameplayScene());
     this.engine.add('preparation', new InitializationScene());
     this.engine.add('main-menu', new MainMenu());
+
+    if (CONFIG.DEBUG) {
+      console.log(
+        'Debug mode enabled, starting with scene:',
+        CONFIG.DEBUG_OPTIONS.START_SCENE
+      );
+      await this.engine.goToScene(CONFIG.DEBUG_OPTIONS.START_SCENE);
+      return;
+    }
 
     await this.engine.goToScene('main-menu');
   }
