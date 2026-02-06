@@ -12,7 +12,10 @@ import { GameManager } from '../_common/GameManager';
 import { TurnManager } from '../_common/TurnManager';
 import { ResourceDisplay } from '../ui/elements/ResourceDisplay';
 import { ScreenButton } from '../ui/elements/ScreenButton';
-import { ScreenList, type ScreenListButtonItem } from '../ui/elements/ScreenList';
+import {
+  ScreenList,
+  type ScreenListButtonItem,
+} from '../ui/elements/ScreenList';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
 
 /**

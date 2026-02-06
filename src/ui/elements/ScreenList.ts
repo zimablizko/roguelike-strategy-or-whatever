@@ -126,8 +126,10 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
     this.showScrollbar = options.showScrollbar ?? true;
     this.scrollbarWidth = options.scrollbarWidth ?? 10;
     this.scrollbarMinThumbHeight = options.scrollbarMinThumbHeight ?? 18;
-    this.scrollbarTrackColor = options.scrollbarTrackColor ?? 'rgba(255,255,255,0.10)';
-    this.scrollbarThumbColor = options.scrollbarThumbColor ?? 'rgba(255,255,255,0.22)';
+    this.scrollbarTrackColor =
+      options.scrollbarTrackColor ?? 'rgba(255,255,255,0.10)';
+    this.scrollbarThumbColor =
+      options.scrollbarThumbColor ?? 'rgba(255,255,255,0.22)';
     this.scrollbarThumbActiveColor =
       options.scrollbarThumbActiveColor ?? 'rgba(255,255,255,0.35)';
 
@@ -241,7 +243,9 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
   private canActivateItem(index: number): boolean {
     if (this.onItemActivate) return true;
     const item = this.items[index] as unknown;
-    return typeof (item as Partial<ScreenListButtonItem>)?.onClick === 'function';
+    return (
+      typeof (item as Partial<ScreenListButtonItem>)?.onClick === 'function'
+    );
   }
 
   private activateItem(index: number): void {
@@ -257,7 +261,8 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
 
   private isDisabled(index: number): boolean {
     const item = this.items[index] as unknown;
-    if (this.isItemDisabled) return this.isItemDisabled(this.items[index], index);
+    if (this.isItemDisabled)
+      return this.isItemDisabled(this.items[index], index);
     return (item as Partial<ScreenListButtonItem>)?.disabled === true;
   }
 
@@ -323,7 +328,10 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
 
     const maxScroll = this.getMaxScroll();
     const ratio = innerH / Math.max(innerH, this.contentHeight);
-    const thumbH = Math.max(this.scrollbarMinThumbHeight, Math.floor(trackH * ratio));
+    const thumbH = Math.max(
+      this.scrollbarMinThumbHeight,
+      Math.floor(trackH * ratio)
+    );
     const travel = Math.max(1, trackH - thumbH);
     const t = maxScroll > 0 ? this.scrollOffset / maxScroll : 0;
     const thumbY = trackY + t * travel;
@@ -355,8 +363,7 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
 
     if (!withinTrack) return null;
 
-    const overThumb =
-      localY >= geo.thumbY && localY <= geo.thumbY + geo.thumbH;
+    const overThumb = localY >= geo.thumbY && localY <= geo.thumbY + geo.thumbH;
 
     return { overThumb };
   }
