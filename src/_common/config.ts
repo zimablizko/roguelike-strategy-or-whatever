@@ -1,7 +1,7 @@
 export const CONFIG = {
   // Game settings
-  GAME_WIDTH: 800,
-  GAME_HEIGHT: 600,
+  GAME_WIDTH: 1280,
+  GAME_HEIGHT: 720,
   DEBUG: true,
   DEBUG_OPTIONS: {
     START_SCENE: 'gameplay',

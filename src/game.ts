@@ -1,6 +1,12 @@
 import { Color, DisplayMode, Engine } from 'excalibur';
 import { CONFIG } from './_common/config';
-import { GameplayScene, InitializationScene, MainMenu } from './scenes';
+import { loader } from './_common/resources';
+import {
+  GameOverScene,
+  GameplayScene,
+  InitializationScene,
+  MainMenu,
+} from './scenes';
 
 /**
  * Main game class that initializes and manages the Excalibur engine
@@ -27,6 +33,7 @@ export class Game {
     this.engine.add('gameplay', new GameplayScene());
     this.engine.add('preparation', new InitializationScene());
     this.engine.add('main-menu', new MainMenu());
+    this.engine.add('game-over', new GameOverScene());
 
     if (CONFIG.DEBUG) {
       console.log(
@@ -45,7 +52,7 @@ export class Game {
    */
   async start(): Promise<void> {
     await this.initialize();
-    await this.engine.start();
+    await this.engine.start(loader);
   }
 
   /**
