@@ -19,16 +19,17 @@ export class GameOverScene extends Scene {
     this.add(gameOverLabel);
 
     // Create Restart button
-    const restartButton = new ScreenButton({
-      x: this.engine.drawWidth / 2 - 75,
-      y: this.engine.drawHeight / 2 + 20,
-      width: 150,
-      height: 50,
-      title: 'Restart',
-    });
-    this.add(restartButton);
-    restartButton.on('pointerup', () => {
-      this.engine.goToScene('main-menu');
-    });
+    this.add(
+      new ScreenButton({
+        x: this.engine.drawWidth / 2 - 75,
+        y: this.engine.drawHeight / 2 + 20,
+        width: 150,
+        height: 50,
+        title: 'Restart',
+        onClick: () => {
+          this.engine.goToScene('main-menu');
+        },
+      })
+    );
   }
 }

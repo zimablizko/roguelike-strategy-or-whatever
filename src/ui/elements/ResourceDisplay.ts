@@ -10,13 +10,14 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import { GameManager, PlayerData } from '../../_common/GameManager';
 import { Resources } from '../../_common/resources';
+import { PlayerData } from '../../managers/GameManager';
+import { ResourceManager } from '../../managers/ResourceManager';
 
 export interface ResourceDisplayOptions {
   x: number;
   y: number;
-  gameManager: GameManager;
+  resourceManager: ResourceManager;
   anchor?: 'top-left' | 'top-right';
   iconSize?: number;
   spacing?: number;
@@ -34,7 +35,7 @@ interface ResourceConfig {
  * UI component that displays current player resources with icons
  */
 export class ResourceDisplay extends ScreenElement {
-  private gameManager: GameManager;
+  private resourceManager: ResourceManager;
   private anchorX: number;
   private anchorY: number;
   private panelAnchor: 'top-left' | 'top-right';
@@ -44,9 +45,11 @@ export class ResourceDisplay extends ScreenElement {
   private textColor: Color;
   private resourceConfigs: ResourceConfig[];
 
+  private lastRendered: PlayerData['resources'] | undefined;
+
   constructor(options: ResourceDisplayOptions) {
     super({ x: options.x, y: options.y });
-    this.gameManager = options.gameManager;
+    this.resourceManager = options.resourceManager;
     this.anchorX = options.x;
     this.anchorY = options.y;
     this.panelAnchor = options.anchor ?? 'top-left';
@@ -69,19 +72,40 @@ export class ResourceDisplay extends ScreenElement {
   }
 
   onInitialize(): void {
-    this.updateDisplay();
+    this.updateDisplay(true);
   }
 
   onPreUpdate(): void {
-    // Update every frame to reflect resource changes
-    this.updateDisplay();
+    this.updateDisplay(false);
+  }
+
+  private sameResources(
+    a: PlayerData['resources'],
+    b: PlayerData['resources']
+  ): boolean {
+    return (
+      a.gold === b.gold &&
+      a.materials === b.materials &&
+      a.food === b.food &&
+      a.population === b.population
+    );
   }
 
   /**
    * Update the graphics to reflect current resource values
    */
-  private updateDisplay(): void {
-    const resources = this.gameManager.getAllResources();
+  private updateDisplay(force: boolean): void {
+    const resources = this.resourceManager.getAllResources();
+
+    if (
+      !force &&
+      this.lastRendered &&
+      this.sameResources(this.lastRendered, resources)
+    ) {
+      return;
+    }
+    this.lastRendered = resources;
+
     const padding = 8;
     const iconTextGap = 4;
     const itemWidth = this.iconSize + iconTextGap + 32; // icon + gap + text space

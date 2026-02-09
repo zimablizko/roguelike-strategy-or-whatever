@@ -1,10 +1,10 @@
 import { ImageSource, Loader } from 'excalibur';
 
 export const Resources = {
-  FoodIcon: new ImageSource('./images/food.svg'),
-  MoneyIcon: new ImageSource('./images/money.svg'),
-  PopulationIcon: new ImageSource('./images/population.svg'),
-  ResourcesIcon: new ImageSource('./images/resources.svg'),
+  FoodIcon: new ImageSource('./images/food.png'),
+  MoneyIcon: new ImageSource('./images/money.png'),
+  PopulationIcon: new ImageSource('./images/population.png'),
+  ResourcesIcon: new ImageSource('./images/resources.png'),
 };
 
 /**

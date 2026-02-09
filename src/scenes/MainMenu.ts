@@ -28,11 +28,11 @@ export class MainMenu extends Scene {
       width: 150,
       height: 50,
       title: 'New Game',
+      onClick: () => {
+        engine.goToScene('preparation');
+      },
     });
     this.add(startButton);
-    startButton.on('pointerup', () => {
-      engine.goToScene('preparation');
-    });
 
     const optionsButton = new ScreenButton({
       x: engine.drawWidth / 2 - 75,

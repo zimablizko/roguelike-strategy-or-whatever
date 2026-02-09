@@ -28,11 +28,11 @@ export class InitializationScene extends Scene {
       width: 150,
       height: 50,
       title: 'Start Game',
+      onClick: () => {
+        engine.goToScene('gameplay');
+      },
     });
     this.add(startButton);
-    startButton.on('pointerup', () => {
-      engine.goToScene('gameplay');
-    });
 
     // Back to Main Menu in left bottom corner
     const backButton = new ScreenButton({
@@ -41,10 +41,10 @@ export class InitializationScene extends Scene {
       width: 150,
       height: 50,
       title: 'Back to Menu',
+      onClick: () => {
+        engine.goToScene('main-menu');
+      },
     });
     this.add(backButton);
-    backButton.on('pointerup', () => {
-      engine.goToScene('main-menu');
-    });
   }
 }

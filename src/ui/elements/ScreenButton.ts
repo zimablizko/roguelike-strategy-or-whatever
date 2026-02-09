@@ -23,6 +23,7 @@ export interface ScreenButtonOptions {
   hoverTextColor?: Color;
   clickedTextColor?: Color;
   disabledTextColor?: Color;
+  onClick?: () => void;
 }
 
 export class ScreenButton extends ScreenElement {
@@ -38,6 +39,7 @@ export class ScreenButton extends ScreenElement {
   clickedTextColor: Color = Color.White;
   disabledTextColor: Color = Color.LightGray;
   enabled: boolean = true;
+  onClick?: () => void;
 
   constructor(options: ScreenButtonOptions) {
     super({ x: options.x, y: options.y });
@@ -54,8 +56,8 @@ export class ScreenButton extends ScreenElement {
       options.clickedTextColor ?? Color.fromHex('#c8d6e5');
     this.disabledTextColor =
       options.disabledTextColor ?? Color.fromHex('#99a8b8');
+    this.onClick = options.onClick;
   }
-
   /**
    * Wrap the title into lines that fit within the button width,
    * using a static font size. Falls back to 2 lines max.
@@ -106,9 +108,9 @@ export class ScreenButton extends ScreenElement {
     const textMembers = lines.map((line, i) => {
       const textGraphic = new Text({ text: line, font });
       const textWidth = textGraphic.width;
-      const offsetX = (this.buttonWidth - textWidth) / 2;
+      const offsetX = (this.buttonWidth - textWidth) / 2 + 2;
       const offsetY =
-        (this.buttonHeight - totalTextHeight) / 2 + i * lineHeight;
+        (this.buttonHeight - totalTextHeight) / 2 + i * lineHeight + 1;
       return {
         graphic: textGraphic,
         offset: vec(offsetX + pressOffset, offsetY + pressOffset),
@@ -172,6 +174,12 @@ export class ScreenButton extends ScreenElement {
       });
       this.on('pointerleave', () => {
         this.graphics.use('idle');
+      });
+      this.on('pointerup', () => {
+        this.graphics.use('hover');
+        if (this.onClick) {
+          this.onClick();
+        }
       });
     } else {
       this.off('pointerdown');
