@@ -57,6 +57,14 @@ export class TurnManager {
     return { ...this.turnData };
   }
 
+  /**
+   * Get turn data by reference (read-only view).
+   * Use for hot UI polling paths to avoid per-frame allocations.
+   */
+  getTurnDataRef(): Readonly<TurnData> {
+    return this.turnData;
+  }
+
   spendActionPoints(amount: number): boolean {
     if (this.turnData.actionPoints.current >= amount) {
       this.turnData.actionPoints.current -= amount;

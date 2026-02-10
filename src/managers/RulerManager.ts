@@ -28,6 +28,14 @@ export class RulerManager {
     return { ...this.ruler };
   }
 
+  /**
+   * Get ruler data by reference (read-only view).
+   * Use for hot UI polling paths to avoid per-frame allocations.
+   */
+  getRulerRef(): Readonly<RulerData> {
+    return this.ruler;
+  }
+
   regenerate(initial?: RulerManagerOptions['initial']): void {
     this.ruler = this.generateRuler(initial);
   }

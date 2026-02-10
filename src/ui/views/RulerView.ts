@@ -4,54 +4,43 @@ import {
   FontUnit,
   GraphicsGroup,
   GraphicsGrouping,
+  ImageSource,
   Rectangle,
-  ScreenElement,
+  Sprite,
   Text,
   vec,
 } from 'excalibur';
 import type { RulerData } from '../../managers/RulerManager';
 import { RulerManager } from '../../managers/RulerManager';
+import {
+  InteractivePanelElement,
+  type InteractivePanelOptions,
+} from '../elements/InteractivePanelElement';
 
-export interface RulerDisplayOptions {
-  x: number;
-  y: number;
+export interface RulerDisplayOptions extends InteractivePanelOptions {
   rulerManager: RulerManager;
   portraitSize?: number;
-  bgColor?: Color;
   textColor?: Color;
 }
 
 /**
  * UI component that displays the current ruler (top-left portrait + text).
  */
-export class RulerDisplay extends ScreenElement {
+export class RulerDisplay extends InteractivePanelElement {
   private rulerManager: RulerManager;
-  private anchorX: number;
-  private anchorY: number;
   private portraitSize: number;
-  private bgColor: Color;
   private textColor: Color;
+  private cachedPortrait?: { source: ImageSource; sprite: Sprite };
 
   private lastRendered:
     | Pick<RulerData, 'name' | 'age' | 'popularity' | 'portrait'>
     | undefined;
 
   constructor(options: RulerDisplayOptions) {
-    super({ x: options.x, y: options.y });
+    super(options);
     this.rulerManager = options.rulerManager;
-    this.anchorX = options.x;
-    this.anchorY = options.y;
     this.portraitSize = options.portraitSize ?? 64;
-    this.bgColor = options.bgColor ?? Color.fromHex('#1a252f');
     this.textColor = options.textColor ?? Color.White;
-  }
-
-  onInitialize(): void {
-    this.updateDisplay(true);
-  }
-
-  onPreUpdate(): void {
-    this.updateDisplay(false);
   }
 
   private formatPopularity(value: number): string {
@@ -63,8 +52,8 @@ export class RulerDisplay extends ScreenElement {
     return 'Beloved';
   }
 
-  private updateDisplay(force: boolean): void {
-    const ruler = this.rulerManager.getRuler();
+  protected redraw(force: boolean): void {
+    const ruler = this.rulerManager.getRulerRef();
     const next = {
       name: ruler.name,
       age: ruler.age,
@@ -111,6 +100,7 @@ export class RulerDisplay extends ScreenElement {
     const contentW = padding * 2 + this.portraitSize + gap + textBlockW;
     const textBlockH = nameText.height + 4 + statsText.height;
     const contentH = padding * 2 + Math.max(this.portraitSize, textBlockH);
+    const pressOffset = this.getPressOffset();
 
     // Treat x/y as an anchor point (top-left).
     this.pos = vec(this.anchorX, this.anchorY);
@@ -122,9 +112,9 @@ export class RulerDisplay extends ScreenElement {
       graphic: new Rectangle({
         width: contentW,
         height: contentH,
-        color: this.bgColor,
+        color: this.getPanelBackgroundColor(),
       }),
-      offset: vec(0, 0),
+      offset: vec(pressOffset, pressOffset),
     });
 
     // Portrait
@@ -132,13 +122,13 @@ export class RulerDisplay extends ScreenElement {
     const portraitY = padding;
 
     if (ruler.portrait.isLoaded()) {
-      const sprite = ruler.portrait.toSprite();
-      sprite.width = this.portraitSize;
-      sprite.height = this.portraitSize;
-      members.push({
-        graphic: sprite,
-        offset: vec(portraitX, portraitY),
-      });
+      const sprite = this.getPortraitSprite(ruler.portrait);
+      if (sprite) {
+        members.push({
+          graphic: sprite,
+          offset: vec(portraitX + pressOffset, portraitY + pressOffset),
+        });
+      }
     } else {
       members.push({
         graphic: new Rectangle({
@@ -146,7 +136,7 @@ export class RulerDisplay extends ScreenElement {
           height: this.portraitSize,
           color: Color.fromHex('#233241'),
         }),
-        offset: vec(portraitX, portraitY),
+        offset: vec(portraitX + pressOffset, portraitY + pressOffset),
       });
     }
 
@@ -154,17 +144,40 @@ export class RulerDisplay extends ScreenElement {
     const textX = portraitX + this.portraitSize + gap;
     const topY = padding;
     members.push(
-      { graphic: nameText, offset: vec(textX, topY) },
+      {
+        graphic: nameText,
+        offset: vec(textX + pressOffset, topY + pressOffset),
+      },
       {
         graphic: statsText,
-        offset: vec(textX, topY + nameText.height + 4),
+        offset: vec(
+          textX + pressOffset,
+          topY + nameText.height + 4 + pressOffset
+        ),
       }
     );
+    this.addHoverBorder(members, contentW, contentH);
 
     this.graphics.use(
       new GraphicsGroup({
         members,
       })
     );
+  }
+
+  private getPortraitSprite(source: ImageSource): Sprite | undefined {
+    if (this.cachedPortrait && this.cachedPortrait.source === source) {
+      return this.cachedPortrait.sprite;
+    }
+
+    if (!source.isLoaded()) {
+      return undefined;
+    }
+
+    const sprite = source.toSprite();
+    sprite.width = this.portraitSize;
+    sprite.height = this.portraitSize;
+    this.cachedPortrait = { source, sprite };
+    return sprite;
   }
 }

@@ -1,12 +1,16 @@
-import { Color, Engine, Scene, type SceneActivationContext } from 'excalibur';
+import { Actor, Color, Engine, Scene, type SceneActivationContext } from 'excalibur';
+import { Resources } from '../_common/resources';
+import { ActionElement } from '../ui/elements/ActionElement';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { TurnManager } from '../managers/TurnManager';
-import { ResourceDisplay } from '../ui/elements/ResourceDisplay';
-import { RulerDisplay } from '../ui/elements/RulerDisplay';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
-import { TurnDisplay } from '../ui/elements/TurnDisplay';
+import { StatePopup } from '../ui/popups/StatePopup';
+import { ResourceDisplay } from '../ui/views/ResourceView';
+import { RulerDisplay } from '../ui/views/RulerView';
+import { StateDisplay } from '../ui/views/StateView';
+import { TurnDisplay } from '../ui/views/TurnView';
 
 /**
  * Demo scene showcasing the ECS pattern
@@ -16,6 +20,8 @@ export class GameplayScene extends Scene {
   private resourceManager!: ResourceManager;
   private turnManager!: TurnManager;
   private testPopup?: ScreenPopup;
+  private statePopup?: StatePopup;
+  private rulerPopup?: ScreenPopup;
 
   onInitialize(_engine: Engine): void {
     // Set background color
@@ -32,6 +38,8 @@ export class GameplayScene extends Scene {
     // Remove all actors/entities/timers from the previous run
     this.clear();
     this.testPopup = undefined;
+    this.statePopup = undefined;
+    this.rulerPopup = undefined;
 
     // Recreate managers with default new-game data
     this.gameManager = new GameManager({
@@ -55,20 +63,80 @@ export class GameplayScene extends Scene {
     this.gameManager.logData();
 
     // Re-add UI
+    this.addStateDisplay(engine);
     this.addRulerDisplay(engine);
     this.addResourceDisplay(engine);
     this.addTurnDisplay(engine);
     this.addButtons(engine);
   }
 
+  private addStateDisplay(_engine: Engine) {
+    this.add(
+      new StateDisplay({
+        x: 20,
+        y: 20,
+        stateManager: this.gameManager.stateManager,
+        onClick: () => {
+          this.showStatePopup(_engine);
+        },
+      })
+    );
+  }
+
+  private showStatePopup(engine: Engine): void {
+    if (this.statePopup) {
+      this.statePopup.close();
+      this.statePopup = undefined;
+    }
+
+    const popup = new StatePopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      stateManager: this.gameManager.stateManager,
+      onClose: () => {
+        this.statePopup = undefined;
+      },
+    });
+
+    this.statePopup = popup;
+    this.add(popup);
+  }
+
   private addRulerDisplay(_engine: Engine) {
     this.add(
       new RulerDisplay({
         x: 20,
-        y: 20,
+        y: 100,
         rulerManager: this.gameManager.rulerManager,
+        onClick: () => {
+          this.showRulerPopup(_engine);
+        },
       })
     );
+  }
+
+  private showRulerPopup(engine: Engine): void {
+    if (this.rulerPopup) {
+      this.rulerPopup.close();
+      this.rulerPopup = undefined;
+    }
+
+    const ruler = this.gameManager.rulerManager.getRuler();
+    const popup = new ScreenPopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      anchor: 'center',
+      width: 520,
+      height: 300,
+      title: `Ruler: ${ruler.name}`,
+      onClose: () => {
+        this.rulerPopup = undefined;
+      },
+      contentBuilder: () => {},
+    });
+
+    this.rulerPopup = popup;
+    this.add(popup);
   }
 
   private addResourceDisplay(engine: Engine) {
@@ -137,7 +205,7 @@ export class GameplayScene extends Scene {
   }
 
   private showDebugMenu(engine: Engine) {
-    const debugButtons: ScreenButton[] = [];
+    const debugButtons: Actor[] = [];
     debugButtons.push(
       //test button to add resources in left top corner below back button
       new ScreenButton({
@@ -182,6 +250,54 @@ export class GameplayScene extends Scene {
         title: 'New Ruler',
         onClick: () => {
           this.gameManager.rulerManager.regenerate();
+        },
+      }),
+
+      new ActionElement({
+        x: 150,
+        y: 0,
+        width: 330,
+        height: 44,
+        title: 'Harvest Forest',
+        description:
+          'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants materials.',
+        icon: Resources.ResourcesIcon,
+        outcomes: [
+          { label: 'Action Points', value: '-1' },
+          {
+            label: 'Materials',
+            value: '+12',
+            icon: Resources.ResourcesIcon,
+            color: Color.fromHex('#9fe6aa'),
+          },
+        ],
+        onClick: () => {
+          if (!this.turnManager.spendActionPoints(1)) return;
+          this.resourceManager.addResource('materials', 12);
+        },
+      }),
+
+      new ActionElement({
+        x: 150,
+        y: 54,
+        width: 330,
+        height: 44,
+        title: 'Fishing Boats',
+        description:
+          'Launch small boats on water tiles to secure food supplies for the next turn.',
+        icon: Resources.FoodIcon,
+        outcomes: [
+          { label: 'Action Points', value: '-1' },
+          {
+            label: 'Food',
+            value: '+15',
+            icon: Resources.FoodIcon,
+            color: Color.fromHex('#9fe6aa'),
+          },
+        ],
+        onClick: () => {
+          if (!this.turnManager.spendActionPoints(1)) return;
+          this.resourceManager.addResource('food', 15);
         },
       })
     );

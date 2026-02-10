@@ -7,6 +7,7 @@ import {
   ImageSource,
   Rectangle,
   ScreenElement,
+  Sprite,
   Text,
   vec,
 } from 'excalibur';
@@ -44,8 +45,11 @@ export class ResourceDisplay extends ScreenElement {
   private bgColor: Color;
   private textColor: Color;
   private resourceConfigs: ResourceConfig[];
+  private iconSprites: Partial<Record<ResourceConfig['key'], Sprite>> = {};
 
-  private lastRendered: PlayerData['resources'] | undefined;
+  private lastRendered:
+    | Pick<PlayerData['resources'], 'gold' | 'materials' | 'food' | 'population'>
+    | undefined;
 
   constructor(options: ResourceDisplayOptions) {
     super({ x: options.x, y: options.y });
@@ -95,7 +99,7 @@ export class ResourceDisplay extends ScreenElement {
    * Update the graphics to reflect current resource values
    */
   private updateDisplay(force: boolean): void {
-    const resources = this.resourceManager.getAllResources();
+    const resources = this.resourceManager.getAllResourcesRef();
 
     if (
       !force &&
@@ -104,7 +108,12 @@ export class ResourceDisplay extends ScreenElement {
     ) {
       return;
     }
-    this.lastRendered = resources;
+    this.lastRendered = {
+      gold: resources.gold,
+      materials: resources.materials,
+      food: resources.food,
+      population: resources.population,
+    };
 
     const padding = 8;
     const iconTextGap = 4;
@@ -144,10 +153,8 @@ export class ResourceDisplay extends ScreenElement {
       const value = resources[config.key];
 
       // Icon sprite
-      if (config.icon.isLoaded()) {
-        const sprite = config.icon.toSprite();
-        sprite.width = this.iconSize;
-        sprite.height = this.iconSize;
+      const sprite = this.getIconSprite(config);
+      if (sprite) {
         members.push({
           graphic: sprite,
           offset: vec(xOffset, iconY),
@@ -178,6 +185,23 @@ export class ResourceDisplay extends ScreenElement {
         members,
       })
     );
+  }
+
+  private getIconSprite(config: ResourceConfig): Sprite | undefined {
+    const cached = this.iconSprites[config.key];
+    if (cached) {
+      return cached;
+    }
+
+    if (!config.icon.isLoaded()) {
+      return undefined;
+    }
+
+    const sprite = config.icon.toSprite();
+    sprite.width = this.iconSize;
+    sprite.height = this.iconSize;
+    this.iconSprites[config.key] = sprite;
+    return sprite;
   }
 
   /**

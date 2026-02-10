@@ -38,6 +38,14 @@ export class ResourceManager {
   }
 
   /**
+   * Get all resources by reference (read-only view).
+   * Use for hot UI polling paths to avoid per-frame allocations.
+   */
+  getAllResourcesRef(): Readonly<PlayerData['resources']> {
+    return this.resources;
+  }
+
+  /**
    * Set a specific resource to an exact value (clamped to 0)
    */
   setResource(type: ResourceType, amount: number): void {

@@ -61,7 +61,7 @@ export class TurnDisplay extends ScreenElement {
   }
 
   private updateDisplay(force: boolean): void {
-    const turnData = this.turnManager.getTurnData();
+    const turnData = this.turnManager.getTurnDataRef();
     const next = {
       turnNumber: turnData.turnNumber,
       apCurrent: turnData.actionPoints.current,

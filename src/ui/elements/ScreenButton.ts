@@ -40,6 +40,19 @@ export class ScreenButton extends ScreenElement {
   disabledTextColor: Color = Color.LightGray;
   enabled: boolean = true;
   onClick?: () => void;
+  private handlePointerDown = () => {
+    this.graphics.use('clicked');
+  };
+  private handlePointerEnter = () => {
+    this.graphics.use('hover');
+  };
+  private handlePointerLeave = () => {
+    this.graphics.use('idle');
+  };
+  private handlePointerUp = () => {
+    this.graphics.use('hover');
+    this.onClick?.();
+  };
 
   constructor(options: ScreenButtonOptions) {
     super({ x: options.x, y: options.y });
@@ -165,26 +178,18 @@ export class ScreenButton extends ScreenElement {
   }
 
   private updateEvents() {
+    // Ensure event handlers are not duplicated on repeated toggle() calls.
+    this.off('pointerdown', this.handlePointerDown);
+    this.off('pointerenter', this.handlePointerEnter);
+    this.off('pointerleave', this.handlePointerLeave);
+    this.off('pointerup', this.handlePointerUp);
+
     if (this.enabled) {
-      this.on('pointerdown', () => {
-        this.graphics.use('clicked');
-      });
-      this.on('pointerenter', () => {
-        this.graphics.use('hover');
-      });
-      this.on('pointerleave', () => {
-        this.graphics.use('idle');
-      });
-      this.on('pointerup', () => {
-        this.graphics.use('hover');
-        if (this.onClick) {
-          this.onClick();
-        }
-      });
+      this.on('pointerdown', this.handlePointerDown);
+      this.on('pointerenter', this.handlePointerEnter);
+      this.on('pointerleave', this.handlePointerLeave);
+      this.on('pointerup', this.handlePointerUp);
     } else {
-      this.off('pointerdown');
-      this.off('pointerenter');
-      this.off('pointerleave');
       this.graphics.use('disabled');
     }
   }
