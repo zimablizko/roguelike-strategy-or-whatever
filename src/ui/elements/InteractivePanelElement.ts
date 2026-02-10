@@ -1,6 +1,7 @@
 import {
   Color,
   GraphicsGrouping,
+  type PointerEvent,
   Rectangle,
   ScreenElement,
   vec,
@@ -43,11 +44,15 @@ export abstract class InteractivePanelElement extends ScreenElement {
     this.idleBgColor = options.bgColor ?? Color.fromHex('#1a252f');
     this.hoverBgColor = options.hoverBgColor ?? Color.fromHex('#2a3a47');
     this.pressedBgColor = options.pressedBgColor ?? Color.fromHex('#334859');
-    this.hoverBorderColor = options.hoverBorderColor ?? Color.fromHex('#f1c40f');
+    this.hoverBorderColor =
+      options.hoverBorderColor ?? Color.fromHex('#f1c40f');
     this.onClick = options.onClick;
   }
 
   onInitialize(): void {
+    this.pointer.useGraphicsBounds = true;
+    this.pointer.useColliderShape = false;
+
     this.on('pointerenter', () => {
       this.isHovered = true;
       this.redraw(true);
@@ -58,15 +63,15 @@ export abstract class InteractivePanelElement extends ScreenElement {
       this.redraw(true);
     });
     this.on('pointerdown', () => {
+      this.isHovered = true;
       this.isPressed = true;
       this.redraw(true);
     });
-    this.on('pointerup', () => {
+    this.on('pointerup', (_evt: PointerEvent) => {
+      this.isHovered = true;
       this.isPressed = false;
       this.redraw(true);
-      if (this.isHovered) {
-        this.onClick?.();
-      }
+      this.onClick?.();
     });
 
     this.redraw(true);
@@ -74,6 +79,30 @@ export abstract class InteractivePanelElement extends ScreenElement {
 
   onPreUpdate(): void {
     this.redraw(false);
+  }
+
+  /**
+   * One-shot hover sync used when UI is rebuilt under a stationary cursor.
+   */
+  public syncHoverFromScreenPoint(screenX: number, screenY: number): void {
+    const bounds = this.graphics.localBounds;
+    const left = this.globalPos.x + bounds.left;
+    const right = this.globalPos.x + bounds.right;
+    const top = this.globalPos.y + bounds.top;
+    const bottom = this.globalPos.y + bounds.bottom;
+
+    const isInside =
+      screenX >= left && screenX <= right && screenY >= top && screenY <= bottom;
+
+    if (isInside === this.isHovered) {
+      return;
+    }
+
+    this.isHovered = isInside;
+    if (!isInside) {
+      this.isPressed = false;
+    }
+    this.redraw(true);
   }
 
   protected getPanelBackgroundColor(): Color {

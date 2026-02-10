@@ -38,6 +38,8 @@ export interface ScreenListOptions<TItem = unknown> {
 
   /** Mark an item disabled (no hover/click styling; no activation) */
   isItemDisabled?: (item: TItem, index: number) => boolean;
+  /** Mark an item selected (persistent selected styling) */
+  isItemSelected?: (item: TItem, index: number) => boolean;
 
   /** Draw a scrollbar when content overflows */
   showScrollbar?: boolean;
@@ -91,6 +93,7 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
   private onItemActivate?: (item: TItem, index: number) => void;
   private getItemLabel?: (item: TItem, index: number) => string;
   private isItemDisabled?: (item: TItem, index: number) => boolean;
+  private isItemSelected?: (item: TItem, index: number) => boolean;
 
   private showScrollbar: boolean;
   private scrollbarWidth: number;
@@ -122,6 +125,7 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
     this.onItemActivate = options.onItemActivate;
     this.getItemLabel = options.getItemLabel;
     this.isItemDisabled = options.isItemDisabled;
+    this.isItemSelected = options.isItemSelected;
 
     this.showScrollbar = options.showScrollbar ?? true;
     this.scrollbarWidth = options.scrollbarWidth ?? 10;
@@ -137,6 +141,9 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
   }
 
   onInitialize(): void {
+    this.pointer.useGraphicsBounds = true;
+    this.pointer.useColliderShape = false;
+
     this.canvasGraphic = new Canvas({
       width: this.viewportWidth,
       height: this.viewportHeight,
@@ -264,6 +271,13 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
     if (this.isItemDisabled)
       return this.isItemDisabled(this.items[index], index);
     return (item as Partial<ScreenListButtonItem>)?.disabled === true;
+  }
+
+  private isSelected(index: number): boolean {
+    if (!this.isItemSelected) {
+      return false;
+    }
+    return this.isItemSelected(this.items[index], index);
   }
 
   private hitTestIndex(ev: PointerEvent): number | null {
@@ -536,19 +550,22 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
       }
 
       const disabled = this.isDisabled(index);
+      const selected = this.isSelected(index);
       const hovered = this.hoveredIndex === index;
       const pressed = this.pressedIndex === index;
       const interactive = !disabled && this.canActivateItem(index);
 
       // Default button-like row background when interactive (or when hovered/pressed)
-      if (interactive || hovered || pressed) {
+      if (interactive || hovered || pressed || selected) {
         const bg = disabled
           ? 'rgba(120, 120, 120, 0.35)'
           : pressed
             ? 'rgba(40, 90, 140, 0.55)'
             : hovered
               ? 'rgba(60, 140, 210, 0.45)'
-              : 'rgba(60, 80, 100, 0.25)';
+              : selected
+                ? 'rgba(76, 132, 196, 0.45)'
+                : 'rgba(60, 80, 100, 0.25)';
         ctx.fillStyle = bg;
         ctx.fillRect(innerX, y, contentW, this.itemHeight);
       }

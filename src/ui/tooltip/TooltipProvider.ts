@@ -11,6 +11,7 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import { UI_Z } from '../constants/ZLayers';
 
 export interface TooltipAnchorRect {
   x: number;
@@ -72,7 +73,7 @@ export class TooltipProvider extends ScreenElement {
 
   constructor(options?: TooltipProviderOptions) {
     super({ x: 0, y: 0 });
-    this.z = options?.z ?? 5000;
+    this.z = options?.z ?? UI_Z.tooltip;
     this.graphics.isVisible = false;
     this.pointer.useGraphicsBounds = false;
     this.pointer.useColliderShape = false;

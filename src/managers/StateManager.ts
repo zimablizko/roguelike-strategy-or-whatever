@@ -1,3 +1,9 @@
+import type {
+  ResourceCost,
+  ResourceManager,
+  ResourceType,
+} from './ResourceManager';
+
 export type StateTiles = {
   forest: number;
   stone: number;
@@ -11,21 +17,187 @@ export type StateData = {
   tiles: StateTiles;
 };
 
+export type TechnologyId = string;
+
+export type StateBuildingId = 'lumbermill' | 'mine' | 'granary' | 'harbor';
+
+interface BuildingActionContext {
+  state: Readonly<StateData>;
+  resources: ResourceManager;
+}
+
+export interface StateBuildingActionDefinition {
+  id: string;
+  name: string;
+  description: string;
+  run: (context: BuildingActionContext) => void;
+}
+
+export interface StateBuildingDefinition {
+  id: StateBuildingId;
+  name: string;
+  description: string;
+  buildCost: ResourceCost;
+  requiredTechnologies: TechnologyId[];
+  getStats: (state: Readonly<StateData>) => string[];
+  actions: StateBuildingActionDefinition[];
+}
+
+export interface StateBuildingBuildStatus {
+  buildable: boolean;
+  missingResources: ResourceCost;
+  missingTechnologies: TechnologyId[];
+}
+
+const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition> =
+  {
+    lumbermill: {
+      id: 'lumbermill',
+      name: 'Lumbermill',
+      description:
+        'Processes timber from surrounding forests into construction-grade materials.',
+      buildCost: {
+        gold: 35,
+        materials: 20,
+      },
+      requiredTechnologies: [],
+      getStats: (state) => {
+        const baseYield = Math.max(1, Math.floor(state.tiles.forest / 4));
+        return [
+          `Forests: ${state.tiles.forest}`,
+          `Action yield: +${baseYield} Materials`,
+        ];
+      },
+      actions: [
+        {
+          id: 'process-timber',
+          name: 'Process Timber',
+          description:
+            'Convert nearby timber supply into materials based on forest tiles.',
+          run: ({ state, resources }) => {
+            const gain = Math.max(1, Math.floor(state.tiles.forest / 4));
+            resources.addResource('materials', gain);
+          },
+        },
+      ],
+    },
+    mine: {
+      id: 'mine',
+      name: 'Mine',
+      description:
+        'Extracts ore and stone from rocky terrain, improving material throughput.',
+      buildCost: {
+        gold: 45,
+        materials: 30,
+      },
+      requiredTechnologies: [],
+      getStats: (state) => {
+        const baseYield = Math.max(1, Math.floor(state.tiles.stone / 3));
+        return [`Stone tiles: ${state.tiles.stone}`, `Action yield: +${baseYield} Materials`];
+      },
+      actions: [
+        {
+          id: 'extract-ore',
+          name: 'Extract Ore',
+          description: 'Mine stone deposits and add materials to your stockpile.',
+          run: ({ state, resources }) => {
+            const gain = Math.max(1, Math.floor(state.tiles.stone / 3));
+            resources.addResource('materials', gain);
+          },
+        },
+      ],
+    },
+    granary: {
+      id: 'granary',
+      name: 'Granary',
+      description:
+        'Stores and preserves food gathered from fertile plains for future turns.',
+      buildCost: {
+        gold: 40,
+        materials: 24,
+      },
+      requiredTechnologies: ['agriculture'],
+      getStats: (state) => {
+        const baseYield = Math.max(1, Math.floor(state.tiles.plains / 5));
+        return [
+          `Plains: ${state.tiles.plains}`,
+          `Action yield: +${baseYield} Food`,
+          'Requires technology: agriculture',
+        ];
+      },
+      actions: [
+        {
+          id: 'gather-harvest',
+          name: 'Gather Harvest',
+          description: 'Collect and store harvest from plains tiles.',
+          run: ({ state, resources }) => {
+            const gain = Math.max(1, Math.floor(state.tiles.plains / 5));
+            resources.addResource('food', gain);
+          },
+        },
+      ],
+    },
+    harbor: {
+      id: 'harbor',
+      name: 'Harbor',
+      description:
+        'Organizes maritime trade from coast and rivers to improve gold income.',
+      buildCost: {
+        gold: 60,
+        materials: 40,
+      },
+      requiredTechnologies: ['sailing'],
+      getStats: (state) => {
+        const baseYield = Math.max(1, Math.floor(state.tiles.water / 4));
+        return [
+          `Water tiles: ${state.tiles.water}`,
+          `Action yield: +${baseYield} Gold`,
+          'Requires technology: sailing',
+        ];
+      },
+      actions: [
+        {
+          id: 'run-trade-route',
+          name: 'Run Trade Route',
+          description: 'Generate gold from maritime trade volume.',
+          run: ({ state, resources }) => {
+            const gain = Math.max(1, Math.floor(state.tiles.water / 4));
+            resources.addResource('gold', gain);
+          },
+        },
+      ],
+    },
+  };
+
+function createEmptyBuildingRecord(): Record<StateBuildingId, boolean> {
+  return {
+    lumbermill: false,
+    mine: false,
+    granary: false,
+    harbor: false,
+  };
+}
+
 export interface StateManagerOptions {
   initial?: Partial<Omit<StateData, 'size' | 'tiles'>> & {
     tiles?: Partial<StateTiles>;
+    technologies?: TechnologyId[];
+    builtBuildings?: Partial<Record<StateBuildingId, boolean>>;
   };
 }
 
 /**
- * Manages state data (name/tile counters/size).
- * State is generated when this manager is created.
+ * Manages state data, buildings, and unlocked technologies.
  */
 export class StateManager {
   private state: StateData;
+  private builtBuildings: Record<StateBuildingId, boolean>;
+  private unlockedTechnologies = new Set<TechnologyId>();
 
   constructor(options: StateManagerOptions = {}) {
     this.state = this.generateState(options.initial);
+    this.builtBuildings = createEmptyBuildingRecord();
+    this.applyProgress(options.initial);
   }
 
   getState(): StateData {
@@ -45,6 +217,8 @@ export class StateManager {
 
   regenerate(initial?: StateManagerOptions['initial']): void {
     this.state = this.generateState(initial);
+    this.builtBuildings = createEmptyBuildingRecord();
+    this.applyProgress(initial);
   }
 
   setName(name: string): void {
@@ -60,8 +234,155 @@ export class StateManager {
     this.setTileCount(type, this.state.tiles[type] + delta);
   }
 
+  getBuildingDefinitions(): StateBuildingDefinition[] {
+    return Object.values(stateBuildingDefinitions);
+  }
+
+  getBuildingDefinition(
+    id: StateBuildingId
+  ): StateBuildingDefinition | undefined {
+    return stateBuildingDefinitions[id];
+  }
+
+  getBuildingProgress(): Record<StateBuildingId, boolean> {
+    return { ...this.builtBuildings };
+  }
+
+  isBuildingBuilt(id: StateBuildingId): boolean {
+    return this.builtBuildings[id] === true;
+  }
+
+  getUnlockedTechnologies(): TechnologyId[] {
+    return Array.from(this.unlockedTechnologies.values());
+  }
+
+  isTechnologyUnlocked(id: TechnologyId): boolean {
+    return this.unlockedTechnologies.has(id);
+  }
+
+  unlockTechnology(id: TechnologyId): void {
+    if (!id.trim()) return;
+    this.unlockedTechnologies.add(id.trim());
+  }
+
+  canBuildBuilding(
+    id: StateBuildingId,
+    resources: ResourceManager
+  ): StateBuildingBuildStatus {
+    const definition = this.getBuildingDefinition(id);
+    if (!definition || this.isBuildingBuilt(id)) {
+      return {
+        buildable: false,
+        missingResources: {},
+        missingTechnologies: [],
+      };
+    }
+
+    const missingResources = this.getMissingResources(
+      definition.buildCost,
+      resources
+    );
+    const missingTechnologies = definition.requiredTechnologies.filter(
+      (tech) => !this.isTechnologyUnlocked(tech)
+    );
+
+    return {
+      buildable:
+        Object.keys(missingResources).length === 0 &&
+        missingTechnologies.length === 0,
+      missingResources,
+      missingTechnologies,
+    };
+  }
+
+  buildBuilding(id: StateBuildingId, resources: ResourceManager): boolean {
+    const definition = this.getBuildingDefinition(id);
+    if (!definition || this.isBuildingBuilt(id)) {
+      return false;
+    }
+
+    const status = this.canBuildBuilding(id, resources);
+    if (!status.buildable) {
+      return false;
+    }
+
+    if (!resources.spendResources(definition.buildCost)) {
+      return false;
+    }
+
+    this.builtBuildings[id] = true;
+    return true;
+  }
+
+  activateBuildingAction(
+    buildingId: StateBuildingId,
+    actionId: string,
+    resources: ResourceManager
+  ): boolean {
+    if (!this.isBuildingBuilt(buildingId)) {
+      return false;
+    }
+
+    const definition = this.getBuildingDefinition(buildingId);
+    if (!definition) {
+      return false;
+    }
+
+    const action = definition.actions.find((item) => item.id === actionId);
+    if (!action) {
+      return false;
+    }
+
+    action.run({
+      state: this.state,
+      resources,
+    });
+    return true;
+  }
+
+  private applyProgress(initial?: StateManagerOptions['initial']): void {
+    this.unlockedTechnologies.clear();
+    for (const technology of initial?.technologies ?? []) {
+      if (technology.trim()) {
+        this.unlockedTechnologies.add(technology.trim());
+      }
+    }
+
+    const initialBuilt = initial?.builtBuildings;
+    if (!initialBuilt) {
+      return;
+    }
+
+    for (const id of Object.keys(this.builtBuildings) as StateBuildingId[]) {
+      this.builtBuildings[id] = initialBuilt[id] === true;
+    }
+  }
+
+  private getMissingResources(
+    cost: ResourceCost,
+    resources: ResourceManager
+  ): ResourceCost {
+    const missing: ResourceCost = {};
+    for (const [type, amount] of Object.entries(cost) as [
+      ResourceType,
+      number,
+    ][]) {
+      const have = resources.getResource(type);
+      if (have < amount) {
+        missing[type] = amount - have;
+      }
+    }
+    return missing;
+  }
+
   private generateState(initial?: StateManagerOptions['initial']): StateData {
-    const names = ['Northmarch', 'Valeborn', 'Ironreach', 'Sunfield', 'Duskford'];
+    const names = [
+      'Northmarch',
+      'Valeborn',
+      'Ironreach',
+      'Sunfield',
+      'Duskford',
+    ];
     const name =
       initial?.name ??
       names[Math.floor(Math.random() * names.length)] ??

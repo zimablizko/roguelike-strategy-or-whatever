@@ -11,6 +11,8 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import { UI_Z } from '../constants/ZLayers';
+import { installForegroundPointerBlocker } from '../utils/PointerBlocker';
 import { ScreenButton } from './ScreenButton';
 
 export type ScreenPopupAnchor = 'top-left' | 'top-right' | 'center';
@@ -33,6 +35,7 @@ export interface ScreenPopupOptions {
   bgColor?: Color;
   headerColor?: Color;
   textColor?: Color;
+  z?: number;
   backplateStyle?: ScreenPopupBackplateStyle;
   backplateColor?: Color;
   closeOnBackplateClick?: boolean;
@@ -68,6 +71,8 @@ export class ScreenPopup extends ScreenElement {
   private contentRoot!: ScreenElement;
   private closeButton!: ScreenButton;
   private backplate?: ScreenElement;
+  private interactionShield?: ScreenElement;
+  private zSyncedContentActors = new WeakSet<Actor>();
   private backplateDrawWidth = 0;
   private backplateDrawHeight = 0;
   private pointerDownOutsidePopup = false;
@@ -86,7 +91,7 @@ export class ScreenPopup extends ScreenElement {
     this.bgColor = options.bgColor ?? Color.fromHex('#1a252f');
     this.headerColor = options.headerColor ?? Color.fromHex('#233241');
     this.textColor = options.textColor ?? Color.White;
-    this.backplateStyle = options.backplateStyle ?? 'gray';
+    this.backplateStyle = options.backplateStyle;
     this.backplateColor = options.backplateColor;
     this.closeOnBackplateClick = options.closeOnBackplateClick ?? true;
     this.content = options.content;
@@ -94,7 +99,7 @@ export class ScreenPopup extends ScreenElement {
     this.onClose = options.onClose;
 
     // Ensure popups render above most UI
-    this.z = 1000;
+    this.z = options.z ?? UI_Z.popup;
 
     this.applyAnchorPosition();
   }
@@ -105,6 +110,7 @@ export class ScreenPopup extends ScreenElement {
     this.buildCloseButton();
     this.buildContentRoot();
     this.populateContent();
+    this.buildInteractionShield();
   }
 
   onPreUpdate(): void {
@@ -121,6 +127,7 @@ export class ScreenPopup extends ScreenElement {
   }
 
   override onPreKill(_scene: Scene): void {
+    this.destroyInteractionShield();
     this.destroyBackplate();
   }
 
@@ -212,6 +219,7 @@ export class ScreenPopup extends ScreenElement {
       y: this.headerHeight + this.padding,
     });
     this.contentRoot.z = this.z + 1;
+    this.ensureContentLayerZ(this.contentRoot);
     this.addChild(this.contentRoot);
   }
 
@@ -219,11 +227,41 @@ export class ScreenPopup extends ScreenElement {
     if (this.content) {
       const items = Array.isArray(this.content) ? this.content : [this.content];
       for (const item of items) {
+        this.ensureContentLayerZ(item);
         this.contentRoot.addChild(item);
       }
     }
 
     this.contentBuilder?.(this.contentRoot, this);
+    for (const item of this.contentRoot.children) {
+      if (item instanceof Actor) {
+        this.ensureContentLayerZ(item);
+      }
+    }
+  }
+
+  private ensureContentLayerZ(actor: Actor): void {
+    const minContentZ = this.z + 1;
+    if (actor.z < minContentZ) {
+      actor.z = minContentZ;
+    }
+
+    if (this.zSyncedContentActors.has(actor)) {
+      return;
+    }
+    this.zSyncedContentActors.add(actor);
+
+    for (const child of actor.children) {
+      if (child instanceof Actor) {
+        this.ensureContentLayerZ(child);
+      }
+    }
+
+    actor.childrenAdded$.subscribe((child) => {
+      if (child instanceof Actor) {
+        this.ensureContentLayerZ(child);
+      }
+    });
   }
 
   private buildBackplate(): void {
@@ -232,23 +270,25 @@ export class ScreenPopup extends ScreenElement {
     }
 
     const backplate = new ScreenElement({ x: 0, y: 0 });
+    backplate.anchor = vec(0, 0);
     backplate.z = this.z - 1;
     backplate.pointer.useGraphicsBounds = true;
     backplate.pointer.useColliderShape = false;
 
     backplate.on('pointerdown', (evt) => {
-      evt.cancel();
-      this.pointerDownOutsidePopup = !this.isInsidePopup(
+      const pointerDownOutsidePopup = !this.isInsidePopup(
         evt.screenPos.x,
         evt.screenPos.y
       );
+      this.pointerDownOutsidePopup = pointerDownOutsidePopup;
+      evt.cancel();
     });
     backplate.on('pointerup', (evt) => {
-      evt.cancel();
       const pointerUpOutsidePopup = !this.isInsidePopup(
         evt.screenPos.x,
         evt.screenPos.y
       );
+      evt.cancel();
       if (
         this.closeOnBackplateClick &&
         this.pointerDownOutsidePopup &&
@@ -269,6 +309,26 @@ export class ScreenPopup extends ScreenElement {
     this.backplate = backplate;
     this.scene.add(backplate);
     this.updateBackplateGraphic();
+  }
+
+  private buildInteractionShield(): void {
+    const shield = new ScreenElement({ x: 0, y: 0 });
+    shield.z = this.z;
+
+    shield.pointer.useGraphicsBounds = true;
+    shield.pointer.useColliderShape = false;
+    shield.graphics.use(
+      new Rectangle({
+        width: this.popupWidth,
+        height: this.popupHeight,
+        color: Color.fromRGB(0, 0, 0, 0),
+      })
+    );
+
+    installForegroundPointerBlocker(shield);
+
+    this.interactionShield = shield;
+    this.addChild(shield);
   }
 
   private updateBackplateGraphic(): void {
@@ -328,5 +388,16 @@ export class ScreenPopup extends ScreenElement {
     this.backplate = undefined;
     this.backplateDrawWidth = 0;
     this.backplateDrawHeight = 0;
+  }
+
+  private destroyInteractionShield(): void {
+    if (!this.interactionShield) {
+      return;
+    }
+
+    if (!this.interactionShield.isKilled()) {
+      this.interactionShield.kill();
+    }
+    this.interactionShield = undefined;
   }
 }

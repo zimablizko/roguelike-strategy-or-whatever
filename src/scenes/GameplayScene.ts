@@ -7,6 +7,7 @@ import { TurnManager } from '../managers/TurnManager';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
+import { UI_Z } from '../ui/constants/ZLayers';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
@@ -74,7 +75,7 @@ export class GameplayScene extends Scene {
   }
 
   private addTooltipProvider(): void {
-    this.tooltipProvider = new TooltipProvider({ z: 3000 });
+    this.tooltipProvider = new TooltipProvider({ z: UI_Z.tooltip });
     this.add(this.tooltipProvider);
   }
 
@@ -101,6 +102,8 @@ export class GameplayScene extends Scene {
       x: engine.drawWidth / 2,
       y: engine.drawHeight / 2,
       stateManager: this.gameManager.stateManager,
+      resourceManager: this.resourceManager,
+      tooltipProvider: this.tooltipProvider,
       onClose: () => {
         this.statePopup = undefined;
       },
