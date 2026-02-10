@@ -7,6 +7,7 @@ import { TurnManager } from '../managers/TurnManager';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
+import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { StateDisplay } from '../ui/views/StateView';
@@ -19,6 +20,7 @@ export class GameplayScene extends Scene {
   private gameManager!: GameManager;
   private resourceManager!: ResourceManager;
   private turnManager!: TurnManager;
+  private tooltipProvider!: TooltipProvider;
   private testPopup?: ScreenPopup;
   private statePopup?: StatePopup;
   private rulerPopup?: ScreenPopup;
@@ -63,11 +65,17 @@ export class GameplayScene extends Scene {
     this.gameManager.logData();
 
     // Re-add UI
+    this.addTooltipProvider();
     this.addStateDisplay(engine);
     this.addRulerDisplay(engine);
     this.addResourceDisplay(engine);
     this.addTurnDisplay(engine);
     this.addButtons(engine);
+  }
+
+  private addTooltipProvider(): void {
+    this.tooltipProvider = new TooltipProvider({ z: 3000 });
+    this.add(this.tooltipProvider);
   }
 
   private addStateDisplay(_engine: Engine) {
@@ -146,6 +154,7 @@ export class GameplayScene extends Scene {
         y: 20,
         bgColor: Color.fromHex('#1a252f'),
         resourceManager: this.resourceManager,
+        tooltipProvider: this.tooltipProvider,
         anchor: 'top-right',
       })
     );
@@ -190,18 +199,40 @@ export class GameplayScene extends Scene {
     );
 
     // End Turn button in right bottom corner
-    this.add(
-      new ScreenButton({
-        x: engine.drawWidth - 170,
-        y: engine.drawHeight - 60,
-        width: 150,
-        height: 40,
-        title: 'End Turn',
-        onClick: () => {
-          this.turnManager.endTurn();
-        },
-      })
-    );
+    const endTurnButton = new ScreenButton({
+      x: engine.drawWidth - 170,
+      y: engine.drawHeight - 60,
+      width: 150,
+      height: 40,
+      title: 'End Turn',
+      onClick: () => {
+        this.turnManager.endTurn();
+      },
+    });
+
+    endTurnButton.on('pointerenter', () => {
+      this.tooltipProvider.show({
+        owner: endTurnButton,
+        getAnchorRect: () => ({
+          x: endTurnButton.globalPos.x,
+          y: endTurnButton.globalPos.y,
+          width: endTurnButton.buttonWidth,
+          height: endTurnButton.buttonHeight,
+        }),
+        description: 'Finish current turn and advance to the next one.',
+        width: 260,
+      });
+    });
+
+    endTurnButton.on('pointerleave', () => {
+      this.tooltipProvider.hide(endTurnButton);
+    });
+
+    endTurnButton.on('prekill', () => {
+      this.tooltipProvider.hide(endTurnButton);
+    });
+
+    this.add(endTurnButton);
   }
 
   private showDebugMenu(engine: Engine) {
@@ -271,6 +302,7 @@ export class GameplayScene extends Scene {
             color: Color.fromHex('#9fe6aa'),
           },
         ],
+        tooltipProvider: this.tooltipProvider,
         onClick: () => {
           if (!this.turnManager.spendActionPoints(1)) return;
           this.resourceManager.addResource('materials', 12);
@@ -295,6 +327,7 @@ export class GameplayScene extends Scene {
             color: Color.fromHex('#9fe6aa'),
           },
         ],
+        tooltipProvider: this.tooltipProvider,
         onClick: () => {
           if (!this.turnManager.spendActionPoints(1)) return;
           this.resourceManager.addResource('food', 15);

@@ -8,17 +8,20 @@ import {
   Rectangle,
   Sprite,
   Text,
+  type Scene,
   vec,
 } from 'excalibur';
 import {
   InteractivePanelElement,
   type InteractivePanelOptions,
 } from './InteractivePanelElement';
+import { TooltipProvider, type TooltipOutcome } from '../tooltip/TooltipProvider';
 
 export interface ActionElementOptions extends InteractivePanelOptions {
   title: string;
   description: string;
   outcomes?: ActionOutcome[];
+  tooltipProvider: TooltipProvider;
   width?: number;
   height?: number;
   icon?: ImageSource;
@@ -29,12 +32,7 @@ export interface ActionElementOptions extends InteractivePanelOptions {
   tooltipWidth?: number;
 }
 
-export interface ActionOutcome {
-  label: string;
-  value: string | number;
-  icon?: ImageSource;
-  color?: Color;
-}
+export interface ActionOutcome extends TooltipOutcome {}
 
 /**
  * Reusable interactive action row:
@@ -51,12 +49,12 @@ export class ActionElement extends InteractivePanelElement {
   private readonly icon?: ImageSource;
   private readonly iconSize: number;
   private readonly textColor: Color;
+  private readonly tooltipProvider: TooltipProvider;
   private readonly tooltipBgColor: Color;
   private readonly tooltipTextColor: Color;
   private readonly tooltipWidth: number;
 
   private cachedIcon?: { source: ImageSource; sprite: Sprite };
-  private outcomeIconCache = new Map<ImageSource, Sprite>();
   private lastVisualState:
     | { hovered: boolean; pressed: boolean }
     | undefined;
@@ -71,6 +69,7 @@ export class ActionElement extends InteractivePanelElement {
     this.icon = options.icon;
     this.iconSize = options.iconSize ?? 24;
     this.textColor = options.textColor ?? Color.White;
+    this.tooltipProvider = options.tooltipProvider;
     this.tooltipBgColor = options.tooltipBgColor ?? Color.fromHex('#12202d');
     this.tooltipTextColor = options.tooltipTextColor ?? Color.fromHex('#ecf3fa');
     this.tooltipWidth = options.tooltipWidth ?? 300;
@@ -138,97 +137,37 @@ export class ActionElement extends InteractivePanelElement {
 
     this.addHoverBorder(members, this.actionWidth, this.actionHeight);
 
-    if (this.isHovered) {
-      this.addTooltip(members, pressOffset);
-    }
-
     this.graphics.use(
       new GraphicsGroup({
         members,
       })
     );
+
+    if (this.isHovered) {
+      this.tooltipProvider.show({
+        owner: this,
+        getAnchorRect: () => {
+          const currentPressOffset = this.getPressOffset();
+          return {
+            x: this.globalPos.x + currentPressOffset,
+            y: this.globalPos.y + currentPressOffset,
+            width: this.actionWidth,
+            height: this.actionHeight,
+          };
+        },
+        description: this.description,
+        outcomes: this.outcomes,
+        width: this.tooltipWidth,
+        bgColor: this.tooltipBgColor,
+        textColor: this.tooltipTextColor,
+      });
+    } else {
+      this.tooltipProvider.hide(this);
+    }
   }
 
-  private addTooltip(members: GraphicsGrouping[], pressOffset: number): void {
-    const tooltipPadding = 10;
-    const lineGap = 3;
-    const fontSize = 13;
-    const outcomeGap = 6;
-    const outcomeRowHeight = 18;
-    const outcomeIconSize = 14;
-    const tooltipX = this.actionWidth + 10 + pressOffset;
-    const tooltipY = pressOffset;
-    const lines = this.wrapTooltipText(this.description, 46);
-
-    const textGraphics = lines.map(
-      (line) =>
-        new Text({
-          text: line,
-          font: new Font({
-            size: fontSize,
-            unit: FontUnit.Px,
-            color: this.tooltipTextColor,
-          }),
-        })
-    );
-
-    const descriptionHeight = textGraphics.reduce((sum, g) => sum + g.height, 0);
-    const outcomeHeight =
-      this.outcomes.length > 0
-        ? outcomeGap + this.outcomes.length * outcomeRowHeight
-        : 0;
-    const tooltipHeight =
-      tooltipPadding * 2 +
-      descriptionHeight +
-      Math.max(0, textGraphics.length - 1) * lineGap +
-      outcomeHeight;
-
-    members.push({
-      graphic: new Rectangle({
-        width: this.tooltipWidth,
-        height: tooltipHeight,
-        color: this.tooltipBgColor,
-      }),
-      offset: vec(tooltipX, tooltipY),
-    });
-
-    let y = tooltipY + tooltipPadding;
-    for (const textGraphic of textGraphics) {
-      members.push({
-        graphic: textGraphic,
-        offset: vec(tooltipX + tooltipPadding, y),
-      });
-      y += textGraphic.height + lineGap;
-    }
-
-    if (this.outcomes.length > 0) {
-      y += outcomeGap;
-      for (const outcome of this.outcomes) {
-        let outcomeX = tooltipX + tooltipPadding;
-        const iconSprite = this.getOutcomeIconSprite(outcome.icon, outcomeIconSize);
-        if (iconSprite) {
-          members.push({
-            graphic: iconSprite,
-            offset: vec(outcomeX, y + (outcomeRowHeight - outcomeIconSize) / 2),
-          });
-          outcomeX += outcomeIconSize + 6;
-        }
-
-        const outcomeText = new Text({
-          text: `${outcome.label}: ${outcome.value}`,
-          font: new Font({
-            size: 13,
-            unit: FontUnit.Px,
-            color: outcome.color ?? this.tooltipTextColor,
-          }),
-        });
-        members.push({
-          graphic: outcomeText,
-          offset: vec(outcomeX, y + (outcomeRowHeight - outcomeText.height) / 2),
-        });
-        y += outcomeRowHeight;
-      }
-    }
+  override onPreKill(_scene: Scene): void {
+    this.tooltipProvider.hide(this);
   }
 
   private getIconSprite(): Sprite | undefined {
@@ -247,49 +186,4 @@ export class ActionElement extends InteractivePanelElement {
     return sprite;
   }
 
-  private getOutcomeIconSprite(
-    source: ImageSource | undefined,
-    iconSize: number
-  ): Sprite | undefined {
-    if (!source || !source.isLoaded()) {
-      return undefined;
-    }
-
-    const cached = this.outcomeIconCache.get(source);
-    if (cached) {
-      return cached;
-    }
-
-    const sprite = source.toSprite();
-    sprite.width = iconSize;
-    sprite.height = iconSize;
-    this.outcomeIconCache.set(source, sprite);
-    return sprite;
-  }
-
-  private wrapTooltipText(text: string, maxChars: number): string[] {
-    const words = text.split(/\s+/).filter(Boolean);
-    if (!words.length) {
-      return [''];
-    }
-
-    const lines: string[] = [];
-    let current = '';
-
-    for (const word of words) {
-      const next = current ? `${current} ${word}` : word;
-      if (next.length > maxChars && current) {
-        lines.push(current);
-        current = word;
-      } else {
-        current = next;
-      }
-    }
-
-    if (current) {
-      lines.push(current);
-    }
-
-    return lines;
-  }
 }

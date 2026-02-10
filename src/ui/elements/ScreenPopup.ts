@@ -6,6 +6,7 @@ import {
   GraphicsGroup,
   GraphicsGrouping,
   Rectangle,
+  type Scene,
   ScreenElement,
   Text,
   vec,
@@ -13,6 +14,7 @@ import {
 import { ScreenButton } from './ScreenButton';
 
 export type ScreenPopupAnchor = 'top-left' | 'top-right' | 'center';
+export type ScreenPopupBackplateStyle = 'gray';
 
 export type ScreenPopupContentBuilder = (
   contentRoot: ScreenElement,
@@ -31,6 +33,9 @@ export interface ScreenPopupOptions {
   bgColor?: Color;
   headerColor?: Color;
   textColor?: Color;
+  backplateStyle?: ScreenPopupBackplateStyle;
+  backplateColor?: Color;
+  closeOnBackplateClick?: boolean;
   content?: Actor | Actor[];
   contentBuilder?: ScreenPopupContentBuilder;
   onClose?: () => void;
@@ -53,12 +58,19 @@ export class ScreenPopup extends ScreenElement {
   private bgColor: Color;
   private headerColor: Color;
   private textColor: Color;
+  private backplateStyle?: ScreenPopupBackplateStyle;
+  private backplateColor?: Color;
+  private closeOnBackplateClick: boolean;
   private content?: Actor | Actor[];
   private contentBuilder?: ScreenPopupContentBuilder;
   private onClose?: () => void;
 
   private contentRoot!: ScreenElement;
   private closeButton!: ScreenButton;
+  private backplate?: ScreenElement;
+  private backplateDrawWidth = 0;
+  private backplateDrawHeight = 0;
+  private pointerDownOutsidePopup = false;
 
   constructor(options: ScreenPopupOptions) {
     super({ x: options.x, y: options.y });
@@ -74,6 +86,9 @@ export class ScreenPopup extends ScreenElement {
     this.bgColor = options.bgColor ?? Color.fromHex('#1a252f');
     this.headerColor = options.headerColor ?? Color.fromHex('#233241');
     this.textColor = options.textColor ?? Color.White;
+    this.backplateStyle = options.backplateStyle ?? 'gray';
+    this.backplateColor = options.backplateColor;
+    this.closeOnBackplateClick = options.closeOnBackplateClick ?? true;
     this.content = options.content;
     this.contentBuilder = options.contentBuilder;
     this.onClose = options.onClose;
@@ -85,18 +100,28 @@ export class ScreenPopup extends ScreenElement {
   }
 
   onInitialize(): void {
+    this.buildBackplate();
     this.buildBackground();
     this.buildCloseButton();
     this.buildContentRoot();
     this.populateContent();
   }
 
+  onPreUpdate(): void {
+    this.updateBackplateGraphic();
+  }
+
   /**
    * Close the popup (removes it from the scene)
    */
   close(): void {
+    this.destroyBackplate();
     this.onClose?.();
     this.kill();
+  }
+
+  override onPreKill(_scene: Scene): void {
+    this.destroyBackplate();
   }
 
   private applyAnchorPosition(): void {
@@ -199,5 +224,109 @@ export class ScreenPopup extends ScreenElement {
     }
 
     this.contentBuilder?.(this.contentRoot, this);
+  }
+
+  private buildBackplate(): void {
+    if (!this.backplateStyle || !this.scene) {
+      return;
+    }
+
+    const backplate = new ScreenElement({ x: 0, y: 0 });
+    backplate.z = this.z - 1;
+    backplate.pointer.useGraphicsBounds = true;
+    backplate.pointer.useColliderShape = false;
+
+    backplate.on('pointerdown', (evt) => {
+      evt.cancel();
+      this.pointerDownOutsidePopup = !this.isInsidePopup(
+        evt.screenPos.x,
+        evt.screenPos.y
+      );
+    });
+    backplate.on('pointerup', (evt) => {
+      evt.cancel();
+      const pointerUpOutsidePopup = !this.isInsidePopup(
+        evt.screenPos.x,
+        evt.screenPos.y
+      );
+      if (
+        this.closeOnBackplateClick &&
+        this.pointerDownOutsidePopup &&
+        pointerUpOutsidePopup
+      ) {
+        this.close();
+      }
+      this.pointerDownOutsidePopup = false;
+    });
+    backplate.on('pointermove', (evt) => {
+      evt.cancel();
+    });
+    backplate.on('pointercancel', (evt) => {
+      evt.cancel();
+      this.pointerDownOutsidePopup = false;
+    });
+
+    this.backplate = backplate;
+    this.scene.add(backplate);
+    this.updateBackplateGraphic();
+  }
+
+  private updateBackplateGraphic(): void {
+    if (!this.backplate || !this.scene || !this.backplateStyle) {
+      return;
+    }
+
+    const engine = this.scene.engine;
+    const width = engine.drawWidth;
+    const height = engine.drawHeight;
+    if (
+      width === this.backplateDrawWidth &&
+      height === this.backplateDrawHeight
+    ) {
+      return;
+    }
+
+    this.backplateDrawWidth = width;
+    this.backplateDrawHeight = height;
+    this.backplate.graphics.use(
+      new Rectangle({
+        width,
+        height,
+        color: this.getBackplateColor(),
+      })
+    );
+  }
+
+  private getBackplateColor(): Color {
+    if (this.backplateColor) {
+      return this.backplateColor;
+    }
+
+    return Color.fromRGB(255, 255, 255, 0.2);
+  }
+
+  private isInsidePopup(screenX: number, screenY: number): boolean {
+    const left = this.globalPos.x;
+    const top = this.globalPos.y;
+    const right = left + this.popupWidth;
+    const bottom = top + this.popupHeight;
+
+    return (
+      screenX >= left && screenX <= right && screenY >= top && screenY <= bottom
+    );
+  }
+
+  private destroyBackplate(): void {
+    this.pointerDownOutsidePopup = false;
+    if (!this.backplate) {
+      return;
+    }
+
+    if (!this.backplate.isKilled()) {
+      this.backplate.kill();
+    }
+    this.backplate = undefined;
+    this.backplateDrawWidth = 0;
+    this.backplateDrawHeight = 0;
   }
 }

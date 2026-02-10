@@ -1,10 +1,4 @@
-import {
-  Color,
-  Font,
-  FontUnit,
-  ScreenElement,
-  Text,
-} from 'excalibur';
+import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
 import { StateManager } from '../../managers/StateManager';
 import { ScreenPopup, type ScreenPopupAnchor } from '../elements/ScreenPopup';
 
@@ -26,9 +20,11 @@ export class StatePopup extends ScreenPopup {
       x: options.x,
       y: options.y,
       anchor: options.anchor ?? 'center',
-      width: 520,
-      height: 320,
+      width: 720,
+      height: 520,
       title: `State: ${state.name}`,
+      backplateStyle: 'gray',
+      closeOnBackplateClick: true,
       onClose: options.onClose,
       contentBuilder: (contentRoot) => {
         const header = StatePopup.createLine(

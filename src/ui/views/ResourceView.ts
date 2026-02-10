@@ -6,6 +6,7 @@ import {
   GraphicsGrouping,
   ImageSource,
   Rectangle,
+  type Scene,
   ScreenElement,
   Sprite,
   Text,
@@ -14,11 +15,13 @@ import {
 import { Resources } from '../../_common/resources';
 import { PlayerData } from '../../managers/GameManager';
 import { ResourceManager } from '../../managers/ResourceManager';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export interface ResourceDisplayOptions {
   x: number;
   y: number;
   resourceManager: ResourceManager;
+  tooltipProvider?: TooltipProvider;
   anchor?: 'top-left' | 'top-right';
   iconSize?: number;
   spacing?: number;
@@ -44,16 +47,36 @@ export class ResourceDisplay extends ScreenElement {
   private spacing: number;
   private bgColor: Color;
   private textColor: Color;
+  private tooltipProvider?: TooltipProvider;
   private resourceConfigs: ResourceConfig[];
+  private resourceItemRects: Partial<
+    Record<
+      ResourceConfig['key'],
+      { x: number; y: number; width: number; height: number }
+    >
+  > = {};
+  private hoveredResource: ResourceConfig['key'] | undefined;
+  private readonly resourceTooltipText: Record<ResourceConfig['key'], string> =
+    {
+      gold: 'Gold: universal currency for trade, upkeep, and events.',
+      materials:
+        'Materials: wood and stone used for construction and crafting.',
+      food: 'Food: consumed each turn to sustain your population.',
+      population: 'Population: available workforce and base of your state.',
+    };
   private iconSprites: Partial<Record<ResourceConfig['key'], Sprite>> = {};
 
   private lastRendered:
-    | Pick<PlayerData['resources'], 'gold' | 'materials' | 'food' | 'population'>
+    | Pick<
+        PlayerData['resources'],
+        'gold' | 'materials' | 'food' | 'population'
+      >
     | undefined;
 
   constructor(options: ResourceDisplayOptions) {
     super({ x: options.x, y: options.y });
     this.resourceManager = options.resourceManager;
+    this.tooltipProvider = options.tooltipProvider;
     this.anchorX = options.x;
     this.anchorY = options.y;
     this.panelAnchor = options.anchor ?? 'top-left';
@@ -76,6 +99,19 @@ export class ResourceDisplay extends ScreenElement {
   }
 
   onInitialize(): void {
+    this.on('pointerenter', (evt) => {
+      this.updateHoveredResource(evt.screenPos.x, evt.screenPos.y);
+    });
+    this.on('pointermove', (evt) => {
+      this.updateHoveredResource(evt.screenPos.x, evt.screenPos.y);
+    });
+    this.on('pointerleave', () => {
+      this.clearHoveredResource();
+    });
+    this.on('prekill', () => {
+      this.clearHoveredResource();
+    });
+
     this.updateDisplay(true);
   }
 
@@ -151,6 +187,12 @@ export class ResourceDisplay extends ScreenElement {
     let xOffset = padding;
     for (const config of this.resourceConfigs) {
       const value = resources[config.key];
+      this.resourceItemRects[config.key] = {
+        x: xOffset,
+        y: 0,
+        width: itemWidth,
+        height: totalHeight,
+      };
 
       // Icon sprite
       const sprite = this.getIconSprite(config);
@@ -215,5 +257,82 @@ export class ResourceDisplay extends ScreenElement {
       return (value / 1000).toFixed(1) + 'K';
     }
     return value.toString();
+  }
+
+  private updateHoveredResource(screenX: number, screenY: number): void {
+    const hovered = this.hitTestResource(screenX, screenY);
+    if (hovered === this.hoveredResource) {
+      return;
+    }
+
+    this.clearHoveredResource();
+    if (!hovered || !this.tooltipProvider) {
+      return;
+    }
+
+    this.hoveredResource = hovered;
+    this.tooltipProvider.show({
+      owner: this,
+      getAnchorRect: () => this.getResourceAnchorRect(hovered),
+      description: this.resourceTooltipText[hovered],
+      placement: 'bottom',
+      width: 220,
+    });
+  }
+
+  private clearHoveredResource(): void {
+    this.hoveredResource = undefined;
+    this.tooltipProvider?.hide(this);
+  }
+
+  private hitTestResource(
+    screenX: number,
+    screenY: number
+  ): ResourceConfig['key'] | undefined {
+    const localX = screenX - this.globalPos.x;
+    const localY = screenY - this.globalPos.y;
+
+    for (const config of this.resourceConfigs) {
+      const rect = this.resourceItemRects[config.key];
+      if (!rect) {
+        continue;
+      }
+
+      const insideX = localX >= rect.x && localX <= rect.x + rect.width;
+      const insideY = localY >= rect.y && localY <= rect.y + rect.height;
+      if (insideX && insideY) {
+        return config.key;
+      }
+    }
+
+    return undefined;
+  }
+
+  private getResourceAnchorRect(key: ResourceConfig['key']): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const rect = this.resourceItemRects[key];
+    if (!rect) {
+      return {
+        x: this.globalPos.x,
+        y: this.globalPos.y,
+        width: this.width,
+        height: this.height,
+      };
+    }
+
+    return {
+      x: this.globalPos.x + rect.x,
+      y: this.globalPos.y + rect.y,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  override onPreKill(_scene: Scene): void {
+    this.clearHoveredResource();
   }
 }
