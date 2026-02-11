@@ -8,13 +8,14 @@ export type StateTiles = {
   forest: number;
   stone: number;
   plains: number;
-  water: number;
+  river: number;
 };
 
 export type StateData = {
   name: string;
   size: number;
   tiles: StateTiles;
+  ocean: number;
 };
 
 export type TechnologyId = string;
@@ -148,9 +149,13 @@ const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition>
       },
       requiredTechnologies: ['sailing'],
       getStats: (state) => {
-        const baseYield = Math.max(1, Math.floor(state.tiles.water / 4));
+        const baseYield = Math.max(
+          1,
+          Math.floor((state.tiles.river + state.ocean) / 4)
+        );
         return [
-          `Water tiles: ${state.tiles.water}`,
+          `River tiles: ${state.tiles.river}`,
+          `Ocean border: ${state.ocean}`,
           `Action yield: +${baseYield} Gold`,
           'Requires technology: sailing',
         ];
@@ -161,7 +166,10 @@ const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition>
           name: 'Run Trade Route',
           description: 'Generate gold from maritime trade volume.',
           run: ({ state, resources }) => {
-            const gain = Math.max(1, Math.floor(state.tiles.water / 4));
+            const gain = Math.max(
+              1,
+              Math.floor((state.tiles.river + state.ocean) / 4)
+            );
             resources.addResource('gold', gain);
           },
         },
@@ -389,8 +397,9 @@ export class StateManager {
       'Unnamed State';
 
     const tiles = this.generateTiles(initial?.tiles);
+    const ocean = this.clamp(initial?.ocean ?? this.randomInt(0, 18), 0);
     const size = this.sumTiles(tiles);
-    return { name, size, tiles };
+    return { name, size, tiles, ocean };
   }
 
   private generateTiles(initial?: Partial<StateTiles>): StateTiles {
@@ -398,12 +407,12 @@ export class StateManager {
       forest: this.clamp(initial?.forest ?? this.randomInt(8, 40), 0),
       stone: this.clamp(initial?.stone ?? this.randomInt(4, 28), 0),
       plains: this.clamp(initial?.plains ?? this.randomInt(10, 48), 0),
-      water: this.clamp(initial?.water ?? this.randomInt(2, 24), 0),
+      river: this.clamp(initial?.river ?? this.randomInt(2, 24), 0),
     };
   }
 
   private sumTiles(tiles: StateTiles): number {
-    return tiles.forest + tiles.stone + tiles.plains + tiles.water;
+    return tiles.forest + tiles.stone + tiles.plains + tiles.river;
   }
 
   private recomputeSize(): void {

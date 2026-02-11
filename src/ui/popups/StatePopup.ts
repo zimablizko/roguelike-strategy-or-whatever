@@ -199,7 +199,7 @@ export class StatePopup extends ScreenPopup {
       StatePopup.createLine(
         0,
         114,
-        `Water: ${state.tiles.water}`,
+        `River: ${state.tiles.river}`,
         14,
         Color.fromHex('#9fd3ff')
       )
@@ -207,7 +207,16 @@ export class StatePopup extends ScreenPopup {
     root.addChild(
       StatePopup.createLine(
         0,
-        156,
+        140,
+        `Ocean border: ${state.ocean}`,
+        14,
+        Color.fromHex('#7fb7ff')
+      )
+    );
+    root.addChild(
+      StatePopup.createLine(
+        0,
+        182,
         `Buildings built: ${builtCount}/${this.stateManager.getBuildingDefinitions().length}`,
         14,
         Color.fromHex('#cfd9e2')
@@ -617,7 +626,7 @@ export class StatePopup extends ScreenPopup {
       lumbermill: Math.max(1, Math.floor(state.tiles.forest / 4)),
       mine: Math.max(1, Math.floor(state.tiles.stone / 3)),
       granary: Math.max(1, Math.floor(state.tiles.plains / 5)),
-      harbor: Math.max(1, Math.floor(state.tiles.water / 4)),
+      harbor: Math.max(1, Math.floor((state.tiles.river + state.ocean) / 4)),
     };
     const value = gainByBuilding[definition.id];
     if (value === undefined) {

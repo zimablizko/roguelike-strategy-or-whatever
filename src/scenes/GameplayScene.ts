@@ -1,14 +1,22 @@
-import { Actor, Color, Engine, Scene, type SceneActivationContext } from 'excalibur';
+import {
+  Actor,
+  Color,
+  Engine,
+  Scene,
+  type SceneActivationContext,
+} from 'excalibur';
+import { CONFIG } from '../_common/config';
 import { Resources } from '../_common/resources';
-import { ActionElement } from '../ui/elements/ActionElement';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { TurnManager } from '../managers/TurnManager';
+import { UI_Z } from '../ui/constants/ZLayers';
+import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
-import { UI_Z } from '../ui/constants/ZLayers';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
+import { MapView } from '../ui/views/MapView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { StateDisplay } from '../ui/views/StateView';
@@ -55,6 +63,10 @@ export class GameplayScene extends Scene {
           population: 10,
         },
       },
+      map: {
+        width: 100,
+        height: 60,
+      },
     });
     this.resourceManager = this.gameManager.resourceManager;
     this.turnManager = new TurnManager(
@@ -65,7 +77,8 @@ export class GameplayScene extends Scene {
 
     this.gameManager.logData();
 
-    // Re-add UI
+    // Re-add world + UI
+    this.addMapView();
     this.addTooltipProvider();
     this.addStateDisplay(engine);
     this.addRulerDisplay(engine);
@@ -79,8 +92,19 @@ export class GameplayScene extends Scene {
     this.add(this.tooltipProvider);
   }
 
+  private addMapView(): void {
+    const map = this.gameManager.mapManager.getMapRef();
+    const mapView = new MapView({
+      map,
+      tileSize: 56,
+      showGrid: CONFIG.MAP_SHOW_GRID,
+    });
+
+    this.add(mapView);
+  }
+
   private addStateDisplay(_engine: Engine) {
-    this.add(
+    this.addHudElement(
       new StateDisplay({
         x: 20,
         y: 20,
@@ -114,7 +138,7 @@ export class GameplayScene extends Scene {
   }
 
   private addRulerDisplay(_engine: Engine) {
-    this.add(
+    this.addHudElement(
       new RulerDisplay({
         x: 20,
         y: 100,
@@ -151,7 +175,7 @@ export class GameplayScene extends Scene {
   }
 
   private addResourceDisplay(engine: Engine) {
-    this.add(
+    this.addHudElement(
       new ResourceDisplay({
         x: engine.drawWidth - 20,
         y: 20,
@@ -164,7 +188,7 @@ export class GameplayScene extends Scene {
   }
 
   private addTurnDisplay(engine: Engine) {
-    this.add(
+    this.addHudElement(
       new TurnDisplay({
         x: engine.drawWidth / 2,
         y: 20,
@@ -175,7 +199,7 @@ export class GameplayScene extends Scene {
 
   private addButtons(engine: Engine) {
     // little Back to Main Menu button in left top corner
-    this.add(
+    this.addHudElement(
       new ScreenButton({
         x: 20,
         y: engine.drawHeight - 110,
@@ -188,7 +212,7 @@ export class GameplayScene extends Scene {
       })
     );
 
-    this.add(
+    this.addHudElement(
       new ScreenButton({
         x: 20,
         y: engine.drawHeight - 60,
@@ -235,7 +259,7 @@ export class GameplayScene extends Scene {
       this.tooltipProvider.hide(endTurnButton);
     });
 
-    this.add(endTurnButton);
+    this.addHudElement(endTurnButton);
   }
 
   private showDebugMenu(engine: Engine) {
@@ -360,5 +384,11 @@ export class GameplayScene extends Scene {
 
     this.testPopup = popup;
     this.add(popup);
+  }
+
+  private addHudElement<TActor extends Actor>(actor: TActor): TActor {
+    actor.z = UI_Z.hud;
+    this.add(actor);
+    return actor;
   }
 }

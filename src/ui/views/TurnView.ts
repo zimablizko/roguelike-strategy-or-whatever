@@ -16,6 +16,8 @@ export interface TurnDisplayOptions {
   y: number;
   turnManager: TurnManager;
   textColor?: Color;
+  panelBgColor?: Color;
+  panelBorderColor?: Color;
   separatorColor?: Color;
   segmentColor?: Color;
   spentSegmentColor?: Color;
@@ -30,6 +32,8 @@ export class TurnDisplay extends ScreenElement {
   private anchorX: number;
   private anchorY: number;
   private textColor: Color;
+  private panelBgColor: Color;
+  private panelBorderColor: Color;
   private separatorColor: Color;
   private segmentColor: Color;
   private spentSegmentColor: Color;
@@ -45,6 +49,9 @@ export class TurnDisplay extends ScreenElement {
     this.anchorX = options.x;
     this.anchorY = options.y;
     this.textColor = options.textColor ?? Color.White;
+    this.panelBgColor = options.panelBgColor ?? Color.fromRGB(12, 20, 28, 0.72);
+    this.panelBorderColor =
+      options.panelBorderColor ?? Color.fromRGB(170, 196, 220, 0.55);
     this.separatorColor = options.separatorColor ?? Color.fromHex('#233241');
     this.segmentColor = options.segmentColor ?? Color.Green;
     this.spentSegmentColor =
@@ -100,26 +107,79 @@ export class TurnDisplay extends ScreenElement {
     const textGap = 4;
     const barGap = 8;
     const barHeight = 14;
+    const panelPaddingX = 14;
+    const panelPaddingY = 10;
+    const borderWidth = 1;
 
     const contentWidth = Math.max(this.barWidth, turnText.width, apText.width);
+    const panelWidth = contentWidth + panelPaddingX * 2;
     const barX = (contentWidth - this.barWidth) / 2;
+    const panelHeight =
+      panelPaddingY * 2 + turnText.height + textGap + apText.height + barGap + barHeight;
 
     // Treat x/y as an anchor point (top-center).
-    this.pos = vec(this.anchorX - contentWidth / 2, this.anchorY);
+    this.pos = vec(this.anchorX - panelWidth / 2, this.anchorY);
 
     const members: GraphicsGrouping[] = [];
+
+    // Panel background + border
+    members.push(
+      {
+        graphic: new Rectangle({
+          width: panelWidth,
+          height: panelHeight,
+          color: this.panelBgColor,
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: panelWidth,
+          height: borderWidth,
+          color: this.panelBorderColor,
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: panelWidth,
+          height: borderWidth,
+          color: this.panelBorderColor,
+        }),
+        offset: vec(0, panelHeight - borderWidth),
+      },
+      {
+        graphic: new Rectangle({
+          width: borderWidth,
+          height: panelHeight,
+          color: this.panelBorderColor,
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: borderWidth,
+          height: panelHeight,
+          color: this.panelBorderColor,
+        }),
+        offset: vec(panelWidth - borderWidth, 0),
+      }
+    );
 
     // Turn text (centered)
     members.push({
       graphic: turnText,
-      offset: vec((contentWidth - turnText.width) / 2, 0),
+      offset: vec(
+        panelPaddingX + (contentWidth - turnText.width) / 2,
+        panelPaddingY
+      ),
     });
 
     // Action points text (centered)
-    const apY = turnText.height + textGap;
+    const apY = panelPaddingY + turnText.height + textGap;
     members.push({
       graphic: apText,
-      offset: vec((contentWidth - apText.width) / 2, apY),
+      offset: vec(panelPaddingX + (contentWidth - apText.width) / 2, apY),
     });
 
     // Bar geometry
@@ -141,16 +201,16 @@ export class TurnDisplay extends ScreenElement {
           width: this.barWidth,
           height: 1,
           color: this.separatorColor,
-        }),
-        offset: vec(barX, barY),
-      },
+      }),
+      offset: vec(panelPaddingX + barX, barY),
+    },
       {
         graphic: new Rectangle({
           width: this.barWidth,
           height: 1,
           color: this.separatorColor,
         }),
-        offset: vec(barX, barY + barHeight - 1),
+        offset: vec(panelPaddingX + barX, barY + barHeight - 1),
       },
       {
         graphic: new Rectangle({
@@ -158,7 +218,7 @@ export class TurnDisplay extends ScreenElement {
           height: barHeight,
           color: this.separatorColor,
         }),
-        offset: vec(barX, barY),
+        offset: vec(panelPaddingX + barX, barY),
       },
       {
         graphic: new Rectangle({
@@ -166,7 +226,7 @@ export class TurnDisplay extends ScreenElement {
           height: barHeight,
           color: this.separatorColor,
         }),
-        offset: vec(barX + this.barWidth - 1, barY),
+        offset: vec(panelPaddingX + barX + this.barWidth - 1, barY),
       }
     );
 
@@ -181,7 +241,7 @@ export class TurnDisplay extends ScreenElement {
           height: barHeight,
           color,
         }),
-        offset: vec(x, barY),
+        offset: vec(panelPaddingX + x, barY),
       });
     }
 
@@ -194,7 +254,7 @@ export class TurnDisplay extends ScreenElement {
           height: barHeight,
           color: this.separatorColor,
         }),
-        offset: vec(x, barY),
+        offset: vec(panelPaddingX + x, barY),
       });
     }
 

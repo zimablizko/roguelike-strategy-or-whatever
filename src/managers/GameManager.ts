@@ -1,3 +1,4 @@
+import { MapManager } from './MapManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
 import { StateManager } from './StateManager';
@@ -14,6 +15,10 @@ export type PlayerData = {
 
 export type GameManagerOptions = {
   playerData: PlayerData;
+  map?: {
+    width?: number;
+    height?: number;
+  };
 };
 
 /**
@@ -25,6 +30,7 @@ export class GameManager {
   resourceManager: ResourceManager;
   rulerManager: RulerManager;
   stateManager: StateManager;
+  mapManager: MapManager;
 
   constructor(options: GameManagerOptions) {
     this.playerData = options.playerData;
@@ -34,7 +40,19 @@ export class GameManager {
 
     // Ruler is generated at the beginning of the game.
     this.rulerManager = new RulerManager();
-    this.stateManager = new StateManager();
+    this.mapManager = new MapManager(options.map);
+    const playerState = this.mapManager.getPlayerStateSummary();
+    this.stateManager = new StateManager({
+      initial: {
+        tiles: {
+          forest: playerState.tiles.forest,
+          stone: playerState.tiles.stone,
+          plains: playerState.tiles.plains,
+          river: playerState.tiles.river,
+        },
+        ocean: playerState.ocean,
+      },
+    });
   }
 
   logData() {
@@ -42,5 +60,9 @@ export class GameManager {
     console.log('Resources:', this.resourceManager.getAllResources());
     console.log('Ruler:', this.rulerManager.getRuler());
     console.log('State:', this.stateManager.getState());
+    console.log('Map size:', {
+      width: this.mapManager.getMapRef().width,
+      height: this.mapManager.getMapRef().height,
+    });
   }
 }
