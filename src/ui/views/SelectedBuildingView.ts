@@ -1,0 +1,419 @@
+import {
+  Color,
+  Font,
+  FontUnit,
+  GraphicsGroup,
+  type GraphicsGrouping,
+  Rectangle,
+  ScreenElement,
+  Text,
+  type Scene,
+  vec,
+} from 'excalibur';
+import { ResourceManager } from '../../managers/ResourceManager';
+import {
+  StateManager,
+  type StateBuildingActionDefinition,
+  type StateBuildingDefinition,
+} from '../../managers/StateManager';
+import { ActionElement } from '../elements/ActionElement';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
+
+export interface SelectedBuildingViewOptions {
+  stateManager: StateManager;
+  resourceManager: ResourceManager;
+  tooltipProvider: TooltipProvider;
+  width?: number;
+  height?: number;
+  bottomMargin?: number;
+}
+
+export class SelectedBuildingView extends ScreenElement {
+  private readonly stateManager: StateManager;
+  private readonly resourceManager: ResourceManager;
+  private readonly tooltipProvider: TooltipProvider;
+  private readonly minPanelWidth: number;
+  private readonly maxPanelWidth: number;
+  private readonly panelHeight: number;
+  private readonly bottomMargin: number;
+
+  private currentPanelWidth: number;
+  private selectedBuildingInstanceId?: string;
+  private actionRows: ActionElement[] = [];
+  private lastRenderKey?: string;
+
+  constructor(options: SelectedBuildingViewOptions) {
+    super({ x: 0, y: 0 });
+    this.stateManager = options.stateManager;
+    this.resourceManager = options.resourceManager;
+    this.tooltipProvider = options.tooltipProvider;
+    this.minPanelWidth = 420;
+    this.maxPanelWidth = options.width ?? 560;
+    this.panelHeight = options.height ?? 118;
+    this.bottomMargin = options.bottomMargin ?? 8;
+    this.currentPanelWidth = this.minPanelWidth;
+  }
+
+  onInitialize(): void {
+    this.graphics.isVisible = false;
+    this.updateDisplay(true);
+    this.updatePosition();
+  }
+
+  onPreUpdate(): void {
+    this.updateDisplay(false);
+    this.updatePosition();
+  }
+
+  override onPreKill(_scene: Scene): void {
+    this.clearActionRows();
+  }
+
+  setSelectedBuilding(instanceId: string | undefined): void {
+    if (this.selectedBuildingInstanceId === instanceId) {
+      return;
+    }
+
+    this.selectedBuildingInstanceId = instanceId;
+    this.lastRenderKey = undefined;
+  }
+
+  private updatePosition(): void {
+    const engine = this.scene?.engine;
+    if (!engine) {
+      return;
+    }
+
+    this.pos = vec(
+      (engine.drawWidth - this.currentPanelWidth) / 2,
+      engine.drawHeight - this.panelHeight - this.bottomMargin
+    );
+  }
+
+  private updateDisplay(force: boolean): void {
+    const state = this.stateManager.getStateRef();
+    const selected = this.selectedBuildingInstanceId
+      ? this.stateManager
+          .getBuildingMapOverlays()
+          .find((item) => item.instanceId === this.selectedBuildingInstanceId)
+      : undefined;
+
+    const renderKey = selected
+      ? [
+          selected.instanceId,
+          this.stateManager.getBuildingCount(selected.buildingId),
+          state.tiles.forest,
+          state.tiles.stone,
+          state.tiles.plains,
+          state.tiles.river,
+          state.ocean,
+        ].join('|')
+      : 'none';
+
+    if (!force && this.lastRenderKey === renderKey) {
+      return;
+    }
+    this.lastRenderKey = renderKey;
+
+    this.clearActionRows();
+
+    if (!selected) {
+      this.graphics.isVisible = false;
+      this.graphics.use(new GraphicsGroup({ members: [] }));
+      return;
+    }
+
+    this.graphics.isVisible = true;
+
+    const members: GraphicsGrouping[] = [
+      {
+        graphic: new Rectangle({
+          width: this.currentPanelWidth,
+          height: this.panelHeight,
+          color: Color.fromRGB(14, 24, 35, 0.86),
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: this.currentPanelWidth,
+          height: 1,
+          color: Color.fromRGB(170, 196, 220, 0.55),
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: this.currentPanelWidth,
+          height: 1,
+          color: Color.fromRGB(170, 196, 220, 0.55),
+        }),
+        offset: vec(0, this.panelHeight - 1),
+      },
+    ];
+
+    const definition = this.stateManager.getBuildingDefinition(selected.buildingId);
+    if (!definition) {
+      this.graphics.isVisible = false;
+      this.graphics.use(new GraphicsGroup({ members }));
+      return;
+    }
+
+    const count = this.stateManager.getBuildingCount(definition.id);
+    const stats = definition.getStats(state, count).slice(0, 2);
+    const areaLine = `Area ${selected.width}x${selected.height}  Count ${count}`;
+
+    const leftSectionMaxLineWidth = Math.max(
+      this.measureTextWidth('Selected', 12),
+      this.measureTextWidth(definition.name, 20),
+      this.measureTextWidth(areaLine, 12),
+      ...stats.map((stat) => this.measureTextWidth(`- ${stat}`, 12))
+    );
+    const leftSectionWidth = this.clamp(
+      Math.ceil(leftSectionMaxLineWidth) + 12,
+      180,
+      280
+    );
+
+    const actionButtonWidth = this.resolveActionButtonWidth(definition.actions);
+    const contentGap = 14;
+    const sidePadding = 12;
+    const desiredPanelWidth =
+      sidePadding + leftSectionWidth + contentGap + actionButtonWidth + sidePadding;
+
+    const engine = this.scene?.engine;
+    const viewportMaxWidth = engine ? engine.drawWidth - 24 : this.maxPanelWidth;
+    this.currentPanelWidth = this.clamp(
+      desiredPanelWidth,
+      this.minPanelWidth,
+      Math.min(this.maxPanelWidth, viewportMaxWidth)
+    );
+
+    const statsBaseY = 58;
+    const statsGap = 17;
+    const actionsTitleX = this.currentPanelWidth - actionButtonWidth - 12;
+
+    members.push(
+      this.createTextMember(
+        'Selected',
+        12,
+        Color.fromHex('#9fb4c8'),
+        12,
+        8
+      ),
+      this.createTextMember(
+        definition.name,
+        20,
+        Color.fromHex('#f0f4f8'),
+        12,
+        24
+      ),
+      this.createTextMember(
+        areaLine,
+        12,
+        Color.fromHex('#cfd9e2'),
+        12,
+        46
+      )
+    );
+
+    let statY = statsBaseY;
+    for (const stat of stats) {
+      members.push(
+        this.createTextMember(`- ${stat}`, 12, Color.fromHex('#dce6ef'), 12, statY)
+      );
+      statY += statsGap;
+    }
+
+    members.push(
+      this.createTextMember(
+        'Actions',
+        14,
+        Color.fromHex('#f0f4f8'),
+        actionsTitleX,
+        8
+      )
+    );
+
+    this.graphics.use(new GraphicsGroup({ members }));
+    this.createActionRows(definition, actionsTitleX, 30, actionButtonWidth);
+  }
+
+  private createActionRows(
+    definition: StateBuildingDefinition,
+    startX: number,
+    startY: number,
+    rowWidth: number
+  ): void {
+    if (definition.actions.length === 0) {
+      this.addChild(
+        this.createStaticTextElement(
+          'No actions available.',
+          12,
+          Color.fromHex('#a9bbcb'),
+          startX,
+          startY + 8
+        )
+      );
+      return;
+    }
+
+    let y = startY;
+    for (const action of definition.actions) {
+      if (y + 36 > this.panelHeight - 8) {
+        break;
+      }
+
+      const row = new ActionElement({
+        x: startX,
+        y,
+        width: rowWidth,
+        height: 34,
+        title: action.name,
+        description: action.description,
+        outcomes: this.getActionOutcomes(definition, action),
+        tooltipProvider: this.tooltipProvider,
+        tooltipWidth: 260,
+        onClick: () => {
+          const activated = this.stateManager.activateBuildingAction(
+            definition.id,
+            action.id,
+            this.resourceManager
+          );
+          if (!activated) {
+            return;
+          }
+          this.lastRenderKey = undefined;
+        },
+      });
+
+      this.actionRows.push(row);
+      this.addChild(row);
+      y += 38;
+    }
+  }
+
+  private resolveActionButtonWidth(
+    actions: ReadonlyArray<StateBuildingActionDefinition>
+  ): number {
+    if (actions.length === 0) {
+      return 188;
+    }
+
+    const widestTitle = actions.reduce(
+      (max, action) => Math.max(max, this.measureTextWidth(action.name, 16)),
+      0
+    );
+
+    return this.clamp(Math.ceil(widestTitle) + 26, 188, 300);
+  }
+
+  private getActionOutcomes(
+    definition: StateBuildingDefinition,
+    action: StateBuildingActionDefinition
+  ): { label: string; value: string | number; color?: Color }[] {
+    const state = this.stateManager.getStateRef();
+    const buildingCount = Math.max(
+      1,
+      this.stateManager.getBuildingCount(definition.id)
+    );
+
+    const gainByBuilding: Partial<Record<StateBuildingDefinition['id'], number>> = {
+      lumbermill: Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
+      mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
+      farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
+    };
+    const value = gainByBuilding[definition.id];
+    if (value === undefined) {
+      return [{ label: 'Action', value: action.id }];
+    }
+
+    const resourceByBuilding: Partial<Record<StateBuildingDefinition['id'], string>> = {
+      lumbermill: 'Materials',
+      mine: 'Materials',
+      farm: 'Food',
+    };
+    return [
+      {
+        label: resourceByBuilding[definition.id] ?? 'Output',
+        value: `+${value}`,
+        color: Color.fromHex('#9fe6aa'),
+      },
+    ];
+  }
+
+  private clearActionRows(): void {
+    for (const row of this.actionRows) {
+      if (!row.isKilled()) {
+        row.kill();
+      }
+    }
+    this.actionRows = [];
+
+    const orphanInfoLines = this.children.filter(
+      (child) => child !== undefined && child.name === 'selected-building-info-line'
+    );
+    for (const line of orphanInfoLines) {
+      if (!line.isKilled()) {
+        line.kill();
+      }
+    }
+  }
+
+  private createTextMember(
+    text: string,
+    size: number,
+    color: Color,
+    x: number,
+    y: number
+  ): GraphicsGrouping {
+    return {
+      graphic: new Text({
+        text,
+        font: new Font({
+          size,
+          unit: FontUnit.Px,
+          color,
+        }),
+      }),
+      offset: vec(x, y),
+    };
+  }
+
+  private measureTextWidth(text: string, size: number): number {
+    return new Text({
+      text,
+      font: new Font({
+        size,
+        unit: FontUnit.Px,
+        color: Color.White,
+      }),
+    }).width;
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  private createStaticTextElement(
+    text: string,
+    size: number,
+    color: Color,
+    x: number,
+    y: number
+  ): ScreenElement {
+    const line = new ScreenElement({ x, y });
+    line.name = 'selected-building-info-line';
+    line.graphics.use(
+      new Text({
+        text,
+        font: new Font({
+          size,
+          unit: FontUnit.Px,
+          color,
+        }),
+      })
+    );
+    return line;
+  }
+}

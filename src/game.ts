@@ -21,7 +21,7 @@ export class Game {
       displayMode: DisplayMode.FitScreen,
       backgroundColor: Color.Black,
       canvasElementId: 'game',
-      antialiasing: false,
+      antialiasing: true,
     });
   }
 

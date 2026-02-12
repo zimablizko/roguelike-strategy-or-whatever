@@ -70,6 +70,7 @@ export class BuildPopup extends ScreenPopup {
     resourceManager: ResourceManager,
     onBuilt: ((buildingId: StateBuildingId) => void) | undefined
   ): void {
+    const count = stateManager.getBuildingCount(definition.id);
     const status = stateManager.canBuildBuilding(
       definition.id,
       resourceManager
@@ -86,6 +87,12 @@ export class BuildPopup extends ScreenPopup {
       y += size + gapAfter;
     };
 
+    if (definition.unique) {
+      line(`Built: ${count}/1`, 14, count > 0 ? okColor : lineColor, 8);
+    } else {
+      line(`Built: ${count}`, 14, lineColor, 8);
+    }
+
     for (const descriptionLine of BuildPopup.wrapText(
       definition.description,
       lineWrapWidth,
@@ -93,10 +100,13 @@ export class BuildPopup extends ScreenPopup {
     )) {
       line(descriptionLine, 14, lineColor, 4);
     }
-    y += 8;
-    line('Build cost:', 15, Color.fromHex('#f0f4f8'), 8);
+    y += 4;
+    line(`Placement: ${definition.placementDescription}`, 13, lineColor, 8);
 
-    const costEntries = Object.entries(definition.buildCost) as [
+    y += 8;
+    line('Next build cost:', 15, Color.fromHex('#f0f4f8'), 8);
+
+    const costEntries = Object.entries(status.nextCost) as [
       ResourceType,
       number,
     ][];
@@ -131,6 +141,9 @@ export class BuildPopup extends ScreenPopup {
       line('Ready to build.', 13, okColor, 10);
     } else {
       line('Requirements are not met yet.', 13, warnColor, 10);
+      if (!status.placementAvailable && status.placementReason) {
+        line(status.placementReason, 12, warnColor, 8);
+      }
     }
 
     const buttonY = Math.min(230, y + 6);

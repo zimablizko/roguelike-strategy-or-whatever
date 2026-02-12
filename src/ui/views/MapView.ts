@@ -11,9 +11,24 @@ import {
 } from 'excalibur';
 import type { MapData, MapTileType } from '../../managers/MapManager';
 import { UI_Z } from '../constants/ZLayers';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
+
+export interface MapBuildingOverlay {
+  instanceId: string;
+  name: string;
+  shortName: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export interface MapViewOptions {
   map: MapData;
+  buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
+  buildingsVersionProvider?: () => number;
+  onBuildingSelected?: (instanceId: string | undefined) => void;
+  tooltipProvider?: TooltipProvider;
   tileSize?: number;
   panSpeed?: number;
   minZoom?: number;
@@ -38,6 +53,10 @@ export class MapView extends Actor {
   private readonly zoomStep: number;
   private readonly showGrid: boolean;
   private readonly mapBorderCells = 2;
+  private readonly buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
+  private readonly buildingsVersionProvider?: () => number;
+  private readonly onBuildingSelected?: (instanceId: string | undefined) => void;
+  private readonly tooltipProvider?: TooltipProvider;
 
   private readonly mapWidthPx: number;
   private readonly mapHeightPx: number;
@@ -53,6 +72,9 @@ export class MapView extends Actor {
   private viewX = 0;
   private viewY = 0;
   private zoom = 1;
+  private renderedBuildingsVersion = -1;
+  private hoveredBuildingInstanceId?: string;
+  private selectedBuildingInstanceId?: string;
 
   constructor(options: MapViewOptions) {
     super({ x: 0, y: 0 });
@@ -66,6 +88,10 @@ export class MapView extends Actor {
     this.maxZoom = options.maxZoom ?? 2.4;
     this.zoomStep = options.zoomStep ?? 0.12;
     this.showGrid = options.showGrid ?? false;
+    this.buildingsProvider = options.buildingsProvider;
+    this.buildingsVersionProvider = options.buildingsVersionProvider;
+    this.onBuildingSelected = options.onBuildingSelected;
+    this.tooltipProvider = options.tooltipProvider;
 
     this.mapWidthPx = this.map.width * this.tileSize;
     this.mapHeightPx = this.map.height * this.tileSize;
@@ -79,14 +105,7 @@ export class MapView extends Actor {
     this.pointer.useGraphicsBounds = false;
     this.pointer.useColliderShape = false;
 
-    this.graphics.use(
-      new Canvas({
-        width: this.contentWidth,
-        height: this.contentHeight,
-        cache: true,
-        draw: (ctx) => this.drawMap(ctx),
-      })
-    );
+    this.rebuildCachedMapCanvas();
 
     this.initializeView(engine);
     this.setupPointerControls();
@@ -94,9 +113,11 @@ export class MapView extends Actor {
   }
 
   onPreUpdate(engine: Engine, elapsedMs: number): void {
+    this.refreshMapCanvasIfNeeded();
     this.applyKeyboardPan(engine, elapsedMs);
     this.clampView(engine);
     this.applyViewTransform();
+    this.updateBuildingTooltip(engine);
   }
 
   override onPreKill(): void {
@@ -106,6 +127,7 @@ export class MapView extends Actor {
     }
     this.pointerSubscriptions = [];
     this.removeContextMenuBlock();
+    this.clearBuildingTooltip();
   }
 
   private drawMap(ctx: CanvasRenderingContext2D): void {
@@ -146,6 +168,75 @@ export class MapView extends Actor {
     }
 
     this.drawPlayerStateBorder(ctx);
+    this.drawBuildings(ctx);
+  }
+
+  private drawBuildings(ctx: CanvasRenderingContext2D): void {
+    const overlays = this.buildingsProvider?.() ?? [];
+    if (overlays.length === 0) {
+      return;
+    }
+
+    const offset = this.mapBorderPx;
+    const borderWidth = Math.max(2, Math.floor(this.tileSize * 0.06));
+    // Map starts zoomed out heavily on large worlds, so labels need a much larger
+    // base size to remain readable on screen.
+    const labelFontSize = Math.max(28, Math.floor(this.tileSize * 1.1));
+    const minLabelFontSize = Math.max(14, Math.floor(this.tileSize * 0.42));
+    const labelPaddingX = 12;
+
+    ctx.font = `700 ${labelFontSize}px "Trebuchet MS", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const overlay of overlays) {
+      const left = offset + overlay.x * this.tileSize;
+      const top = offset + overlay.y * this.tileSize;
+      const width = overlay.width * this.tileSize;
+      const height = overlay.height * this.tileSize;
+
+      const selected = overlay.instanceId === this.selectedBuildingInstanceId;
+      ctx.strokeStyle = selected ? 'rgba(245, 196, 15, 0.98)' : 'rgba(34, 35, 37, 0.96)';
+      ctx.lineWidth = selected ? borderWidth + 2 : borderWidth;
+      ctx.strokeRect(
+        left + ctx.lineWidth / 2,
+        top + ctx.lineWidth / 2,
+        Math.max(0, width - ctx.lineWidth),
+        Math.max(0, height - ctx.lineWidth)
+      );
+
+      const label = overlay.shortName.trim().slice(0, 3);
+      ctx.font = `700 ${labelFontSize}px "Trebuchet MS", sans-serif`;
+      const maxLabelWidth = this.tileSize * 2 - 12;
+      const labelWidth = Math.min(
+        maxLabelWidth,
+        Math.max(this.tileSize * 1.5, ctx.measureText(label).width + labelPaddingX * 2)
+      );
+      const textMaxWidth = Math.max(1, labelWidth - labelPaddingX * 2);
+      let fittedFontSize = labelFontSize;
+      while (
+        fittedFontSize > minLabelFontSize &&
+        ctx.measureText(label).width > textMaxWidth
+      ) {
+        fittedFontSize -= 1;
+        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+      }
+
+      const labelHeight = fittedFontSize + 16;
+      const centerX = left + width / 2;
+      const centerY = top + height / 2;
+
+      ctx.fillStyle = 'rgba(12, 16, 22, 0.84)';
+      ctx.fillRect(
+        centerX - labelWidth / 2,
+        centerY - labelHeight / 2,
+        labelWidth,
+        labelHeight
+      );
+
+      ctx.fillStyle = '#f5efe2';
+      ctx.fillText(label, centerX, centerY + 1);
+    }
   }
 
   private drawMapFrame(ctx: CanvasRenderingContext2D): void {
@@ -240,6 +331,32 @@ export class MapView extends Actor {
     this.applyViewTransform();
   }
 
+  private refreshMapCanvasIfNeeded(): void {
+    const provider = this.buildingsVersionProvider;
+    if (!provider) {
+      return;
+    }
+
+    const nextVersion = provider();
+    if (nextVersion === this.renderedBuildingsVersion) {
+      return;
+    }
+
+    this.rebuildCachedMapCanvas();
+  }
+
+  private rebuildCachedMapCanvas(): void {
+    this.graphics.use(
+      new Canvas({
+        width: this.contentWidth,
+        height: this.contentHeight,
+        cache: true,
+        draw: (ctx) => this.drawMap(ctx),
+      })
+    );
+    this.renderedBuildingsVersion = this.buildingsVersionProvider?.() ?? 0;
+  }
+
   private setupPointerControls(): void {
     const pointers = this.scene?.input.pointers;
     if (!pointers) {
@@ -248,6 +365,21 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('down', (evt: PointerEvent) => {
+      if (evt.button === PointerButton.Left) {
+        const picked = this.findBuildingAtScreenPosition(
+          evt.screenPos.x,
+          evt.screenPos.y
+        );
+        if (picked) {
+          this.selectBuilding(picked.instanceId);
+        } else if (
+          this.isScreenPointInsidePlayableMap(evt.screenPos.x, evt.screenPos.y)
+        ) {
+          this.selectBuilding(undefined);
+        }
+        return;
+      }
+
       if (
         evt.button !== PointerButton.Right &&
         evt.button !== PointerButton.Middle
@@ -371,6 +503,119 @@ export class MapView extends Actor {
   private applyViewTransform(): void {
     this.pos = vec(this.viewX, this.viewY);
     this.scale = vec(this.zoom, this.zoom);
+  }
+
+  private selectBuilding(instanceId: string | undefined): void {
+    if (this.selectedBuildingInstanceId === instanceId) {
+      return;
+    }
+
+    this.selectedBuildingInstanceId = instanceId;
+    this.onBuildingSelected?.(instanceId);
+    this.rebuildCachedMapCanvas();
+  }
+
+  private updateBuildingTooltip(engine: Engine): void {
+    if (!this.tooltipProvider || !this.buildingsProvider) {
+      return;
+    }
+
+    const pointerPos = engine.input.pointers.primary.lastScreenPos;
+    if (!pointerPos) {
+      this.clearBuildingTooltip();
+      return;
+    }
+
+    const hovered = this.findBuildingAtScreenPosition(pointerPos.x, pointerPos.y);
+    if (!hovered) {
+      this.clearBuildingTooltip();
+      return;
+    }
+
+    if (this.hoveredBuildingInstanceId === hovered.instanceId) {
+      return;
+    }
+
+    this.hoveredBuildingInstanceId = hovered.instanceId;
+    this.tooltipProvider.show({
+      owner: this,
+      getAnchorRect: () => this.getBuildingAnchorRect(hovered),
+      description: hovered.name,
+      width: 180,
+    });
+  }
+
+  private clearBuildingTooltip(): void {
+    this.hoveredBuildingInstanceId = undefined;
+    this.tooltipProvider?.hide(this);
+  }
+
+  private findBuildingAtScreenPosition(
+    screenX: number,
+    screenY: number
+  ): MapBuildingOverlay | undefined {
+    const overlays = this.buildingsProvider?.() ?? [];
+    if (overlays.length === 0) {
+      return undefined;
+    }
+
+    const contentX = (screenX - this.viewX) / this.zoom;
+    const contentY = (screenY - this.viewY) / this.zoom;
+    const mapLocalX = contentX - this.mapBorderPx;
+    const mapLocalY = contentY - this.mapBorderPx;
+    if (mapLocalX < 0 || mapLocalY < 0) {
+      return undefined;
+    }
+
+    const tileX = Math.floor(mapLocalX / this.tileSize);
+    const tileY = Math.floor(mapLocalY / this.tileSize);
+    if (
+      tileX < 0 ||
+      tileY < 0 ||
+      tileX >= this.map.width ||
+      tileY >= this.map.height
+    ) {
+      return undefined;
+    }
+
+    return overlays.find(
+      (overlay) =>
+        tileX >= overlay.x &&
+        tileX < overlay.x + overlay.width &&
+        tileY >= overlay.y &&
+        tileY < overlay.y + overlay.height
+    );
+  }
+
+  private isScreenPointInsidePlayableMap(screenX: number, screenY: number): boolean {
+    const contentX = (screenX - this.viewX) / this.zoom;
+    const contentY = (screenY - this.viewY) / this.zoom;
+    const mapLocalX = contentX - this.mapBorderPx;
+    const mapLocalY = contentY - this.mapBorderPx;
+    if (mapLocalX < 0 || mapLocalY < 0) {
+      return false;
+    }
+
+    return mapLocalX < this.mapWidthPx && mapLocalY < this.mapHeightPx;
+  }
+
+  private getBuildingAnchorRect(overlay: MapBuildingOverlay): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const localX = this.mapBorderPx + overlay.x * this.tileSize;
+    const localY = this.mapBorderPx + overlay.y * this.tileSize;
+    const localWidth = overlay.width * this.tileSize;
+    const localHeight = overlay.height * this.tileSize;
+
+    return {
+      x: this.viewX + localX * this.zoom,
+      y: this.viewY + localY * this.zoom,
+      width: localWidth * this.zoom,
+      height: localHeight * this.zoom,
+    };
   }
 
   private getTileColor(type: MapTileType): string {

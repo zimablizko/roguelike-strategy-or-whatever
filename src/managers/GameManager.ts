@@ -43,6 +43,7 @@ export class GameManager {
     this.mapManager = new MapManager(options.map);
     const playerState = this.mapManager.getPlayerStateSummary();
     this.stateManager = new StateManager({
+      mapManager: this.mapManager,
       initial: {
         tiles: {
           forest: playerState.tiles.forest,

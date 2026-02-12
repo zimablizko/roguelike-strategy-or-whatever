@@ -7,6 +7,7 @@ import {
   type Scene,
 } from 'excalibur';
 import {
+  type ResourceCost,
   ResourceManager,
   type ResourceType,
 } from '../../managers/ResourceManager';
@@ -39,7 +40,8 @@ type StatePopupTab = 'overview' | 'buildings';
 interface BuildingListItem {
   id: StateBuildingId;
   name: string;
-  built: boolean;
+  count: number;
+  unique: boolean;
 }
 
 const POPUP_WIDTH = 820;
@@ -153,11 +155,14 @@ export class StatePopup extends ScreenPopup {
 
   private populateOverviewTab(root: ScreenElement): void {
     const state = this.stateManager.getStateRef();
-    const builtCount = this.stateManager
-      .getBuildingDefinitions()
-      .filter((building) =>
-        this.stateManager.isBuildingBuilt(building.id)
-      ).length;
+    const buildingDefinitions = this.stateManager.getBuildingDefinitions();
+    const builtTypes = buildingDefinitions.filter(
+      (building) => this.stateManager.getBuildingCount(building.id) > 0
+    ).length;
+    const totalBuilt = buildingDefinitions.reduce(
+      (sum, building) => sum + this.stateManager.getBuildingCount(building.id),
+      0
+    );
 
     root.addChild(
       StatePopup.createLine(
@@ -217,7 +222,7 @@ export class StatePopup extends ScreenPopup {
       StatePopup.createLine(
         0,
         182,
-        `Buildings built: ${builtCount}/${this.stateManager.getBuildingDefinitions().length}`,
+        `Buildings: ${totalBuilt} total (${builtTypes}/${buildingDefinitions.length} types)`,
         14,
         Color.fromHex('#cfd9e2')
       )
@@ -257,7 +262,8 @@ export class StatePopup extends ScreenPopup {
       (definition) => ({
         id: definition.id,
         name: definition.name,
-        built: this.stateManager.isBuildingBuilt(definition.id),
+        count: this.stateManager.getBuildingCount(definition.id),
+        unique: definition.unique,
       })
     );
 
@@ -270,8 +276,12 @@ export class StatePopup extends ScreenPopup {
       gap: 6,
       items: listItems,
       showScrollbar: true,
-      getItemLabel: (item) =>
-        item.built ? item.name : `${item.name} (Not built)`,
+      getItemLabel: (item) => {
+        if (item.unique) {
+          return item.count > 0 ? `${item.name} (Built)` : `${item.name}`;
+        }
+        return `${item.name} x${item.count}`;
+      },
       isItemSelected: (item) => item.id === this.selectedBuildingId,
       onItemActivate: (item) => {
         this.selectedBuildingId = item.id;
@@ -307,7 +317,9 @@ export class StatePopup extends ScreenPopup {
     const textColor = Color.fromHex('#dce6ef');
     const okColor = Color.fromHex('#9fe6aa');
     const warnColor = Color.fromHex('#f5c179');
-    const built = this.stateManager.isBuildingBuilt(definition.id);
+    const count = this.stateManager.getBuildingCount(definition.id);
+    const built = count > 0;
+    const canBuildMore = !definition.unique || count === 0;
     const buildStatus = this.stateManager.canBuildBuilding(
       definition.id,
       this.resourceManager
@@ -327,28 +339,28 @@ export class StatePopup extends ScreenPopup {
     };
 
     addLine(definition.name, 20, titleColor, 10);
-    addLine(
-      built ? 'Status: Built' : 'Status: Not built yet',
-      14,
-      built ? okColor : warnColor,
-      10
-    );
+    if (definition.unique) {
+      addLine(`Built: ${count}/1`, 14, built ? okColor : warnColor, 10);
+    } else {
+      addLine(`Built: ${count}`, 14, built ? okColor : warnColor, 10);
+    }
 
     for (const line of StatePopup.wrapText(definition.description, width, 14)) {
       addLine(line, 14, textColor, 4);
     }
-    y += 8;
+    y += 6;
+    addLine(`Placement: ${definition.placementDescription}`, 13, textColor, 8);
 
     addLine('Stats', 16, titleColor, 8);
-    for (const stat of definition.getStats(state)) {
+    for (const stat of definition.getStats(state, count)) {
       addLine(`- ${stat}`, 13, textColor, 4);
     }
     y += 8;
 
-    if (!built) {
-      addLine('Build Requirements', 16, titleColor, 8);
+    addLine('Construction', 16, titleColor, 8);
+    if (canBuildMore) {
       for (const [resourceType, amount] of Object.entries(
-        definition.buildCost
+        buildStatus.nextCost
       ) as [ResourceType, number][]) {
         const have = this.resourceManager.getResource(resourceType);
         addLine(
@@ -358,6 +370,11 @@ export class StatePopup extends ScreenPopup {
           4
         );
       }
+
+      if (Object.keys(buildStatus.nextCost).length === 0) {
+        addLine('- No resource cost', 13, okColor, 4);
+      }
+
       if (definition.requiredTechnologies.length === 0) {
         addLine('- technologies: none', 13, okColor, 4);
       } else {
@@ -371,12 +388,17 @@ export class StatePopup extends ScreenPopup {
           );
         }
       }
+
+      addLine(
+        buildStatus.placementAvailable
+          ? '- placement: available'
+          : `- placement: ${buildStatus.placementReason ?? 'blocked'}`,
+        13,
+        buildStatus.placementAvailable ? okColor : warnColor,
+        4
+      );
       y += 10;
-    }
 
-    addLine('Actions', 16, titleColor, 8);
-
-    if (!built) {
       const actionWidth = Math.min(width, 480);
       const buildAction = this.createBuildingActionRow({
         x: 0,
@@ -385,7 +407,10 @@ export class StatePopup extends ScreenPopup {
         title: 'Build',
         description:
           'Construct this building in the state. Available only if all requirements are met.',
-        outcomes: this.getBuildOutcomes(definition),
+        outcomes: this.getBuildOutcomes(
+          buildStatus.nextCost,
+          definition.requiredTechnologies
+        ),
         enabled: buildStatus.buildable,
         onClick: () => this.openBuildPopup(definition.id),
       });
@@ -412,7 +437,20 @@ export class StatePopup extends ScreenPopup {
             .join(', ');
           addLine(`Missing resources: ${missingText}`, 12, warnColor, 4);
         }
+
+        if (!buildStatus.placementAvailable && buildStatus.placementReason) {
+          addLine(buildStatus.placementReason, 12, warnColor, 4);
+        }
       }
+    } else {
+      addLine('Unique building already exists.', 13, warnColor, 8);
+    }
+
+    y += 8;
+    addLine('Actions', 16, titleColor, 8);
+
+    if (!built) {
+      addLine('Build this building to unlock actions.', 13, textColor, 4);
       this.syncActionRowsHover(actionRows);
       return;
     }
@@ -589,16 +627,20 @@ export class StatePopup extends ScreenPopup {
     });
   }
 
-  private getBuildOutcomes(definition: StateBuildingDefinition): {
+  private getBuildOutcomes(
+    cost: ResourceCost,
+    requiredTechnologies: string[]
+  ): {
     label: string;
     value: string | number;
     color?: Color;
   }[] {
     const outcomes: { label: string; value: string | number; color?: Color }[] =
       [];
-    for (const [resourceType, amount] of Object.entries(
-      definition.buildCost
-    ) as [ResourceType, number][]) {
+    for (const [resourceType, amount] of Object.entries(cost) as [
+      ResourceType,
+      number,
+    ][]) {
       outcomes.push({
         label: resourceType,
         value: `-${amount}`,
@@ -606,10 +648,10 @@ export class StatePopup extends ScreenPopup {
       });
     }
 
-    if (definition.requiredTechnologies.length > 0) {
+    if (requiredTechnologies.length > 0) {
       outcomes.push({
         label: 'Tech',
-        value: definition.requiredTechnologies.join(', '),
+        value: requiredTechnologies.join(', '),
         color: Color.fromHex('#f5c179'),
       });
     }
@@ -622,11 +664,14 @@ export class StatePopup extends ScreenPopup {
     action: StateBuildingActionDefinition
   ): { label: string; value: string | number; color?: Color }[] {
     const state = this.stateManager.getStateRef();
+    const buildingCount = Math.max(
+      1,
+      this.stateManager.getBuildingCount(definition.id)
+    );
     const gainByBuilding: Partial<Record<StateBuildingId, number>> = {
-      lumbermill: Math.max(1, Math.floor(state.tiles.forest / 4)),
-      mine: Math.max(1, Math.floor(state.tiles.stone / 3)),
-      granary: Math.max(1, Math.floor(state.tiles.plains / 5)),
-      harbor: Math.max(1, Math.floor((state.tiles.river + state.ocean) / 4)),
+      lumbermill: Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
+      mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
+      farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };
     const value = gainByBuilding[definition.id];
     if (value === undefined) {
@@ -634,10 +679,10 @@ export class StatePopup extends ScreenPopup {
     }
 
     const resourceByBuilding: Record<StateBuildingId, string> = {
+      castle: 'Gold',
       lumbermill: 'Materials',
       mine: 'Materials',
-      granary: 'Food',
-      harbor: 'Gold',
+      farm: 'Food',
     };
 
     return [

@@ -19,6 +19,7 @@ import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { MapView } from '../ui/views/MapView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
+import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
 import { StateDisplay } from '../ui/views/StateView';
 import { TurnDisplay } from '../ui/views/TurnView';
 
@@ -33,6 +34,8 @@ export class GameplayScene extends Scene {
   private testPopup?: ScreenPopup;
   private statePopup?: StatePopup;
   private rulerPopup?: ScreenPopup;
+  private selectedBuildingView?: SelectedBuildingView;
+  private selectedBuildingInstanceId?: string;
 
   onInitialize(_engine: Engine): void {
     // Set background color
@@ -51,6 +54,8 @@ export class GameplayScene extends Scene {
     this.testPopup = undefined;
     this.statePopup = undefined;
     this.rulerPopup = undefined;
+    this.selectedBuildingView = undefined;
+    this.selectedBuildingInstanceId = undefined;
 
     // Recreate managers with default new-game data
     this.gameManager = new GameManager({
@@ -78,13 +83,14 @@ export class GameplayScene extends Scene {
     this.gameManager.logData();
 
     // Re-add world + UI
-    this.addMapView();
     this.addTooltipProvider();
+    this.addMapView();
     this.addStateDisplay(engine);
     this.addRulerDisplay(engine);
     this.addResourceDisplay(engine);
     this.addTurnDisplay(engine);
     this.addButtons(engine);
+    this.addSelectedBuildingView();
   }
 
   private addTooltipProvider(): void {
@@ -96,6 +102,15 @@ export class GameplayScene extends Scene {
     const map = this.gameManager.mapManager.getMapRef();
     const mapView = new MapView({
       map,
+      buildingsProvider: () =>
+        this.gameManager.stateManager.getBuildingMapOverlays(),
+      buildingsVersionProvider: () =>
+        this.gameManager.stateManager.getBuildingsVersion(),
+      onBuildingSelected: (instanceId) => {
+        this.selectedBuildingInstanceId = instanceId;
+        this.selectedBuildingView?.setSelectedBuilding(instanceId);
+      },
+      tooltipProvider: this.tooltipProvider,
       tileSize: 56,
       showGrid: CONFIG.MAP_SHOW_GRID,
     });
@@ -260,6 +275,17 @@ export class GameplayScene extends Scene {
     });
 
     this.addHudElement(endTurnButton);
+  }
+
+  private addSelectedBuildingView(): void {
+    const view = new SelectedBuildingView({
+      stateManager: this.gameManager.stateManager,
+      resourceManager: this.resourceManager,
+      tooltipProvider: this.tooltipProvider,
+    });
+    view.setSelectedBuilding(this.selectedBuildingInstanceId);
+    this.selectedBuildingView = view;
+    this.addHudElement(view);
   }
 
   private showDebugMenu(engine: Engine) {
