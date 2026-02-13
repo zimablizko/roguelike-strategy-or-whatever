@@ -7,19 +7,19 @@ import {
   type Scene,
 } from 'excalibur';
 import {
-  type ResourceCost,
   ResourceManager,
+  type ResourceCost,
   type ResourceType,
 } from '../../managers/ResourceManager';
 import {
   StateManager,
   type StateBuildingActionDefinition,
-  type StateBuildingDefinition,
   type StateBuildingId,
+  type TypedBuildingDefinition,
 } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
-import { ActionElement } from '../elements/ActionElement';
 import { UI_Z } from '../constants/ZLayers';
+import { ActionElement } from '../elements/ActionElement';
 import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenList } from '../elements/ScreenList';
 import { ScreenPopup, type ScreenPopupAnchor } from '../elements/ScreenPopup';
@@ -313,7 +313,7 @@ export class StatePopup extends ScreenPopup {
 
   private populateBuildingDetails(
     detailsRoot: ScreenElement,
-    definition: StateBuildingDefinition,
+    definition: TypedBuildingDefinition,
     width: number,
     panelHeight: number
   ): void {
@@ -328,7 +328,8 @@ export class StatePopup extends ScreenPopup {
       definition.id,
       this.resourceManager
     );
-    const hasActionPoint = this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint =
+      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
     const state = this.stateManager.getStateRef();
     const actionRows: ActionElement[] = [];
 
@@ -678,7 +679,7 @@ export class StatePopup extends ScreenPopup {
   }
 
   private getBuildingActionOutcomes(
-    definition: StateBuildingDefinition,
+    definition: TypedBuildingDefinition,
     action: StateBuildingActionDefinition
   ): { label: string; value: string | number; color?: Color }[] {
     const state = this.stateManager.getStateRef();
@@ -687,7 +688,8 @@ export class StatePopup extends ScreenPopup {
       this.stateManager.getBuildingCount(definition.id)
     );
     const gainByBuilding: Partial<Record<StateBuildingId, number>> = {
-      lumbermill: Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
+      lumbermill:
+        Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
       farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };

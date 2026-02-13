@@ -1,0 +1,248 @@
+import type { MapTileType } from '../managers/MapManager';
+import type { ResourceCost } from '../managers/ResourceManager';
+
+// ─── Types ───────────────────────────────────────────────────────────
+
+export type TechnologyId = string;
+
+interface BuildingActionContext {
+  state: Readonly<{
+    tiles: { forest: number; stone: number; plains: number; river: number };
+    ocean: number;
+  }>;
+  resources: { addResource(type: string, amount: number): void };
+  buildingCount: number;
+}
+
+export interface StateBuildingActionDefinition {
+  id: string;
+  name: string;
+  description: string;
+  run: (context: BuildingActionContext) => void;
+}
+
+export interface StateBuildingDefinition {
+  id: string;
+  name: string;
+  shortName: string;
+  description: string;
+  buildCost: ResourceCost;
+  costGrowth: number;
+  unique: boolean;
+  placementRule: {
+    width: number;
+    height: number;
+    allowedTiles: MapTileType[];
+    fallbackReplacementTile?: MapTileType;
+  };
+  placementDescription: string;
+  requiredTechnologies: TechnologyId[];
+  getStats: (
+    state: Readonly<{
+      tiles: { forest: number; stone: number; plains: number; river: number };
+      ocean: number;
+    }>,
+    count: number
+  ) => string[];
+  actions: StateBuildingActionDefinition[];
+}
+
+// ─── Passive income config per building type ─────────────────────────
+
+export interface BuildingPassiveIncome {
+  resourceType: 'gold' | 'materials' | 'food' | 'population';
+  amount: number | 'random:5:20';
+}
+
+export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
+  castle: [
+    { resourceType: 'gold', amount: 5 },
+    { resourceType: 'food', amount: 5 },
+    { resourceType: 'materials', amount: 5 },
+  ],
+  lumbermill: [{ resourceType: 'materials', amount: 10 }],
+  mine: [{ resourceType: 'materials', amount: 'random:5:20' }],
+  farm: [{ resourceType: 'food', amount: 10 }],
+};
+
+// ─── Building definitions ────────────────────────────────────────────
+
+export const stateBuildingDefinitions = {
+  castle: {
+    id: 'castle',
+    name: 'Castle',
+    shortName: 'Csl',
+    description:
+      'Capital fortification that anchors settlement growth. Only one Castle can exist. Passive income each end turn: +5 Gold, +5 Food, +5 Materials.',
+    buildCost: {
+      gold: 150,
+      materials: 120,
+    },
+    costGrowth: 1.2,
+    unique: true,
+    placementRule: {
+      width: 3,
+      height: 3,
+      allowedTiles: ['plains', 'sand'] as MapTileType[],
+      fallbackReplacementTile: 'plains' as MapTileType,
+    },
+    placementDescription: 'Requires 3x3 free Plains/Sand area.',
+    requiredTechnologies: [],
+    getStats: (_state: unknown, count: number) => [
+      `Built: ${count}/1`,
+      'Occupies 3x3 tiles',
+    ],
+    actions: [
+      {
+        id: 'expand-border',
+        name: 'Expand',
+        description:
+          'Expand state borders by 1 cell in all directions if no edge or ocean blocks expansion.',
+        run: () => {},
+      },
+    ],
+  },
+  lumbermill: {
+    id: 'lumbermill',
+    shortName: 'Lmb',
+    name: 'Lumbermill',
+    description:
+      'Processes nearby forests into construction-grade materials. Passive income each end turn: +10 Materials.',
+    buildCost: {
+      gold: 35,
+      materials: 20,
+    },
+    costGrowth: 1.2,
+    unique: false,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['forest'] as MapTileType[],
+    },
+    placementDescription: 'Requires 2x2 free Forest area.',
+    requiredTechnologies: [],
+    getStats: (state: { tiles: { forest: number } }, count: number) => {
+      const baseYield = Math.max(1, Math.floor(state.tiles.forest / 4));
+      return [
+        `Built: ${count}`,
+        `Forests: ${state.tiles.forest}`,
+        `Action yield: +${baseYield * Math.max(1, count)} Materials`,
+      ];
+    },
+    actions: [
+      {
+        id: 'process-timber',
+        name: 'Process Timber',
+        description:
+          'Convert nearby timber supply into materials based on forest tiles.',
+        run: ({ state, resources, buildingCount }: BuildingActionContext) => {
+          const gain =
+            Math.max(1, Math.floor(state.tiles.forest / 4)) *
+            Math.max(1, buildingCount);
+          resources.addResource('materials', gain);
+        },
+      },
+    ],
+  },
+  mine: {
+    id: 'mine',
+    name: 'Mine',
+    shortName: 'Min',
+    description:
+      'Extracts ore and stone from rocky terrain, improving material throughput. Passive income each end turn: +5 to +20 Materials.',
+    buildCost: {
+      gold: 45,
+      materials: 30,
+    },
+    costGrowth: 1.2,
+    unique: false,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['rocks'] as MapTileType[],
+    },
+    placementDescription: 'Requires 2x2 free Rocks area.',
+    requiredTechnologies: [],
+    getStats: (state: { tiles: { stone: number } }, count: number) => {
+      const baseYield = Math.max(1, Math.floor(state.tiles.stone / 4));
+      return [
+        `Built: ${count}`,
+        `Stone tiles: ${state.tiles.stone}`,
+        `Action yield: +${baseYield * Math.max(1, count)} Materials`,
+      ];
+    },
+    actions: [
+      {
+        id: 'extract-ore',
+        name: 'Extract Ore',
+        description: 'Mine stone deposits and add materials to your stockpile.',
+        run: ({ state, resources, buildingCount }: BuildingActionContext) => {
+          const gain =
+            Math.max(1, Math.floor(state.tiles.stone / 4)) *
+            Math.max(1, buildingCount);
+          resources.addResource('materials', gain);
+        },
+      },
+    ],
+  },
+  farm: {
+    id: 'farm',
+    shortName: 'Frm',
+    name: 'Farm',
+    description:
+      'Stores and preserves food gathered from fertile plains for future turns. Passive income each end turn: +10 Food.',
+    buildCost: {
+      gold: 40,
+      materials: 24,
+    },
+    costGrowth: 1.2,
+    unique: false,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['plains'] as MapTileType[],
+    },
+    placementDescription: 'Requires 2x2 free Plains area.',
+    requiredTechnologies: [],
+    getStats: (state: { tiles: { plains: number } }, count: number) => {
+      const baseYield = Math.max(1, Math.floor(state.tiles.plains / 4));
+      return [
+        `Built: ${count}`,
+        `Plains: ${state.tiles.plains}`,
+        `Action yield: +${baseYield * Math.max(1, count)} Food`,
+      ];
+    },
+    actions: [
+      {
+        id: 'gather-harvest',
+        name: 'Gather Harvest',
+        description: 'Collect and store harvest from plains tiles.',
+        run: ({ state, resources, buildingCount }: BuildingActionContext) => {
+          const gain =
+            Math.max(1, Math.floor(state.tiles.plains / 4)) *
+            Math.max(1, buildingCount);
+          resources.addResource('food', gain);
+        },
+      },
+    ],
+  },
+} as const satisfies Record<string, StateBuildingDefinition>;
+
+/** Building ID type derived from the definitions object keys. */
+export type StateBuildingId = keyof typeof stateBuildingDefinitions;
+
+/** Building definition with id narrowed to known building IDs. */
+export type TypedBuildingDefinition = StateBuildingDefinition & {
+  id: StateBuildingId;
+};
+
+/** Helper to create an empty building count record. */
+export function createEmptyBuildingRecord(): Record<StateBuildingId, number> {
+  const record = {} as Record<StateBuildingId, number>;
+  for (const key of Object.keys(
+    stateBuildingDefinitions
+  ) as StateBuildingId[]) {
+    record[key] = 0;
+  }
+  return record;
+}

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a roguelike strategy game built with **Excalibur.js** game engine and bundled with **Vite**. The project uses TypeScript and follows the **Entity-Component-System (ECS)** architectural pattern.
+This is a roguelike strategy game built with **Excalibur.js** game engine and bundled with **Vite**. The project uses TypeScript and follows a **Manager-based** architectural pattern with dedicated UI views.
 
 ## Tech Stack
 
@@ -16,13 +16,36 @@ This is a roguelike strategy game built with **Excalibur.js** game engine and bu
 
 ```
 src/
-├── ecs/
-│   ├── components/     # Data containers extending Excalibur's Component class
-│   ├── entities/       # Factory functions that create Actors with components
-│   └── systems/        # Functions containing game logic that process entities
-├── scenes/             # Excalibur Scene implementations
-├── game.ts             # Game initialization and configuration
-└── main.ts             # Application entry point
+├── _common/
+│   ├── config.ts          # Game configuration constants
+│   ├── math.ts            # Shared math/utility functions (clamp, randomInt, etc.)
+│   ├── random.ts          # Seedable PRNG for reproducible randomness
+│   ├── resources.ts       # Asset loading (images, sprites)
+│   └── text.ts            # Shared text utilities (measureTextWidth, wrapText)
+├── data/
+│   └── buildings.ts       # Building definitions data
+├── managers/
+│   ├── GameManager.ts     # Top-level manager that owns sub-managers
+│   ├── MapManager.ts      # Procedural map generation and storage
+│   ├── ResourceManager.ts # Player resource state and operations
+│   ├── RulerManager.ts    # Ruler data (name, age, popularity)
+│   ├── StateManager.ts    # State data, building placement, technologies
+│   └── TurnManager.ts     # Turn lifecycle and passive income
+├── scenes/
+│   ├── GameOverScene.ts   # Game over screen
+│   ├── GameplayScene.ts   # Main gameplay scene
+│   ├── InitializationScene.ts
+│   └── MainMenu.ts        # Main menu screen
+├── ui/
+│   ├── constants/         # Z-layer constants
+│   ├── css/               # Stylesheets
+│   ├── elements/          # Reusable UI elements (buttons, popups, lists)
+│   ├── popups/            # Specific popup implementations
+│   ├── tooltip/           # Tooltip system
+│   ├── utils/             # UI utilities
+│   └── views/             # HUD views (map, resources, turns, buildings)
+├── game.ts                # Game initialization and configuration
+└── main.ts                # Application entry point
 ```
 
 ## Development Commands
@@ -34,109 +57,42 @@ src/
 
 ## Architecture Guidelines
 
-### Entity-Component-System (ECS) Pattern
+### Manager Pattern
 
-The project follows strict ECS separation of concerns:
+The project uses dedicated manager classes for game state:
 
-1. **Components** (Data only)
-   - Extend `Component` from Excalibur
-   - Contain only data properties and simple getters/setters
-   - Located in `src/ecs/components/index.ts`
-   - Example: `PositionComponent`, `VelocityComponent`, `HealthComponent`
+1. **GameManager** — Top-level orchestrator that creates and owns all sub-managers
+2. **ResourceManager** — Single source of truth for player resources (gold, materials, food, population)
+3. **StateManager** — State data, building definitions/placement, technologies
+4. **MapManager** — Procedural map generation with Voronoi zones
+5. **RulerManager** — Ruler identity and stats
+6. **TurnManager** — Turn lifecycle, action points, passive income
 
-2. **Entities** (Actors with Components)
-   - Created using factory functions in `src/ecs/entities/factories.ts`
-   - Factory functions return Excalibur `Actor` instances with components attached
-   - Use `Actor.addComponent()` to attach components
-   - Example: `createPlayer()`, `createEnemy()`, `createWall()`
+### Shared Utilities
 
-3. **Systems** (Game Logic)
-   - Pure functions in `src/ecs/systems/index.ts`
-   - Process entities by filtering for required components
-   - Called from scene's `onPreUpdate()` or `onPostUpdate()` methods
-   - Example: `updatePlayerMovement()`, `updateMovement()`
+Common functions live in `src/_common/` to avoid duplication:
+- `src/_common/math.ts` — `clamp()`, `randomInt()`
+- `src/_common/random.ts` — Seedable PRNG (`SeededRandom`)
+- `src/_common/text.ts` — `measureTextWidth()`, `wrapText()`
+
+### Data-Driven Definitions
+
+Building definitions live in `src/data/buildings.ts`. The `StateBuildingId` type is derived from the definitions object keys, so adding a building only requires editing one file.
+
+### UI Architecture
+
+- **Views** extend Excalibur `ScreenElement` and poll manager state in `onPreUpdate()`
+- Dirty-checking uses version counters (e.g. `getBuildingsVersion()`, `getResourcesVersion()`) to skip re-renders
+- `TooltipProvider` is a shared singleton per scene for tooltip rendering
 
 ### Coding Conventions
 
 - **TypeScript**: Use strict type checking (enabled in tsconfig.json)
 - **Imports**: Use named imports from Excalibur (e.g., `import { Actor, Color, vec } from 'excalibur'`)
 - **Comments**: Use JSDoc comments for classes, functions, and complex logic
-- **Component Access**: Use `entity.has(Component)` to check existence, `entity.get(Component)!` to access
 - **Vector Creation**: Use `vec(x, y)` helper from Excalibur
 - **Color Creation**: Use `Color.Blue`, `Color.Red` constants or hex strings
-
-### Component Guidelines
-
-When creating new components:
-```typescript
-import { Component } from 'excalibur';
-
-/**
- * Component description
- */
-export class MyComponent extends Component {
-  constructor(public myData: any) {
-    super();
-  }
-}
-```
-
-### Entity Factory Guidelines
-
-When creating new entity factories:
-```typescript
-import { Actor, Color, vec } from 'excalibur';
-
-/**
- * Create a my-entity entity
- */
-export function createMyEntity(x: number, y: number): Actor {
-  const entity = new Actor({
-    pos: vec(x, y),
-    width: 32,
-    height: 32,
-    color: Color.Blue,
-  });
-
-  entity.addComponent(new MyComponent(data));
-  return entity;
-}
-```
-
-### System Function Guidelines
-
-When creating new system functions:
-```typescript
-import { Actor } from 'excalibur';
-
-/**
- * System description
- * @param entities - All entities in the scene
- */
-export function updateMySystem(entities: Actor[]): void {
-  // Filter entities with required components
-  const relevantEntities = entities.filter(e => e.has(MyComponent));
-  
-  // Process each entity
-  for (const entity of relevantEntities) {
-    const component = entity.get(MyComponent)!;
-    // Game logic here
-  }
-}
-```
-
-## Player Controls
-
-- **Movement**: WASD or Arrow Keys
-- Movement is normalized for diagonal input
-- Velocity-based movement system
-
-## Game Entities
-
-- **Player**: Blue square (32x32), controlled by player, has health
-- **Enemy**: Red square (32x32), has health and velocity
-- **Wall**: Gray square (32x32), static obstacle
-- **Item**: Yellow square (24x24), collectible
+- **Randomness**: Use `SeededRandom` from `src/_common/random.ts` — never call `Math.random()` directly
 
 ## Build Configuration
 
@@ -150,10 +106,12 @@ The project auto-deploys to GitHub Pages via GitHub Actions on pushes to main/ma
 
 ## Important Notes for Copilot
 
-1. **Always follow ECS pattern**: Keep data in components, logic in systems
-2. **Use Excalibur APIs**: Don't reinvent what Excalibur provides (Actor, Component, Scene, etc.)
-3. **Type safety**: Use TypeScript types, avoid `any` when possible
-4. **Factory pattern**: Create entities through factory functions, not directly in scenes
-5. **Component filtering**: Use `entity.has()` before `entity.get()` to avoid errors
-6. **No tests**: This project does not have a test suite configured yet
-7. **Build before deploy**: Always run `npm run build` to ensure TypeScript compiles successfully
+1. **Follow Manager pattern**: Keep game data in managers, UI in views
+2. **Use shared utilities**: Import from `src/_common/` — do not duplicate `clamp`, `randomInt`, etc.
+3. **Data-driven buildings**: Add new buildings in `src/data/buildings.ts` only
+4. **Use Excalibur APIs**: Don't reinvent what Excalibur provides (Actor, Scene, etc.)
+5. **Type safety**: Use TypeScript types, avoid `any` when possible
+6. **Use SeededRandom**: For all random number generation
+7. **Version counters**: Use manager version numbers for dirty-checking in UI views
+8. **No tests**: This project does not have a test suite configured yet
+9. **Build before deploy**: Always run `npm run build` to ensure TypeScript compiles successfully

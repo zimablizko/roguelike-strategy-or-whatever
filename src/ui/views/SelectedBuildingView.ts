@@ -3,20 +3,22 @@ import {
   Font,
   FontUnit,
   GraphicsGroup,
-  type GraphicsGrouping,
   Rectangle,
   ScreenElement,
   Text,
-  type Scene,
   vec,
+  type GraphicsGrouping,
+  type Scene,
 } from 'excalibur';
+import { clamp } from '../../_common/math';
+import { measureTextWidth } from '../../_common/text';
 import { ResourceManager } from '../../managers/ResourceManager';
-import { TurnManager } from '../../managers/TurnManager';
 import {
   StateManager,
   type StateBuildingActionDefinition,
-  type StateBuildingDefinition,
+  type TypedBuildingDefinition,
 } from '../../managers/StateManager';
+import { TurnManager } from '../../managers/TurnManager';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
@@ -43,7 +45,10 @@ export class SelectedBuildingView extends ScreenElement {
   private currentPanelWidth: number;
   private selectedBuildingInstanceId?: string;
   private actionRows: ActionElement[] = [];
-  private lastRenderKey?: string;
+  private lastBuildingsVersion = -1;
+  private lastResourcesVersion = -1;
+  private lastTurnVersion = -1;
+  private lastSelectedId?: string;
 
   constructor(options: SelectedBuildingViewOptions) {
     super({ x: 0, y: 0 });
@@ -79,7 +84,7 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     this.selectedBuildingInstanceId = instanceId;
-    this.lastRenderKey = undefined;
+    this.lastBuildingsVersion = -1;
   }
 
   containsScreenPoint(screenX: number, screenY: number): boolean {
@@ -110,29 +115,32 @@ export class SelectedBuildingView extends ScreenElement {
   }
 
   private updateDisplay(force: boolean): void {
-    const state = this.stateManager.getStateRef();
-    const selected = this.selectedBuildingInstanceId
-      ? this.stateManager
-          .getBuildingMapOverlays()
-          .find((item) => item.instanceId === this.selectedBuildingInstanceId)
-      : undefined;
+    const bv = this.stateManager.getBuildingsVersion();
+    const rv = this.resourceManager.getResourcesVersion();
+    const tv = this.turnManager.getTurnVersion();
+    const selId = this.selectedBuildingInstanceId;
 
-    const renderKey = selected
-      ? [
-          selected.instanceId,
-          this.stateManager.getBuildingCount(selected.buildingId),
-          state.tiles.forest,
-          state.tiles.stone,
-          state.tiles.plains,
-          state.tiles.river,
-          state.ocean,
-        ].join('|')
-      : 'none';
-
-    if (!force && this.lastRenderKey === renderKey) {
+    if (
+      !force &&
+      bv === this.lastBuildingsVersion &&
+      rv === this.lastResourcesVersion &&
+      tv === this.lastTurnVersion &&
+      selId === this.lastSelectedId
+    ) {
       return;
     }
-    this.lastRenderKey = renderKey;
+
+    this.lastBuildingsVersion = bv;
+    this.lastResourcesVersion = rv;
+    this.lastTurnVersion = tv;
+    this.lastSelectedId = selId;
+
+    const state = this.stateManager.getStateRef();
+    const selected = selId
+      ? this.stateManager
+          .getBuildingMapOverlays()
+          .find((item) => item.instanceId === selId)
+      : undefined;
 
     this.clearActionRows();
 
@@ -171,7 +179,9 @@ export class SelectedBuildingView extends ScreenElement {
       },
     ];
 
-    const definition = this.stateManager.getBuildingDefinition(selected.buildingId);
+    const definition = this.stateManager.getBuildingDefinition(
+      selected.buildingId
+    );
     if (!definition) {
       this.graphics.isVisible = false;
       this.graphics.use(new GraphicsGroup({ members }));
@@ -183,12 +193,12 @@ export class SelectedBuildingView extends ScreenElement {
     const areaLine = `Area ${selected.width}x${selected.height}  Count ${count}`;
 
     const leftSectionMaxLineWidth = Math.max(
-      this.measureTextWidth('Selected', 12),
-      this.measureTextWidth(definition.name, 20),
-      this.measureTextWidth(areaLine, 12),
-      ...stats.map((stat) => this.measureTextWidth(`- ${stat}`, 12))
+      measureTextWidth('Selected', 12),
+      measureTextWidth(definition.name, 20),
+      measureTextWidth(areaLine, 12),
+      ...stats.map((stat) => measureTextWidth(`- ${stat}`, 12))
     );
-    const leftSectionWidth = this.clamp(
+    const leftSectionWidth = clamp(
       Math.ceil(leftSectionMaxLineWidth) + 12,
       180,
       280
@@ -198,11 +208,17 @@ export class SelectedBuildingView extends ScreenElement {
     const contentGap = 14;
     const sidePadding = 12;
     const desiredPanelWidth =
-      sidePadding + leftSectionWidth + contentGap + actionButtonWidth + sidePadding;
+      sidePadding +
+      leftSectionWidth +
+      contentGap +
+      actionButtonWidth +
+      sidePadding;
 
     const engine = this.scene?.engine;
-    const viewportMaxWidth = engine ? engine.drawWidth - 24 : this.maxPanelWidth;
-    this.currentPanelWidth = this.clamp(
+    const viewportMaxWidth = engine
+      ? engine.drawWidth - 24
+      : this.maxPanelWidth;
+    this.currentPanelWidth = clamp(
       desiredPanelWidth,
       this.minPanelWidth,
       Math.min(this.maxPanelWidth, viewportMaxWidth)
@@ -213,13 +229,7 @@ export class SelectedBuildingView extends ScreenElement {
     const actionsTitleX = this.currentPanelWidth - actionButtonWidth - 12;
 
     members.push(
-      this.createTextMember(
-        'Selected',
-        12,
-        Color.fromHex('#9fb4c8'),
-        12,
-        8
-      ),
+      this.createTextMember('Selected', 12, Color.fromHex('#9fb4c8'), 12, 8),
       this.createTextMember(
         definition.name,
         20,
@@ -227,19 +237,19 @@ export class SelectedBuildingView extends ScreenElement {
         12,
         24
       ),
-      this.createTextMember(
-        areaLine,
-        12,
-        Color.fromHex('#cfd9e2'),
-        12,
-        46
-      )
+      this.createTextMember(areaLine, 12, Color.fromHex('#cfd9e2'), 12, 46)
     );
 
     let statY = statsBaseY;
     for (const stat of stats) {
       members.push(
-        this.createTextMember(`- ${stat}`, 12, Color.fromHex('#dce6ef'), 12, statY)
+        this.createTextMember(
+          `- ${stat}`,
+          12,
+          Color.fromHex('#dce6ef'),
+          12,
+          statY
+        )
       );
       statY += statsGap;
     }
@@ -259,7 +269,7 @@ export class SelectedBuildingView extends ScreenElement {
   }
 
   private createActionRows(
-    definition: StateBuildingDefinition,
+    definition: TypedBuildingDefinition,
     startX: number,
     startY: number,
     rowWidth: number
@@ -278,7 +288,8 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     let y = startY;
-    const hasActionPoint = this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint =
+      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
     for (const action of definition.actions) {
       if (y + 36 > this.panelHeight - 8) {
         break;
@@ -299,27 +310,33 @@ export class SelectedBuildingView extends ScreenElement {
         outcomes: this.getActionOutcomes(definition, action),
         tooltipProvider: this.tooltipProvider,
         bgColor: enabled ? Color.fromHex('#274158') : Color.fromHex('#2a2f35'),
-        hoverBgColor: enabled ? Color.fromHex('#356083') : Color.fromHex('#2a2f35'),
-        pressedBgColor: enabled ? Color.fromHex('#2e5270') : Color.fromHex('#2a2f35'),
+        hoverBgColor: enabled
+          ? Color.fromHex('#356083')
+          : Color.fromHex('#2a2f35'),
+        pressedBgColor: enabled
+          ? Color.fromHex('#2e5270')
+          : Color.fromHex('#2a2f35'),
         hoverBorderColor: enabled
           ? Color.fromHex('#f1c40f')
           : Color.fromHex('#555d66'),
         textColor: enabled ? Color.White : Color.fromHex('#8b97a3'),
         tooltipWidth: 260,
-        onClick: enabled ? () => {
-          if (!this.turnManager.spendActionPoints(1)) {
-            return;
-          }
-          const activated = this.stateManager.activateBuildingAction(
-            definition.id,
-            action.id,
-            this.resourceManager
-          );
-          if (!activated) {
-            return;
-          }
-          this.lastRenderKey = undefined;
-        } : undefined,
+        onClick: enabled
+          ? () => {
+              if (!this.turnManager.spendActionPoints(1)) {
+                return;
+              }
+              const activated = this.stateManager.activateBuildingAction(
+                definition.id,
+                action.id,
+                this.resourceManager
+              );
+              if (!activated) {
+                return;
+              }
+              this.lastBuildingsVersion = -1;
+            }
+          : undefined,
       });
 
       this.actionRows.push(row);
@@ -336,15 +353,15 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     const widestTitle = actions.reduce(
-      (max, action) => Math.max(max, this.measureTextWidth(action.name, 16)),
+      (max, action) => Math.max(max, measureTextWidth(action.name, 16)),
       0
     );
 
-    return this.clamp(Math.ceil(widestTitle) + 26, 188, 300);
+    return clamp(Math.ceil(widestTitle) + 26, 188, 300);
   }
 
   private getActionOutcomes(
-    definition: StateBuildingDefinition,
+    definition: TypedBuildingDefinition,
     action: StateBuildingActionDefinition
   ): { label: string; value: string | number; color?: Color }[] {
     const state = this.stateManager.getStateRef();
@@ -353,8 +370,11 @@ export class SelectedBuildingView extends ScreenElement {
       this.stateManager.getBuildingCount(definition.id)
     );
 
-    const gainByBuilding: Partial<Record<StateBuildingDefinition['id'], number>> = {
-      lumbermill: Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
+    const gainByBuilding: Partial<
+      Record<TypedBuildingDefinition['id'], number>
+    > = {
+      lumbermill:
+        Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
       farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };
@@ -372,7 +392,9 @@ export class SelectedBuildingView extends ScreenElement {
       return [{ label: 'Action', value: action.id }];
     }
 
-    const resourceByBuilding: Partial<Record<StateBuildingDefinition['id'], string>> = {
+    const resourceByBuilding: Partial<
+      Record<TypedBuildingDefinition['id'], string>
+    > = {
       lumbermill: 'Materials',
       mine: 'Materials',
       farm: 'Food',
@@ -395,7 +417,8 @@ export class SelectedBuildingView extends ScreenElement {
     this.actionRows = [];
 
     const orphanInfoLines = this.children.filter(
-      (child) => child !== undefined && child.name === 'selected-building-info-line'
+      (child) =>
+        child !== undefined && child.name === 'selected-building-info-line'
     );
     for (const line of orphanInfoLines) {
       if (!line.isKilled()) {
@@ -422,21 +445,6 @@ export class SelectedBuildingView extends ScreenElement {
       }),
       offset: vec(x, y),
     };
-  }
-
-  private measureTextWidth(text: string, size: number): number {
-    return new Text({
-      text,
-      font: new Font({
-        size,
-        unit: FontUnit.Px,
-        color: Color.White,
-      }),
-    }).width;
-  }
-
-  private clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
   }
 
   private createStaticTextElement(

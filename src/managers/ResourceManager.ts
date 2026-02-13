@@ -16,6 +16,7 @@ export interface ResourceManagerOptions {
  */
 export class ResourceManager {
   private resources: PlayerData['resources'];
+  private resourcesVersion = 0;
 
   constructor(options: ResourceManagerOptions) {
     this.resources = { ...options.initial };
@@ -46,10 +47,19 @@ export class ResourceManager {
   }
 
   /**
+   * Version counter incremented on every mutation.
+   * UI views can compare this to skip re-renders.
+   */
+  getResourcesVersion(): number {
+    return this.resourcesVersion;
+  }
+
+  /**
    * Set a specific resource to an exact value (clamped to 0)
    */
   setResource(type: ResourceType, amount: number): void {
     this.resources[type] = Math.max(0, amount);
+    this.resourcesVersion++;
   }
 
   /**
@@ -57,6 +67,7 @@ export class ResourceManager {
    */
   addResource(type: ResourceType, amount: number): void {
     this.resources[type] = Math.max(0, this.resources[type] + amount);
+    this.resourcesVersion++;
   }
 
   /**
@@ -66,6 +77,7 @@ export class ResourceManager {
   spendResource(type: ResourceType, amount: number): boolean {
     if (this.resources[type] >= amount) {
       this.resources[type] -= amount;
+      this.resourcesVersion++;
       return true;
     }
     return false;
@@ -112,6 +124,7 @@ export class ResourceManager {
     ][]) {
       this.resources[type] -= amount;
     }
+    this.resourcesVersion++;
     return true;
   }
 
@@ -125,6 +138,7 @@ export class ResourceManager {
     ][]) {
       this.resources[type] = Math.max(0, this.resources[type] + amount);
     }
+    this.resourcesVersion++;
   }
 
   /**
@@ -137,5 +151,6 @@ export class ResourceManager {
       food: 0,
       population: 0,
     };
+    this.resourcesVersion++;
   }
 }

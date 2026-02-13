@@ -5,24 +5,27 @@ import {
   GraphicsGroup,
   Keys,
   PointerButton,
-  type Subscription,
-  type GraphicsGrouping,
   Rectangle,
   ScreenElement,
   Text,
-  type Scene,
   vec,
+  type GraphicsGrouping,
+  type Scene,
+  type Subscription,
 } from 'excalibur';
 import type { ResourceType } from '../../managers/ResourceManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import {
   StateManager,
   type StateBuildingBuildStatus,
-  type StateBuildingDefinition,
+  type TypedBuildingDefinition,
 } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { ScreenButton } from '../elements/ScreenButton';
-import { TooltipProvider, type TooltipOutcome } from '../tooltip/TooltipProvider';
+import {
+  TooltipProvider,
+  type TooltipOutcome,
+} from '../tooltip/TooltipProvider';
 
 export interface QuickBuildViewOptions {
   stateManager: StateManager;
@@ -38,7 +41,7 @@ export interface QuickBuildViewOptions {
 }
 
 interface BuildRow {
-  definition: StateBuildingDefinition;
+  definition: TypedBuildingDefinition;
   status: StateBuildingBuildStatus;
   enabled: boolean;
 }
@@ -63,7 +66,10 @@ export class QuickBuildView extends ScreenElement {
 
   private expanded = false;
   private currentPanelHeight = 0;
-  private lastRenderKey?: string;
+  private lastBuildingsVersion = -1;
+  private lastResourcesVersion = -1;
+  private lastTurnVersion = -1;
+  private lastExpandedState = false;
   private readonly toggleButton: ScreenButton;
   private rowButtons: ScreenButton[] = [];
   private pointerSubscriptions: Subscription[] = [];
@@ -109,7 +115,7 @@ export class QuickBuildView extends ScreenElement {
             return;
           }
           this.expanded = false;
-          this.lastRenderKey = undefined;
+          this.invalidateRender();
         })
       );
     }
@@ -162,29 +168,34 @@ export class QuickBuildView extends ScreenElement {
     const totalHeight =
       (this.expanded ? this.currentPanelHeight + this.panelGap : 0) +
       this.toggleHeight;
-    this.pos = vec(this.leftMargin, engine.drawHeight - this.bottomMargin - totalHeight);
+    this.pos = vec(
+      this.leftMargin,
+      engine.drawHeight - this.bottomMargin - totalHeight
+    );
   }
 
   private render(force: boolean): void {
-    const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
-    const rows = this.getRows();
-    const rowsKey = rows
-      .map((row) => {
-        const nextCost = row.status.nextCost;
-        const costKey = Object.entries(nextCost)
-          .map(([k, v]) => `${k}:${v}`)
-          .join(',');
-        return `${row.definition.id}:${row.enabled ? 1 : 0}:${costKey}:${
-          row.status.placementReason ?? ''
-        }`;
-      })
-      .join('|');
-    const renderKey = `${this.expanded ? 1 : 0}|ap:${apCurrent}|${rowsKey}`;
+    const bv = this.stateManager.getBuildingsVersion();
+    const rv = this.resourceManager.getResourcesVersion();
+    const tv = this.turnManager.getTurnVersion();
+    const ex = this.expanded;
 
-    if (!force && this.lastRenderKey === renderKey) {
+    if (
+      !force &&
+      bv === this.lastBuildingsVersion &&
+      rv === this.lastResourcesVersion &&
+      tv === this.lastTurnVersion &&
+      ex === this.lastExpandedState
+    ) {
       return;
     }
-    this.lastRenderKey = renderKey;
+
+    this.lastBuildingsVersion = bv;
+    this.lastResourcesVersion = rv;
+    this.lastTurnVersion = tv;
+    this.lastExpandedState = ex;
+
+    const rows = this.getRows();
 
     this.clearRows();
 
@@ -198,7 +209,11 @@ export class QuickBuildView extends ScreenElement {
     this.currentPanelHeight =
       this.panelPadding * 2 +
       this.headerHeight +
-      Math.max(0, rows.length * this.rowHeight + Math.max(0, rows.length - 1) * this.rowGap);
+      Math.max(
+        0,
+        rows.length * this.rowHeight +
+          Math.max(0, rows.length - 1) * this.rowGap
+      );
     this.toggleButton.pos = vec(0, this.currentPanelHeight + this.panelGap);
 
     const members: GraphicsGrouping[] = [
@@ -242,7 +257,8 @@ export class QuickBuildView extends ScreenElement {
         height: this.rowHeight,
         title: row.definition.name,
         onClick: () => {
-          const hasActionPoint = this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+          const hasActionPoint =
+            this.turnManager.getTurnDataRef().actionPoints.current >= 1;
           if (!hasActionPoint) {
             return;
           }
@@ -270,7 +286,7 @@ export class QuickBuildView extends ScreenElement {
           if (latestInstance) {
             this.onBuilt?.(latestInstance.instanceId);
           }
-          this.lastRenderKey = undefined;
+          this.invalidateRender();
         },
       });
       if (!row.enabled) {
@@ -316,7 +332,8 @@ export class QuickBuildView extends ScreenElement {
   }
 
   private getRows(): BuildRow[] {
-    const hasActionPoint = this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint =
+      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
     return this.stateManager
       .getBuildingDefinitions()
       .filter((definition) => {
@@ -344,8 +361,8 @@ export class QuickBuildView extends ScreenElement {
     }
 
     if (row.definition.requiredTechnologies.length > 0) {
-      const unlocked = row.definition.requiredTechnologies.filter((technology) =>
-        this.stateManager.isTechnologyUnlocked(technology)
+      const unlocked = row.definition.requiredTechnologies.filter(
+        (technology) => this.stateManager.isTechnologyUnlocked(technology)
       );
       const missing = row.definition.requiredTechnologies.filter(
         (technology) => !this.stateManager.isTechnologyUnlocked(technology)
@@ -413,8 +430,12 @@ export class QuickBuildView extends ScreenElement {
     return outcomes;
   }
 
+  private invalidateRender(): void {
+    this.lastBuildingsVersion = -1;
+  }
+
   private toggleExpanded(): void {
     this.expanded = !this.expanded;
-    this.lastRenderKey = undefined;
+    this.invalidateRender();
   }
 }

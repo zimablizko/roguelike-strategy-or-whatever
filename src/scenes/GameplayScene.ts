@@ -16,8 +16,8 @@ import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
-import { MapView } from '../ui/views/MapView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
+import { MapView } from '../ui/views/MapView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
@@ -26,7 +26,7 @@ import { StateDisplay } from '../ui/views/StateView';
 import { TurnDisplay } from '../ui/views/TurnView';
 
 /**
- * Demo scene showcasing the ECS pattern
+ * Main gameplay scene — manages the game world, UI, and turn lifecycle.
  */
 export class GameplayScene extends Scene {
   private gameManager!: GameManager;
@@ -51,6 +51,19 @@ export class GameplayScene extends Scene {
     // Excalibur Scenes are initialized once, then re-activated many times.
     // Reset state on activation so starting a new game gets fresh defaults.
     this.resetGame(context.engine);
+  }
+
+  onDeactivate(): void {
+    // Clean up references so they can be garbage-collected between scene transitions
+    this.tooltipProvider = undefined!;
+    this.mapView = undefined;
+    this.mapIncomeEffectsView = undefined;
+    this.testPopup = undefined;
+    this.statePopup = undefined;
+    this.rulerPopup = undefined;
+    this.selectedBuildingView = undefined;
+    this.quickBuildView = undefined;
+    this.selectedBuildingInstanceId = undefined;
   }
 
   private resetGame(engine: Engine): void {
@@ -86,7 +99,7 @@ export class GameplayScene extends Scene {
       this.resourceManager,
       this.gameManager.rulerManager,
       this.gameManager.stateManager,
-      engine
+      { rng: this.gameManager.rng }
     );
 
     this.gameManager.logData();
@@ -121,7 +134,8 @@ export class GameplayScene extends Scene {
         this.selectBuilding(instanceId, false);
       },
       shouldIgnoreLeftClick: (screenX, screenY) =>
-        (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ?? false) ||
+        (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ??
+          false) ||
         (this.quickBuildView?.containsScreenPoint(screenX, screenY) ?? false),
       tooltipProvider: this.tooltipProvider,
       tileSize: 56,
@@ -277,6 +291,9 @@ export class GameplayScene extends Scene {
       onClick: () => {
         const result = this.turnManager.endTurn();
         this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
+        if (!result.upkeepPaid) {
+          engine.goToScene('game-over');
+        }
       },
     });
 
@@ -331,7 +348,10 @@ export class GameplayScene extends Scene {
     this.addHudElement(view);
   }
 
-  private selectBuilding(instanceId: string | undefined, syncMap: boolean): void {
+  private selectBuilding(
+    instanceId: string | undefined,
+    syncMap: boolean
+  ): void {
     this.selectedBuildingInstanceId = instanceId;
     this.selectedBuildingView?.setSelectedBuilding(instanceId);
     if (syncMap) {

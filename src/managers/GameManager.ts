@@ -1,3 +1,4 @@
+import { SeededRandom } from '../_common/random';
 import { MapManager } from './MapManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -19,6 +20,8 @@ export type GameManagerOptions = {
     width?: number;
     height?: number;
   };
+  /** Optional seed for reproducible randomness across all managers. */
+  seed?: number;
 };
 
 /**
@@ -31,19 +34,23 @@ export class GameManager {
   rulerManager: RulerManager;
   stateManager: StateManager;
   mapManager: MapManager;
+  readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
     this.playerData = options.playerData;
+    this.rng = new SeededRandom(options.seed);
+
     this.resourceManager = new ResourceManager({
       initial: options.playerData.resources,
     });
 
     // Ruler is generated at the beginning of the game.
-    this.rulerManager = new RulerManager();
-    this.mapManager = new MapManager(options.map);
+    this.rulerManager = new RulerManager({ rng: this.rng });
+    this.mapManager = new MapManager({ ...options.map, rng: this.rng });
     const playerState = this.mapManager.getPlayerStateSummary();
     this.stateManager = new StateManager({
       mapManager: this.mapManager,
+      rng: this.rng,
       initial: {
         tiles: {
           forest: playerState.tiles.forest,

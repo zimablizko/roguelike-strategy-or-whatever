@@ -1,14 +1,15 @@
 import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
+import { wrapText } from '../../_common/text';
 import {
   ResourceManager,
   type ResourceType,
 } from '../../managers/ResourceManager';
-import { TurnManager } from '../../managers/TurnManager';
 import {
   StateManager,
-  type StateBuildingDefinition,
   type StateBuildingId,
+  type TypedBuildingDefinition,
 } from '../../managers/StateManager';
+import { TurnManager } from '../../managers/TurnManager';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenPopup, type ScreenPopupAnchor } from '../elements/ScreenPopup';
@@ -62,13 +63,12 @@ export class BuildPopup extends ScreenPopup {
         );
       },
     });
-
   }
 
   private static populateContent(
     contentRoot: ScreenElement,
     popup: ScreenPopup,
-    definition: StateBuildingDefinition,
+    definition: TypedBuildingDefinition,
     stateManager: StateManager,
     resourceManager: ResourceManager,
     turnManager: TurnManager,
@@ -83,7 +83,8 @@ export class BuildPopup extends ScreenPopup {
     const warnColor = Color.fromHex('#f5c179');
     const okColor = Color.fromHex('#9fe6aa');
     const lineWrapWidth = 470;
-    const hasActionPoint = turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint =
+      turnManager.getTurnDataRef().actionPoints.current >= 1;
 
     let y = 0;
     const line = (text: string, size = 14, color = lineColor, gapAfter = 6) => {
@@ -98,7 +99,7 @@ export class BuildPopup extends ScreenPopup {
       line(`Built: ${count}`, 14, lineColor, 8);
     }
 
-    for (const descriptionLine of BuildPopup.wrapText(
+    for (const descriptionLine of wrapText(
       definition.description,
       lineWrapWidth,
       14
@@ -208,36 +209,5 @@ export class BuildPopup extends ScreenPopup {
       })
     );
     return line;
-  }
-
-  private static wrapText(
-    text: string,
-    maxWidth: number,
-    fontSize: number
-  ): string[] {
-    const words = text.split(/\s+/).filter(Boolean);
-    if (!words.length) {
-      return [''];
-    }
-
-    const maxChars = Math.max(18, Math.floor(maxWidth / (fontSize * 0.56)));
-    const lines: string[] = [];
-    let current = '';
-
-    for (const word of words) {
-      const next = current ? `${current} ${word}` : word;
-      if (next.length > maxChars && current) {
-        lines.push(current);
-        current = word;
-      } else {
-        current = next;
-      }
-    }
-
-    if (current) {
-      lines.push(current);
-    }
-
-    return lines;
   }
 }

@@ -6,6 +6,9 @@ export type MapTileType =
   | 'river'
   | 'ocean';
 
+import { clamp } from '../_common/math';
+import { SeededRandom } from '../_common/random';
+
 interface MapCell {
   x: number;
   y: number;
@@ -39,6 +42,7 @@ export interface MapData {
 export interface MapManagerOptions {
   width?: number;
   height?: number;
+  rng?: SeededRandom;
 }
 
 type OceanEdge = 'west' | 'east' | 'north' | 'south';
@@ -69,8 +73,10 @@ const DEFAULT_HEIGHT = 20;
  */
 export class MapManager {
   private map: MapData;
+  private readonly rng: SeededRandom;
 
   constructor(options: MapManagerOptions = {}) {
+    this.rng = options.rng ?? new SeededRandom();
     const width = Math.max(8, Math.floor(options.width ?? DEFAULT_WIDTH));
     const height = Math.max(8, Math.floor(options.height ?? DEFAULT_HEIGHT));
     this.map = this.generate(width, height);
@@ -169,25 +175,27 @@ export class MapManager {
     side: OceanEdge,
     depthScale: number
   ): void {
-    const minDepthBase = Math.max(2, Math.floor(Math.min(width, height) * 0.12));
+    const minDepthBase = Math.max(
+      2,
+      Math.floor(Math.min(width, height) * 0.12)
+    );
 
     if (side === 'west' || side === 'east') {
       const minDepth = Math.max(
         minDepthBase,
         Math.floor(width * 0.12 * depthScale)
       );
-      const maxDepth = Math.max(minDepth + 1, Math.floor(width * 0.34 * depthScale));
+      const maxDepth = Math.max(
+        minDepth + 1,
+        Math.floor(width * 0.34 * depthScale)
+      );
       const baseDepth = this.randomInt(minDepth, maxDepth);
       const driftLimit = Math.max(2, Math.floor(width * 0.08));
       let drift = 0;
 
       for (let y = 0; y < height; y++) {
-        drift = this.clamp(
-          drift + this.randomInt(-1, 1),
-          -driftLimit,
-          driftLimit
-        );
-        const depth = this.clamp(
+        drift = clamp(drift + this.randomInt(-1, 1), -driftLimit, driftLimit);
+        const depth = clamp(
           baseDepth + drift + this.randomInt(-1, 1),
           minDepth,
           Math.max(minDepth + 1, Math.floor(width * 0.46 * depthScale))
@@ -210,18 +218,17 @@ export class MapManager {
       minDepthBase,
       Math.floor(height * 0.12 * depthScale)
     );
-    const maxDepth = Math.max(minDepth + 1, Math.floor(height * 0.34 * depthScale));
+    const maxDepth = Math.max(
+      minDepth + 1,
+      Math.floor(height * 0.34 * depthScale)
+    );
     const baseDepth = this.randomInt(minDepth, maxDepth);
     const driftLimit = Math.max(2, Math.floor(height * 0.08));
     let drift = 0;
 
     for (let x = 0; x < width; x++) {
-      drift = this.clamp(
-        drift + this.randomInt(-1, 1),
-        -driftLimit,
-        driftLimit
-      );
-      const depth = this.clamp(
+      drift = clamp(drift + this.randomInt(-1, 1), -driftLimit, driftLimit);
+      const depth = clamp(
         baseDepth + drift + this.randomInt(-1, 1),
         minDepth,
         Math.max(minDepth + 1, Math.floor(height * 0.46 * depthScale))
@@ -246,8 +253,14 @@ export class MapManager {
   ): void {
     const centerX = width / 2 + this.randomInt(-2, 2);
     const centerY = height / 2 + this.randomInt(-2, 2);
-    const radiusX = Math.max(3, Math.floor(width * (0.16 + this.randomFloat() * 0.1)));
-    const radiusY = Math.max(3, Math.floor(height * (0.16 + this.randomFloat() * 0.1)));
+    const radiusX = Math.max(
+      3,
+      Math.floor(width * (0.16 + this.randomFloat() * 0.1))
+    );
+    const radiusY = Math.max(
+      3,
+      Math.floor(height * (0.16 + this.randomFloat() * 0.1))
+    );
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
@@ -333,8 +346,7 @@ export class MapManager {
       return undefined;
     }
 
-    const type =
-      availableTypes[this.randomInt(0, availableTypes.length - 1)];
+    const type = availableTypes[this.randomInt(0, availableTypes.length - 1)];
 
     if (type === 'ocean') {
       const start = coastCells[this.randomInt(0, coastCells.length - 1)];
@@ -358,9 +370,11 @@ export class MapManager {
     height: number,
     start: RiverStart
   ): MapCell | undefined {
-    const coastline = this.collectCoastlineLandCells(tiles, width, height).filter(
-      (cell) => !(cell.x === start.x && cell.y === start.y)
-    );
+    const coastline = this.collectCoastlineLandCells(
+      tiles,
+      width,
+      height
+    ).filter((cell) => !(cell.x === start.x && cell.y === start.y));
     const inland = this.collectNonOceanCells(tiles, width, height).filter(
       (cell) => !(cell.x === start.x && cell.y === start.y)
     );
@@ -429,10 +443,7 @@ export class MapManager {
         riverWidth
       );
 
-      if (
-        target &&
-        this.distanceSq(x, y, target.x, target.y) <= 2
-      ) {
+      if (target && this.distanceSq(x, y, target.x, target.y) <= 2) {
         break;
       }
 
@@ -566,9 +577,7 @@ export class MapManager {
   ): MapCell | undefined {
     let best: MapCell | undefined;
     let bestScore = Number.NEGATIVE_INFINITY;
-    const currentDist = target
-      ? this.distanceSq(x, y, target.x, target.y)
-      : 0;
+    const currentDist = target ? this.distanceSq(x, y, target.x, target.y) : 0;
 
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -696,7 +705,10 @@ export class MapManager {
       }
     }
 
-    const minClumpSize = Math.max(6, Math.floor(Math.min(width, height) * 0.35));
+    const minClumpSize = Math.max(
+      6,
+      Math.floor(Math.min(width, height) * 0.35)
+    );
     if (largest.length < minClumpSize) {
       return undefined;
     }
@@ -1048,7 +1060,7 @@ export class MapManager {
     const approxTilesPerZone = 70;
     const roughCount = Math.round(landTileCount / approxTilesPerZone);
     const maxZones = Math.max(2, Math.min(12, Math.floor(landTileCount / 25)));
-    return this.clamp(roughCount, 2, maxZones);
+    return clamp(roughCount, 2, maxZones);
   }
 
   private pickInitialCentroids(
@@ -1261,20 +1273,14 @@ export class MapManager {
   }
 
   private randomInt(min: number, max: number): number {
-    const lo = Math.ceil(min);
-    const hi = Math.floor(max);
-    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+    return this.rng.randomInt(min, max);
   }
 
   private randomFloat(): number {
-    return Math.random();
+    return this.rng.randomFloat();
   }
 
   private randomChance(chance: number): boolean {
-    return Math.random() < chance;
-  }
-
-  private clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
+    return this.rng.randomChance(chance);
   }
 }

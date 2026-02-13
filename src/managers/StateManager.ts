@@ -1,10 +1,29 @@
+import { clamp } from '../_common/math';
+import { SeededRandom } from '../_common/random';
+import {
+  createEmptyBuildingRecord,
+  stateBuildingDefinitions,
+  type StateBuildingActionDefinition,
+  type StateBuildingDefinition,
+  type StateBuildingId,
+  type TechnologyId,
+  type TypedBuildingDefinition,
+} from '../data/buildings';
+import type { MapData } from './MapManager';
+import { MapManager } from './MapManager';
 import type {
   ResourceCost,
   ResourceManager,
   ResourceType,
 } from './ResourceManager';
-import type { MapData, MapTileType } from './MapManager';
-import { MapManager } from './MapManager';
+
+export type {
+  StateBuildingActionDefinition,
+  StateBuildingDefinition,
+  StateBuildingId,
+  TechnologyId,
+  TypedBuildingDefinition,
+};
 
 export type StateTiles = {
   forest: number;
@@ -19,43 +38,6 @@ export type StateData = {
   tiles: StateTiles;
   ocean: number;
 };
-
-export type TechnologyId = string;
-
-export type StateBuildingId = 'castle' | 'lumbermill' | 'mine' | 'farm';
-
-interface BuildingActionContext {
-  state: Readonly<StateData>;
-  resources: ResourceManager;
-  buildingCount: number;
-}
-
-export interface StateBuildingActionDefinition {
-  id: string;
-  name: string;
-  description: string;
-  run: (context: BuildingActionContext) => void;
-}
-
-export interface StateBuildingDefinition {
-  id: StateBuildingId;
-  name: string;
-  shortName: string;
-  description: string;
-  buildCost: ResourceCost;
-  costGrowth: number;
-  unique: boolean;
-  placementRule: {
-    width: number;
-    height: number;
-    allowedTiles: MapTileType[];
-    fallbackReplacementTile?: MapTileType;
-  };
-  placementDescription: string;
-  requiredTechnologies: TechnologyId[];
-  getStats: (state: Readonly<StateData>, count: number) => string[];
-  actions: StateBuildingActionDefinition[];
-}
 
 export interface StateBuildingBuildStatus {
   buildable: boolean;
@@ -85,168 +67,6 @@ export interface StateBuildingMapOverlay extends StateBuildingInstance {
   shortName: string;
 }
 
-const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition> =
-  {
-    castle: {
-      id: 'castle',
-      name: 'Castle',
-      shortName: 'Csl',
-      description:
-        'Capital fortification that anchors settlement growth. Only one Castle can exist. Passive income each end turn: +5 Gold, +5 Food, +5 Materials.',
-      buildCost: {
-        gold: 150,
-        materials: 120,
-      },
-      costGrowth: 1.2,
-      unique: true,
-      placementRule: {
-        width: 3,
-        height: 3,
-        allowedTiles: ['plains', 'sand'],
-        fallbackReplacementTile: 'plains',
-      },
-      placementDescription: 'Requires 3x3 free Plains/Sand area.',
-      requiredTechnologies: [],
-      getStats: (_state, count) => [
-        `Built: ${count}/1`,
-        'Occupies 3x3 tiles',
-      ],
-      actions: [
-        {
-          id: 'expand-border',
-          name: 'Expand',
-          description:
-            'Expand state borders by 1 cell in all directions if no edge or ocean blocks expansion.',
-          run: () => {},
-        },
-      ],
-    },
-    lumbermill: {
-      id: 'lumbermill',
-      shortName: 'Lmb',
-      name: 'Lumbermill',
-      description:
-        'Processes nearby forests into construction-grade materials. Passive income each end turn: +10 Materials.',
-      buildCost: {
-        gold: 35,
-        materials: 20,
-      },
-      costGrowth: 1.2,
-      unique: false,
-      placementRule: {
-        width: 2,
-        height: 2,
-        allowedTiles: ['forest'],
-      },
-      placementDescription: 'Requires 2x2 free Forest area.',
-      requiredTechnologies: [],
-      getStats: (state, count) => {
-        const baseYield = Math.max(1, Math.floor(state.tiles.forest / 4));
-        return [
-          `Built: ${count}`,
-          `Forests: ${state.tiles.forest}`,
-          `Action yield: +${baseYield * Math.max(1, count)} Materials`,
-        ];
-      },
-      actions: [
-        {
-          id: 'process-timber',
-          name: 'Process Timber',
-          description:
-            'Convert nearby timber supply into materials based on forest tiles.',
-          run: ({ state, resources, buildingCount }) => {
-            const gain =
-              Math.max(1, Math.floor(state.tiles.forest / 4)) *
-              Math.max(1, buildingCount);
-            resources.addResource('materials', gain);
-          },
-        },
-      ],
-    },
-    mine: {
-      id: 'mine',
-      name: 'Mine',
-      shortName: 'Min',
-      description:
-        'Extracts ore and stone from rocky terrain, improving material throughput. Passive income each end turn: +5 to +20 Materials.',
-      buildCost: {
-        gold: 45,
-        materials: 30,
-      },
-      costGrowth: 1.2,
-      unique: false,
-      placementRule: {
-        width: 2,
-        height: 2,
-        allowedTiles: ['rocks'],
-      },
-      placementDescription: 'Requires 2x2 free Rocks area.',
-      requiredTechnologies: [],
-      getStats: (state, count) => {
-        const baseYield = Math.max(1, Math.floor(state.tiles.stone / 4));
-        return [
-          `Built: ${count}`,
-          `Stone tiles: ${state.tiles.stone}`,
-          `Action yield: +${baseYield * Math.max(1, count)} Materials`,
-        ];
-      },
-      actions: [
-        {
-          id: 'extract-ore',
-          name: 'Extract Ore',
-          description: 'Mine stone deposits and add materials to your stockpile.',
-          run: ({ state, resources, buildingCount }) => {
-            const gain =
-              Math.max(1, Math.floor(state.tiles.stone / 4)) *
-              Math.max(1, buildingCount);
-            resources.addResource('materials', gain);
-          },
-        },
-      ],
-    },
-    farm: {
-      id: 'farm',
-      shortName: 'Frm',
-      name: 'Farm',
-      description:
-        'Stores and preserves food gathered from fertile plains for future turns. Passive income each end turn: +10 Food.',
-      buildCost: {
-        gold: 40,
-        materials: 24,
-      },
-      costGrowth: 1.2,
-      unique: false,
-      placementRule: {
-        width: 2,
-        height: 2,
-        allowedTiles: ['plains'],
-      },
-      placementDescription: 'Requires 2x2 free Plains area.',
-      requiredTechnologies: [],
-      getStats: (state, count) => {
-        const baseYield = Math.max(1, Math.floor(state.tiles.plains / 4));
-        return [
-          `Built: ${count}`,
-          `Plains: ${state.tiles.plains}`,
-          `Action yield: +${baseYield * Math.max(1, count)} Food`,
-        ];
-      },
-      actions: [
-        {
-          id: 'gather-harvest',
-          name: 'Gather Harvest',
-          description: 'Collect and store harvest from plains tiles.',
-          run: ({ state, resources, buildingCount }) => {
-            const gain =
-              Math.max(1, Math.floor(state.tiles.plains / 4)) *
-              Math.max(1, buildingCount);
-            resources.addResource('food', gain);
-          },
-        },
-      ],
-    },
-  };
-
 interface MapCell {
   x: number;
   y: number;
@@ -261,17 +81,9 @@ interface PlacementCandidate {
   distanceSq: number;
 }
 
-function createEmptyBuildingRecord(): Record<StateBuildingId, number> {
-  return {
-    castle: 0,
-    lumbermill: 0,
-    mine: 0,
-    farm: 0,
-  };
-}
-
 export interface StateManagerOptions {
   mapManager?: MapManager;
+  rng?: SeededRandom;
   initial?: Partial<Omit<StateData, 'size' | 'tiles'>> & {
     tiles?: Partial<StateTiles>;
     technologies?: TechnologyId[];
@@ -285,6 +97,7 @@ export interface StateManagerOptions {
 export class StateManager {
   private state: StateData;
   private readonly mapManager?: MapManager;
+  private readonly rng: SeededRandom;
   private buildingCounts: Record<StateBuildingId, number>;
   private buildingInstances: StateBuildingInstance[] = [];
   private buildingInstanceSerial = 0;
@@ -293,6 +106,7 @@ export class StateManager {
 
   constructor(options: StateManagerOptions = {}) {
     this.mapManager = options.mapManager;
+    this.rng = options.rng ?? new SeededRandom();
     this.state = this.generateState(options.initial);
     this.buildingCounts = createEmptyBuildingRecord();
     this.applyProgress(options.initial);
@@ -331,7 +145,7 @@ export class StateManager {
   }
 
   setTileCount(type: keyof StateTiles, value: number): void {
-    this.state.tiles[type] = this.clamp(Math.floor(value), 0);
+    this.state.tiles[type] = clamp(Math.floor(value), 0);
     this.recomputeSize();
   }
 
@@ -339,23 +153,22 @@ export class StateManager {
     this.setTileCount(type, this.state.tiles[type] + delta);
   }
 
-  getBuildingDefinitions(): StateBuildingDefinition[] {
-    return Object.values(stateBuildingDefinitions);
+  getBuildingDefinitions(): TypedBuildingDefinition[] {
+    return Object.values(stateBuildingDefinitions) as TypedBuildingDefinition[];
   }
 
   getBuildingDefinition(
     id: StateBuildingId
-  ): StateBuildingDefinition | undefined {
-    return stateBuildingDefinitions[id];
+  ): TypedBuildingDefinition | undefined {
+    return stateBuildingDefinitions[id] as TypedBuildingDefinition | undefined;
   }
 
   getBuildingProgress(): Record<StateBuildingId, boolean> {
-    return {
-      castle: this.buildingCounts.castle > 0,
-      lumbermill: this.buildingCounts.lumbermill > 0,
-      mine: this.buildingCounts.mine > 0,
-      farm: this.buildingCounts.farm > 0,
-    };
+    const progress = {} as Record<StateBuildingId, boolean>;
+    for (const id of Object.keys(this.buildingCounts) as StateBuildingId[]) {
+      progress[id] = this.buildingCounts[id] > 0;
+    }
+    return progress;
   }
 
   getBuildingCounts(): Record<StateBuildingId, number> {
@@ -408,10 +221,9 @@ export class StateManager {
     const multiplier = Math.pow(definition.costGrowth, instanceCount);
     const scaled: ResourceCost = {};
 
-    for (const [resourceType, amount] of Object.entries(definition.buildCost) as [
-      ResourceType,
-      number,
-    ][]) {
+    for (const [resourceType, amount] of Object.entries(
+      definition.buildCost
+    ) as [ResourceType, number][]) {
       scaled[resourceType] = Math.max(0, Math.ceil(amount * multiplier));
     }
 
@@ -464,10 +276,7 @@ export class StateManager {
     }
 
     const nextCost = this.getBuildingCostForNext(id);
-    const missingResources = this.getMissingResources(
-      nextCost,
-      resources
-    );
+    const missingResources = this.getMissingResources(nextCost, resources);
     const missingTechnologies = definition.requiredTechnologies.filter(
       (tech) => !this.isTechnologyUnlocked(tech)
     );
@@ -598,7 +407,7 @@ export class StateManager {
       if (raw === true) {
         this.buildingCounts[id] = 1;
       } else if (typeof raw === 'number' && Number.isFinite(raw)) {
-        this.buildingCounts[id] = this.clamp(Math.floor(raw), 0);
+        this.buildingCounts[id] = clamp(Math.floor(raw), 0);
       }
     }
   }
@@ -630,21 +439,21 @@ export class StateManager {
     ];
     const name =
       initial?.name ??
-      names[Math.floor(Math.random() * names.length)] ??
+      names[this.rng.randomInt(0, names.length - 1)] ??
       'Unnamed State';
 
     const tiles = this.generateTiles(initial?.tiles);
-    const ocean = this.clamp(initial?.ocean ?? this.randomInt(0, 18), 0);
+    const ocean = clamp(initial?.ocean ?? this.rng.randomInt(0, 18), 0);
     const size = this.sumTiles(tiles);
     return { name, size, tiles, ocean };
   }
 
   private generateTiles(initial?: Partial<StateTiles>): StateTiles {
     return {
-      forest: this.clamp(initial?.forest ?? this.randomInt(8, 40), 0),
-      stone: this.clamp(initial?.stone ?? this.randomInt(4, 28), 0),
-      plains: this.clamp(initial?.plains ?? this.randomInt(10, 48), 0),
-      river: this.clamp(initial?.river ?? this.randomInt(2, 24), 0),
+      forest: clamp(initial?.forest ?? this.rng.randomInt(8, 40), 0),
+      stone: clamp(initial?.stone ?? this.rng.randomInt(4, 28), 0),
+      plains: clamp(initial?.plains ?? this.rng.randomInt(10, 48), 0),
+      river: clamp(initial?.river ?? this.rng.randomInt(2, 24), 0),
     };
   }
 
@@ -770,7 +579,9 @@ export class StateManager {
       };
     }
 
-    const zoneKeys = new Set<string>(zoneCells.map((cell) => `${cell.x},${cell.y}`));
+    const zoneKeys = new Set<string>(
+      zoneCells.map((cell) => `${cell.x},${cell.y}`)
+    );
     const candidatesByKey = new Map<string, MapCell>();
     let blockedByEdge = false;
     let blockedByOcean = false;
@@ -855,8 +666,7 @@ export class StateManager {
     const anchor =
       buildingId === 'castle'
         ? this.getZoneCenter(map, map.playerZoneId)
-        : this.getCastleCenter() ??
-          this.getZoneCenter(map, map.playerZoneId);
+        : (this.getCastleCenter() ?? this.getZoneCenter(map, map.playerZoneId));
     const occupied = this.collectOccupiedCells();
 
     let best: PlacementCandidate | undefined;
@@ -972,7 +782,10 @@ export class StateManager {
     return occupied;
   }
 
-  private getZoneCenter(map: Readonly<MapData>, zoneId: number): {
+  private getZoneCenter(
+    map: Readonly<MapData>,
+    zoneId: number
+  ): {
     x: number;
     y: number;
   } {
@@ -1010,16 +823,6 @@ export class StateManager {
       x: castle.x + (castle.width - 1) / 2,
       y: castle.y + (castle.height - 1) / 2,
     };
-  }
-
-  private randomInt(min: number, max: number): number {
-    const lo = Math.ceil(min);
-    const hi = Math.floor(max);
-    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
-  }
-
-  private clamp(value: number, min: number): number {
-    return Math.max(min, value);
   }
 
   private isInsideMap(

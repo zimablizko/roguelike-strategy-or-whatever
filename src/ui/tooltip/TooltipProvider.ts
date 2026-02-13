@@ -11,6 +11,7 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import { measureTextWidth } from '../../_common/text';
 import { UI_Z } from '../constants/ZLayers';
 
 export interface TooltipAnchorRect {
@@ -165,7 +166,10 @@ export class TooltipProvider extends ScreenElement {
       (max, row) => Math.max(max, row.rowWidth),
       0
     );
-    const contentWidth = Math.max(descriptionContentWidth, outcomesContentWidth);
+    const contentWidth = Math.max(
+      descriptionContentWidth,
+      outcomesContentWidth
+    );
     const minWidth = Math.min(this.minTooltipWidth, maxTooltipWidth);
     this.tooltipWidth = Math.max(
       minWidth,
@@ -408,7 +412,7 @@ export class TooltipProvider extends ScreenElement {
     const widthLimit = Math.max(40, maxTextWidth);
 
     for (const word of words) {
-      if (this.measureTextWidth(word, textColor) > widthLimit) {
+      if (measureTextWidth(word, this.fontSize, textColor) > widthLimit) {
         const chunks = this.breakWordToWidth(word, widthLimit, textColor);
         if (current) {
           lines.push(current);
@@ -423,7 +427,10 @@ export class TooltipProvider extends ScreenElement {
       }
 
       const next = current ? `${current} ${word}` : word;
-      if (this.measureTextWidth(next, textColor) > widthLimit && current) {
+      if (
+        measureTextWidth(next, this.fontSize, textColor) > widthLimit &&
+        current
+      ) {
         lines.push(current);
         current = word;
       } else {
@@ -448,7 +455,10 @@ export class TooltipProvider extends ScreenElement {
 
     for (const char of word) {
       const next = `${current}${char}`;
-      if (current && this.measureTextWidth(next, textColor) > maxTextWidth) {
+      if (
+        current &&
+        measureTextWidth(next, this.fontSize, textColor) > maxTextWidth
+      ) {
         chunks.push(current);
         current = char;
       } else {
@@ -461,17 +471,6 @@ export class TooltipProvider extends ScreenElement {
     }
 
     return chunks.length > 0 ? chunks : [''];
-  }
-
-  private measureTextWidth(text: string, color: Color): number {
-    return new Text({
-      text,
-      font: new Font({
-        size: this.fontSize,
-        unit: FontUnit.Px,
-        color,
-      }),
-    }).width;
   }
 
   private buildContentKey(request: TooltipRequest): string {

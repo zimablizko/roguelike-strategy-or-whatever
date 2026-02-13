@@ -1,4 +1,6 @@
 import { ImageSource } from 'excalibur';
+import { clamp } from '../_common/math';
+import { SeededRandom } from '../_common/random';
 import { Resources } from '../_common/resources';
 
 export type RulerData = {
@@ -11,6 +13,7 @@ export type RulerData = {
 
 export interface RulerManagerOptions {
   initial?: Partial<Omit<RulerData, 'portrait'>> & { portrait?: ImageSource };
+  rng?: SeededRandom;
 }
 
 /**
@@ -19,8 +22,10 @@ export interface RulerManagerOptions {
  */
 export class RulerManager {
   private ruler: RulerData;
+  private readonly rng: SeededRandom;
 
   constructor(options: RulerManagerOptions = {}) {
+    this.rng = options.rng ?? new SeededRandom();
     this.ruler = this.generateRuler(options.initial);
   }
 
@@ -45,7 +50,7 @@ export class RulerManager {
   }
 
   setPopularity(value: number): void {
-    this.ruler.popularity = this.clamp(Math.floor(value), 0, 100);
+    this.ruler.popularity = clamp(Math.floor(value), 0, 100);
   }
 
   addPopularity(delta: number): void {
@@ -56,12 +61,12 @@ export class RulerManager {
     const names = ['Aurelia', 'Cedric', 'Elowen', 'Rowan', 'Dorian', 'Lyra'];
     const name =
       initial?.name ??
-      names[Math.floor(Math.random() * names.length)] ??
+      names[this.rng.randomInt(0, names.length - 1)] ??
       'Ruler';
 
-    const age = initial?.age ?? this.randomInt(18, 55);
-    const popularity = this.clamp(
-      initial?.popularity ?? this.randomInt(35, 75),
+    const age = initial?.age ?? this.rng.randomInt(18, 55);
+    const popularity = clamp(
+      initial?.popularity ?? this.rng.randomInt(35, 75),
       0,
       100
     );
@@ -70,15 +75,5 @@ export class RulerManager {
     const portrait = initial?.portrait ?? Resources.PopulationIcon;
 
     return { name, age, popularity, portrait };
-  }
-
-  private randomInt(min: number, max: number): number {
-    const lo = Math.ceil(min);
-    const hi = Math.floor(max);
-    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
-  }
-
-  private clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
   }
 }

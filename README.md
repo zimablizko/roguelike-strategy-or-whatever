@@ -1,27 +1,45 @@
 # Roguelike Strategy Game
 
-A roguelike strategy game template built with [Excalibur.js](https://excaliburjs.com/) and bundled with [Vite](https://vitejs.dev/). This project uses the Entity-Component-System (ECS) pattern for game architecture.
+A roguelike strategy game built with [Excalibur.js](https://excaliburjs.com/) and bundled with [Vite](https://vitejs.dev/). This project uses a Manager-based architecture with dedicated UI views.
 
 ## Features
 
 - ⚡ **Vite** for fast development and optimized builds
 - 🎮 **Excalibur.js** game engine
-- 🏗️ **ECS Pattern** for clean, modular game architecture
+- 🏗️ **Manager Pattern** for clean, modular game state management
 - 📦 **TypeScript** for type safety
-- 🎨 Demo scene with player movement, enemies, obstacles, and items
+- 🗺️ Procedural map generation with Voronoi zones
+- 🏰 Building placement and management system
+- 👑 Ruler system with stats
+- 💰 Resource management (gold, materials, food, population)
 
 ## Project Structure
 
 ```
 src/
-├── ecs/
-│   ├── components/     # Data containers (Position, Velocity, Health, etc.)
-│   ├── entities/       # Game objects (Player, Enemy, Wall, Item)
-│   └── systems/        # Game logic (PlayerMovement, Movement)
+├── _common/
+│   ├── config.ts          # Game configuration constants
+│   ├── math.ts            # Shared math utilities
+│   ├── random.ts          # Seedable PRNG
+│   ├── resources.ts       # Asset loading
+│   └── text.ts            # Shared text utilities
+├── data/
+│   └── buildings.ts       # Building definitions
+├── managers/
+│   ├── GameManager.ts     # Top-level manager
+│   ├── MapManager.ts      # Procedural map generation
+│   ├── ResourceManager.ts # Resource state management
+│   ├── RulerManager.ts    # Ruler data
+│   ├── StateManager.ts    # State, buildings, technologies
+│   └── TurnManager.ts     # Turn lifecycle and income
 ├── scenes/
-│   └── GameplayScene.ts    # Demo scene showcasing ECS pattern
-├── game.ts             # Game initialization and configuration
-└── main.ts             # Application entry point
+│   ├── GameOverScene.ts
+│   ├── GameplayScene.ts   # Main gameplay scene
+│   ├── InitializationScene.ts
+│   └── MainMenu.ts
+├── ui/                    # UI views, elements, popups, tooltips
+├── game.ts                # Game initialization
+└── main.ts                # Entry point
 ```
 
 ## Getting Started
@@ -94,87 +112,31 @@ After deployment, your game will be live at: https://zimablizko.github.io/roguel
 
 ## How to Play
 
-- Use **WASD** or **Arrow Keys** to move the blue player
-- Avoid red enemies
-- Collect yellow items
-- Navigate around gray walls
+- Click tiles on the procedural map to interact
+- Build structures using the **Quick Build** panel (press **B**)
+- Manage resources (gold, materials, food, population)
+- End your turn to collect passive building income
+- Expand your state borders from the Castle
 
-## ECS Architecture
+## Architecture
 
-This project uses Excalibur.js's built-in Entity-Component-System (ECS) pattern for clean, modular game architecture.
+### Managers
+Dedicated manager classes own game state:
+- **GameManager** — Orchestrates sub-managers
+- **ResourceManager** — Single source of truth for resources
+- **StateManager** — Buildings, state data, technologies
+- **MapManager** — Procedural map with Voronoi zones
+- **RulerManager** — Ruler identity and stats
+- **TurnManager** — Turn lifecycle and passive income
 
-### Components
-Components are data containers that extend Excalibur's `Component` class:
-- `PositionComponent` - Entity position tracking
-- `VelocityComponent` - Movement speed
-- `SpriteComponent` - Visual properties
-- `PlayerControlledComponent` - Player control marker
-- `HealthComponent` - Health and damage system
+### UI Views
+Views poll manager state each frame using version counters to skip unnecessary re-renders.
 
-### Entities
-Entities are Excalibur `Actor` objects with components attached:
-- `Player` - Blue controllable character
-- `Enemy` - Red obstacles
-- `Wall` - Gray barriers
-- `Item` - Yellow collectibles
+### Extending the Game
 
-### Systems
-Systems are functions that contain game logic and operate on entities:
-- `updatePlayerMovement` - Handles player input and movement
-- `updateMovement` - Updates entity positions
+**Adding a new building** — edit `src/data/buildings.ts`. The `StateBuildingId` type is derived automatically.
 
-## Extending the Game
-
-### Adding a New Component
-
-Create a new component in `src/ecs/components/index.ts`:
-```typescript
-import { Component } from 'excalibur';
-
-export class MyComponent extends Component {
-  constructor(public myData: any) {
-    super();
-  }
-}
-```
-
-### Adding a New Entity
-
-Create a factory function in `src/ecs/entities/factories.ts`:
-```typescript
-import { Actor, vec } from 'excalibur';
-
-export function createMyEntity(x: number, y: number): Actor {
-  const entity = new Actor({ pos: vec(x, y) });
-  entity.addComponent(new MyComponent(data));
-  return entity;
-}
-```
-
-### Adding a New System Function
-
-Create a new system function in `src/ecs/systems/index.ts`:
-```typescript
-import { Actor } from 'excalibur';
-
-export function updateMySystem(entities: Actor[]): void {
-  // Filter entities that have the components you need
-  const relevantEntities = entities.filter(e => e.has(MyComponent));
-  
-  // Process each entity
-  for (const entity of relevantEntities) {
-    const component = entity.get(MyComponent)!;
-    // Your game logic here
-  }
-}
-```
-
-Then call it in your scene's `onPreUpdate` method:
-```typescript
-onPreUpdate(engine: Engine, delta: number): void {
-  updateMySystem(this.gameEntities);
-}
-```
+**Adding shared utilities** — place them in `src/_common/` and import everywhere.
 
 ## License
 

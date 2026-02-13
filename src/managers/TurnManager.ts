@@ -1,4 +1,6 @@
-import { Engine } from 'excalibur';
+import { CONFIG } from '../_common/config';
+import { SeededRandom } from '../_common/random';
+import { buildingPassiveIncome, type StateBuildingId } from '../data/buildings';
 import { ResourceManager, type ResourceType } from './ResourceManager';
 import { RulerManager } from './RulerManager';
 import { StateManager } from './StateManager';
@@ -29,26 +31,27 @@ export class TurnManager {
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;
   private stateManager: StateManager;
-  private engine: Engine;
+  private readonly rng: SeededRandom;
+  private turnVersion = 0;
 
   constructor(
     resourceManager: ResourceManager,
     rulerManager: RulerManager,
     stateManager: StateManager,
-    engine: Engine,
-    maxActionPoints = 10
+    options?: { maxActionPoints?: number; rng?: SeededRandom }
   ) {
+    const maxAP = options?.maxActionPoints ?? 10;
     this.turnData = {
       turnNumber: 1,
       actionPoints: {
-        current: maxActionPoints,
-        max: maxActionPoints,
+        current: maxAP,
+        max: maxAP,
       },
     };
     this.resourceManager = resourceManager;
     this.rulerManager = rulerManager;
     this.stateManager = stateManager;
-    this.engine = engine;
+    this.rng = options?.rng ?? new SeededRandom();
   }
 
   endTurn(): EndTurnResult {
@@ -56,19 +59,16 @@ export class TurnManager {
 
     this.turnData.turnNumber++;
     this.resetActionPoints();
+    this.turnVersion++;
 
     // Requirement: age increments on end of turn.
     this.rulerManager.incrementAge();
 
     console.log(`Turn ${this.turnData.turnNumber} ended.`);
-    const upkeepPaid = this.resourceManager.spendResources({
-      food: 10,
-      gold: 5,
-    });
+    const upkeepPaid = this.resourceManager.spendResources(CONFIG.UPKEEP_COST);
 
     if (!upkeepPaid) {
       console.warn('Game Over: Not enough resources to continue!');
-      this.engine.goToScene('game-over');
     }
 
     return {
@@ -90,9 +90,14 @@ export class TurnManager {
     return this.turnData;
   }
 
+  getTurnVersion(): number {
+    return this.turnVersion;
+  }
+
   spendActionPoints(amount: number): boolean {
     if (this.turnData.actionPoints.current >= amount) {
       this.turnData.actionPoints.current -= amount;
+      this.turnVersion++;
       return true;
     }
     return false;
@@ -134,34 +139,27 @@ export class TurnManager {
       const centerX = instance.x + (instance.width - 1) / 2;
       const centerY = instance.y + (instance.height - 1) / 2;
 
-      if (instance.buildingId === 'castle') {
-        addIncome(centerX, centerY, 'gold', 5);
-        addIncome(centerX, centerY, 'food', 5);
-        addIncome(centerX, centerY, 'materials', 5);
+      const incomeEntries =
+        buildingPassiveIncome[instance.buildingId as StateBuildingId];
+      if (!incomeEntries) {
         continue;
       }
 
-      if (instance.buildingId === 'lumbermill') {
-        addIncome(centerX, centerY, 'materials', 10);
-        continue;
-      }
-
-      if (instance.buildingId === 'mine') {
-        addIncome(centerX, centerY, 'materials', this.randomInt(5, 20));
-        continue;
-      }
-
-      if (instance.buildingId === 'farm') {
-        addIncome(centerX, centerY, 'food', 10);
+      for (const entry of incomeEntries) {
+        let amount: number;
+        if (typeof entry.amount === 'string') {
+          // Parse "random:min:max" format
+          const parts = entry.amount.split(':');
+          const min = parseInt(parts[1], 10);
+          const max = parseInt(parts[2], 10);
+          amount = this.rng.randomInt(min, max);
+        } else {
+          amount = entry.amount;
+        }
+        addIncome(centerX, centerY, entry.resourceType, amount);
       }
     }
 
     return { byResource, pulses };
-  }
-
-  private randomInt(min: number, max: number): number {
-    const lo = Math.ceil(min);
-    const hi = Math.floor(max);
-    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
   }
 }
