@@ -17,6 +17,7 @@ import {
   type StateBuildingDefinition,
   type StateBuildingId,
 } from '../../managers/StateManager';
+import { TurnManager } from '../../managers/TurnManager';
 import { ActionElement } from '../elements/ActionElement';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
@@ -30,6 +31,7 @@ export interface StatePopupOptions {
   y: number;
   stateManager: StateManager;
   resourceManager: ResourceManager;
+  turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
   anchor?: ScreenPopupAnchor;
   onClose?: () => void;
@@ -56,6 +58,7 @@ const BODY_OFFSET_Y = 46;
 export class StatePopup extends ScreenPopup {
   private stateManager: StateManager;
   private resourceManager: ResourceManager;
+  private turnManager: TurnManager;
   private tooltipProvider: TooltipProvider;
 
   private contentRootRef?: ScreenElement;
@@ -84,6 +87,7 @@ export class StatePopup extends ScreenPopup {
     });
     this.stateManager = options.stateManager;
     this.resourceManager = options.resourceManager;
+    this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
 
     const firstBuilding = this.stateManager.getBuildingDefinitions()[0];
@@ -324,6 +328,7 @@ export class StatePopup extends ScreenPopup {
       definition.id,
       this.resourceManager
     );
+    const hasActionPoint = this.turnManager.getTurnDataRef().actionPoints.current >= 1;
     const state = this.stateManager.getStateRef();
     const actionRows: ActionElement[] = [];
 
@@ -411,7 +416,7 @@ export class StatePopup extends ScreenPopup {
           buildStatus.nextCost,
           definition.requiredTechnologies
         ),
-        enabled: buildStatus.buildable,
+        enabled: buildStatus.buildable && hasActionPoint,
         onClick: () => this.openBuildPopup(definition.id),
       });
       actionRows.push(buildAction);
@@ -471,6 +476,11 @@ export class StatePopup extends ScreenPopup {
         break;
       }
 
+      const actionStatus = this.stateManager.canActivateBuildingAction(
+        definition.id,
+        action.id
+      );
+      const enabled = hasActionPoint && actionStatus.activatable;
       const actionRow = this.createBuildingActionRow({
         x: 0,
         y,
@@ -478,8 +488,11 @@ export class StatePopup extends ScreenPopup {
         title: action.name,
         description: action.description,
         outcomes: this.getBuildingActionOutcomes(definition, action),
-        enabled: true,
+        enabled,
         onClick: () => {
+          if (!this.turnManager.spendActionPoints(1)) {
+            return;
+          }
           const activated = this.stateManager.activateBuildingAction(
             definition.id,
             action.id,
@@ -494,6 +507,10 @@ export class StatePopup extends ScreenPopup {
       actionRows.push(actionRow);
       detailsRoot.addChild(actionRow);
       y += 52;
+
+      if (!actionStatus.activatable && actionStatus.reason) {
+        addLine(actionStatus.reason, 12, warnColor, 3);
+      }
     }
 
     this.syncActionRowsHover(actionRows);
@@ -530,6 +547,7 @@ export class StatePopup extends ScreenPopup {
       buildingId,
       stateManager: this.stateManager,
       resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
       onBuilt: () => {
         this.renderBody();
       },
@@ -673,6 +691,15 @@ export class StatePopup extends ScreenPopup {
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
       farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };
+    if (definition.id === 'castle' && action.id === 'expand-border') {
+      return [
+        {
+          label: 'Border',
+          value: '+1 ring',
+          color: Color.fromHex('#9fe6aa'),
+        },
+      ];
+    }
     const value = gainByBuilding[definition.id];
     if (value === undefined) {
       return [{ label: 'Action', value: action.id }];

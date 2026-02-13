@@ -11,6 +11,7 @@ import {
   vec,
 } from 'excalibur';
 import { ResourceManager } from '../../managers/ResourceManager';
+import { TurnManager } from '../../managers/TurnManager';
 import {
   StateManager,
   type StateBuildingActionDefinition,
@@ -22,6 +23,7 @@ import { TooltipProvider } from '../tooltip/TooltipProvider';
 export interface SelectedBuildingViewOptions {
   stateManager: StateManager;
   resourceManager: ResourceManager;
+  turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
   width?: number;
   height?: number;
@@ -31,6 +33,7 @@ export interface SelectedBuildingViewOptions {
 export class SelectedBuildingView extends ScreenElement {
   private readonly stateManager: StateManager;
   private readonly resourceManager: ResourceManager;
+  private readonly turnManager: TurnManager;
   private readonly tooltipProvider: TooltipProvider;
   private readonly minPanelWidth: number;
   private readonly maxPanelWidth: number;
@@ -46,6 +49,7 @@ export class SelectedBuildingView extends ScreenElement {
     super({ x: 0, y: 0 });
     this.stateManager = options.stateManager;
     this.resourceManager = options.resourceManager;
+    this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
     this.minPanelWidth = 420;
     this.maxPanelWidth = options.width ?? 560;
@@ -76,6 +80,21 @@ export class SelectedBuildingView extends ScreenElement {
 
     this.selectedBuildingInstanceId = instanceId;
     this.lastRenderKey = undefined;
+  }
+
+  containsScreenPoint(screenX: number, screenY: number): boolean {
+    if (!this.graphics.isVisible) {
+      return false;
+    }
+
+    const x = this.globalPos.x;
+    const y = this.globalPos.y;
+    return (
+      screenX >= x &&
+      screenX <= x + this.currentPanelWidth &&
+      screenY >= y &&
+      screenY <= y + this.panelHeight
+    );
   }
 
   private updatePosition(): void {
@@ -259,11 +278,17 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     let y = startY;
+    const hasActionPoint = this.turnManager.getTurnDataRef().actionPoints.current >= 1;
     for (const action of definition.actions) {
       if (y + 36 > this.panelHeight - 8) {
         break;
       }
 
+      const actionStatus = this.stateManager.canActivateBuildingAction(
+        definition.id,
+        action.id
+      );
+      const enabled = hasActionPoint && actionStatus.activatable;
       const row = new ActionElement({
         x: startX,
         y,
@@ -273,8 +298,18 @@ export class SelectedBuildingView extends ScreenElement {
         description: action.description,
         outcomes: this.getActionOutcomes(definition, action),
         tooltipProvider: this.tooltipProvider,
+        bgColor: enabled ? Color.fromHex('#274158') : Color.fromHex('#2a2f35'),
+        hoverBgColor: enabled ? Color.fromHex('#356083') : Color.fromHex('#2a2f35'),
+        pressedBgColor: enabled ? Color.fromHex('#2e5270') : Color.fromHex('#2a2f35'),
+        hoverBorderColor: enabled
+          ? Color.fromHex('#f1c40f')
+          : Color.fromHex('#555d66'),
+        textColor: enabled ? Color.White : Color.fromHex('#8b97a3'),
         tooltipWidth: 260,
-        onClick: () => {
+        onClick: enabled ? () => {
+          if (!this.turnManager.spendActionPoints(1)) {
+            return;
+          }
           const activated = this.stateManager.activateBuildingAction(
             definition.id,
             action.id,
@@ -284,7 +319,7 @@ export class SelectedBuildingView extends ScreenElement {
             return;
           }
           this.lastRenderKey = undefined;
-        },
+        } : undefined,
       });
 
       this.actionRows.push(row);
@@ -323,6 +358,15 @@ export class SelectedBuildingView extends ScreenElement {
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
       farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };
+    if (definition.id === 'castle' && action.id === 'expand-border') {
+      return [
+        {
+          label: 'Border',
+          value: '+1 ring',
+          color: Color.fromHex('#9fe6aa'),
+        },
+      ];
+    }
     const value = gainByBuilding[definition.id];
     if (value === undefined) {
       return [{ label: 'Action', value: action.id }];

@@ -28,6 +28,7 @@ export interface MapViewOptions {
   buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
   buildingsVersionProvider?: () => number;
   onBuildingSelected?: (instanceId: string | undefined) => void;
+  shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
   tooltipProvider?: TooltipProvider;
   tileSize?: number;
   panSpeed?: number;
@@ -56,6 +57,7 @@ export class MapView extends Actor {
   private readonly buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
   private readonly buildingsVersionProvider?: () => number;
   private readonly onBuildingSelected?: (instanceId: string | undefined) => void;
+  private readonly shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
   private readonly tooltipProvider?: TooltipProvider;
 
   private readonly mapWidthPx: number;
@@ -73,6 +75,7 @@ export class MapView extends Actor {
   private viewY = 0;
   private zoom = 1;
   private renderedBuildingsVersion = -1;
+  private renderedPlayerZoneTileCount = -1;
   private hoveredBuildingInstanceId?: string;
   private selectedBuildingInstanceId?: string;
 
@@ -91,6 +94,7 @@ export class MapView extends Actor {
     this.buildingsProvider = options.buildingsProvider;
     this.buildingsVersionProvider = options.buildingsVersionProvider;
     this.onBuildingSelected = options.onBuildingSelected;
+    this.shouldIgnoreLeftClick = options.shouldIgnoreLeftClick;
     this.tooltipProvider = options.tooltipProvider;
 
     this.mapWidthPx = this.map.width * this.tileSize;
@@ -332,13 +336,14 @@ export class MapView extends Actor {
   }
 
   private refreshMapCanvasIfNeeded(): void {
-    const provider = this.buildingsVersionProvider;
-    if (!provider) {
-      return;
-    }
+    const nextBuildingsVersion = this.buildingsVersionProvider?.();
+    const nextPlayerZoneTileCount = this.countPlayerZoneTiles();
+    const buildingsChanged =
+      nextBuildingsVersion !== undefined &&
+      nextBuildingsVersion !== this.renderedBuildingsVersion;
+    const zoneChanged = nextPlayerZoneTileCount !== this.renderedPlayerZoneTileCount;
 
-    const nextVersion = provider();
-    if (nextVersion === this.renderedBuildingsVersion) {
+    if (!buildingsChanged && !zoneChanged) {
       return;
     }
 
@@ -355,6 +360,7 @@ export class MapView extends Actor {
       })
     );
     this.renderedBuildingsVersion = this.buildingsVersionProvider?.() ?? 0;
+    this.renderedPlayerZoneTileCount = this.countPlayerZoneTiles();
   }
 
   private setupPointerControls(): void {
@@ -366,6 +372,10 @@ export class MapView extends Actor {
     this.pointerSubscriptions.push(
       pointers.on('down', (evt: PointerEvent) => {
       if (evt.button === PointerButton.Left) {
+        if (this.shouldIgnoreLeftClick?.(evt.screenPos.x, evt.screenPos.y)) {
+          return;
+        }
+
         const picked = this.findBuildingAtScreenPosition(
           evt.screenPos.x,
           evt.screenPos.y
@@ -515,6 +525,19 @@ export class MapView extends Actor {
     this.rebuildCachedMapCanvas();
   }
 
+  setSelectedBuilding(instanceId: string | undefined): void {
+    this.selectBuilding(instanceId);
+  }
+
+  getMapPositionScreen(tileX: number, tileY: number): { x: number; y: number } {
+    const localX = this.mapBorderPx + (tileX + 0.5) * this.tileSize;
+    const localY = this.mapBorderPx + (tileY + 0.5) * this.tileSize;
+    return {
+      x: this.viewX + localX * this.zoom,
+      y: this.viewY + localY * this.zoom,
+    };
+  }
+
   private updateBuildingTooltip(engine: Engine): void {
     if (!this.tooltipProvider || !this.buildingsProvider) {
       return;
@@ -629,6 +652,23 @@ export class MapView extends Actor {
 
   private clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
+  }
+
+  private countPlayerZoneTiles(): number {
+    const zoneId = this.map.playerZoneId;
+    if (zoneId === null) {
+      return 0;
+    }
+
+    let count = 0;
+    for (let y = 0; y < this.map.height; y++) {
+      for (let x = 0; x < this.map.width; x++) {
+        if (this.map.zones[y][x] === zoneId) {
+          count++;
+        }
+      }
+    }
+    return count;
   }
 
   private getFitZoom(engine: Engine): number {

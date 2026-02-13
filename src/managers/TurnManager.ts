@@ -1,6 +1,7 @@
 import { Engine } from 'excalibur';
-import { ResourceManager } from './ResourceManager';
+import { ResourceManager, type ResourceType } from './ResourceManager';
 import { RulerManager } from './RulerManager';
+import { StateManager } from './StateManager';
 
 export type TurnData = {
   turnNumber: number;
@@ -10,15 +11,30 @@ export type TurnData = {
   };
 };
 
+export interface EndTurnIncomePulse {
+  tileX: number;
+  tileY: number;
+  resourceType: ResourceType;
+  amount: number;
+}
+
+export interface EndTurnResult {
+  passiveIncome: Partial<Record<ResourceType, number>>;
+  passiveIncomePulses: EndTurnIncomePulse[];
+  upkeepPaid: boolean;
+}
+
 export class TurnManager {
   private turnData: TurnData;
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;
+  private stateManager: StateManager;
   private engine: Engine;
 
   constructor(
     resourceManager: ResourceManager,
     rulerManager: RulerManager,
+    stateManager: StateManager,
     engine: Engine,
     maxActionPoints = 10
   ) {
@@ -31,10 +47,13 @@ export class TurnManager {
     };
     this.resourceManager = resourceManager;
     this.rulerManager = rulerManager;
+    this.stateManager = stateManager;
     this.engine = engine;
   }
 
-  endTurn(): void {
+  endTurn(): EndTurnResult {
+    const passiveIncome = this.applyPassiveBuildingIncome();
+
     this.turnData.turnNumber++;
     this.resetActionPoints();
 
@@ -42,15 +61,21 @@ export class TurnManager {
     this.rulerManager.incrementAge();
 
     console.log(`Turn ${this.turnData.turnNumber} ended.`);
-    if (
-      !this.resourceManager.spendResources({
-        food: 10,
-        gold: 5,
-      })
-    ) {
+    const upkeepPaid = this.resourceManager.spendResources({
+      food: 10,
+      gold: 5,
+    });
+
+    if (!upkeepPaid) {
       console.warn('Game Over: Not enough resources to continue!');
       this.engine.goToScene('game-over');
     }
+
+    return {
+      passiveIncome: passiveIncome.byResource,
+      passiveIncomePulses: passiveIncome.pulses,
+      upkeepPaid,
+    };
   }
 
   getTurnData(): TurnData {
@@ -75,5 +100,68 @@ export class TurnManager {
 
   resetActionPoints(): void {
     this.turnData.actionPoints.current = this.turnData.actionPoints.max;
+  }
+
+  private applyPassiveBuildingIncome(): {
+    byResource: Partial<Record<ResourceType, number>>;
+    pulses: EndTurnIncomePulse[];
+  } {
+    const byResource: Partial<Record<ResourceType, number>> = {};
+    const pulses: EndTurnIncomePulse[] = [];
+    const buildingInstances = this.stateManager.getBuildingInstancesRef();
+
+    const addIncome = (
+      tileX: number,
+      tileY: number,
+      resourceType: ResourceType,
+      amount: number
+    ): void => {
+      if (amount <= 0) {
+        return;
+      }
+
+      this.resourceManager.addResource(resourceType, amount);
+      byResource[resourceType] = (byResource[resourceType] ?? 0) + amount;
+      pulses.push({
+        tileX,
+        tileY,
+        resourceType,
+        amount,
+      });
+    };
+
+    for (const instance of buildingInstances) {
+      const centerX = instance.x + (instance.width - 1) / 2;
+      const centerY = instance.y + (instance.height - 1) / 2;
+
+      if (instance.buildingId === 'castle') {
+        addIncome(centerX, centerY, 'gold', 5);
+        addIncome(centerX, centerY, 'food', 5);
+        addIncome(centerX, centerY, 'materials', 5);
+        continue;
+      }
+
+      if (instance.buildingId === 'lumbermill') {
+        addIncome(centerX, centerY, 'materials', 10);
+        continue;
+      }
+
+      if (instance.buildingId === 'mine') {
+        addIncome(centerX, centerY, 'materials', this.randomInt(5, 20));
+        continue;
+      }
+
+      if (instance.buildingId === 'farm') {
+        addIncome(centerX, centerY, 'food', 10);
+      }
+    }
+
+    return { byResource, pulses };
+  }
+
+  private randomInt(min: number, max: number): number {
+    const lo = Math.ceil(min);
+    const hi = Math.floor(max);
+    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
   }
 }

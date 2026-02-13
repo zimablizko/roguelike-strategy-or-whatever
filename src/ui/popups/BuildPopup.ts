@@ -3,6 +3,7 @@ import {
   ResourceManager,
   type ResourceType,
 } from '../../managers/ResourceManager';
+import { TurnManager } from '../../managers/TurnManager';
 import {
   StateManager,
   type StateBuildingDefinition,
@@ -18,6 +19,7 @@ export interface BuildPopupOptions {
   buildingId: StateBuildingId;
   stateManager: StateManager;
   resourceManager: ResourceManager;
+  turnManager: TurnManager;
   anchor?: ScreenPopupAnchor;
   onBuilt?: (buildingId: StateBuildingId) => void;
   onClose?: () => void;
@@ -55,6 +57,7 @@ export class BuildPopup extends ScreenPopup {
           definition,
           options.stateManager,
           options.resourceManager,
+          options.turnManager,
           options.onBuilt
         );
       },
@@ -68,6 +71,7 @@ export class BuildPopup extends ScreenPopup {
     definition: StateBuildingDefinition,
     stateManager: StateManager,
     resourceManager: ResourceManager,
+    turnManager: TurnManager,
     onBuilt: ((buildingId: StateBuildingId) => void) | undefined
   ): void {
     const count = stateManager.getBuildingCount(definition.id);
@@ -79,6 +83,7 @@ export class BuildPopup extends ScreenPopup {
     const warnColor = Color.fromHex('#f5c179');
     const okColor = Color.fromHex('#9fe6aa');
     const lineWrapWidth = 470;
+    const hasActionPoint = turnManager.getTurnDataRef().actionPoints.current >= 1;
 
     let y = 0;
     const line = (text: string, size = 14, color = lineColor, gapAfter = 6) => {
@@ -154,6 +159,9 @@ export class BuildPopup extends ScreenPopup {
       height: 38,
       title: 'Build',
       onClick: () => {
+        if (!turnManager.spendActionPoints(1)) {
+          return;
+        }
         const built = stateManager.buildBuilding(
           definition.id,
           resourceManager
@@ -165,7 +173,7 @@ export class BuildPopup extends ScreenPopup {
         popup.close();
       },
     });
-    if (!status.buildable) {
+    if (!status.buildable || !hasActionPoint) {
       buildButton.toggle(false);
     }
     contentRoot.addChild(buildButton);

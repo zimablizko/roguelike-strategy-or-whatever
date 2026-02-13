@@ -17,6 +17,8 @@ import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { MapView } from '../ui/views/MapView';
+import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
+import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
@@ -31,10 +33,13 @@ export class GameplayScene extends Scene {
   private resourceManager!: ResourceManager;
   private turnManager!: TurnManager;
   private tooltipProvider!: TooltipProvider;
+  private mapView?: MapView;
+  private mapIncomeEffectsView?: MapIncomeEffectsView;
   private testPopup?: ScreenPopup;
   private statePopup?: StatePopup;
   private rulerPopup?: ScreenPopup;
   private selectedBuildingView?: SelectedBuildingView;
+  private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
 
   onInitialize(_engine: Engine): void {
@@ -54,7 +59,10 @@ export class GameplayScene extends Scene {
     this.testPopup = undefined;
     this.statePopup = undefined;
     this.rulerPopup = undefined;
+    this.mapView = undefined;
+    this.mapIncomeEffectsView = undefined;
     this.selectedBuildingView = undefined;
+    this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
 
     // Recreate managers with default new-game data
@@ -77,6 +85,7 @@ export class GameplayScene extends Scene {
     this.turnManager = new TurnManager(
       this.resourceManager,
       this.gameManager.rulerManager,
+      this.gameManager.stateManager,
       engine
     );
 
@@ -85,11 +94,13 @@ export class GameplayScene extends Scene {
     // Re-add world + UI
     this.addTooltipProvider();
     this.addMapView();
+    this.addMapIncomeEffectsView();
     this.addStateDisplay(engine);
     this.addRulerDisplay(engine);
     this.addResourceDisplay(engine);
     this.addTurnDisplay(engine);
     this.addButtons(engine);
+    this.addQuickBuildView();
     this.addSelectedBuildingView();
   }
 
@@ -107,15 +118,30 @@ export class GameplayScene extends Scene {
       buildingsVersionProvider: () =>
         this.gameManager.stateManager.getBuildingsVersion(),
       onBuildingSelected: (instanceId) => {
-        this.selectedBuildingInstanceId = instanceId;
-        this.selectedBuildingView?.setSelectedBuilding(instanceId);
+        this.selectBuilding(instanceId, false);
       },
+      shouldIgnoreLeftClick: (screenX, screenY) =>
+        (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ?? false) ||
+        (this.quickBuildView?.containsScreenPoint(screenX, screenY) ?? false),
       tooltipProvider: this.tooltipProvider,
       tileSize: 56,
       showGrid: CONFIG.MAP_SHOW_GRID,
     });
 
+    this.mapView = mapView;
     this.add(mapView);
+  }
+
+  private addMapIncomeEffectsView(): void {
+    if (!this.mapView) {
+      return;
+    }
+
+    const effects = new MapIncomeEffectsView({
+      mapView: this.mapView,
+    });
+    this.mapIncomeEffectsView = effects;
+    this.add(effects);
   }
 
   private addStateDisplay(_engine: Engine) {
@@ -142,6 +168,7 @@ export class GameplayScene extends Scene {
       y: engine.drawHeight / 2,
       stateManager: this.gameManager.stateManager,
       resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
       onClose: () => {
         this.statePopup = undefined;
@@ -248,7 +275,8 @@ export class GameplayScene extends Scene {
       height: 40,
       title: 'End Turn',
       onClick: () => {
-        this.turnManager.endTurn();
+        const result = this.turnManager.endTurn();
+        this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
       },
     });
 
@@ -281,11 +309,34 @@ export class GameplayScene extends Scene {
     const view = new SelectedBuildingView({
       stateManager: this.gameManager.stateManager,
       resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
     });
     view.setSelectedBuilding(this.selectedBuildingInstanceId);
     this.selectedBuildingView = view;
     this.addHudElement(view);
+  }
+
+  private addQuickBuildView(): void {
+    const view = new QuickBuildView({
+      stateManager: this.gameManager.stateManager,
+      resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
+      tooltipProvider: this.tooltipProvider,
+      onBuilt: (instanceId) => {
+        this.selectBuilding(instanceId, true);
+      },
+    });
+    this.quickBuildView = view;
+    this.addHudElement(view);
+  }
+
+  private selectBuilding(instanceId: string | undefined, syncMap: boolean): void {
+    this.selectedBuildingInstanceId = instanceId;
+    this.selectedBuildingView?.setSelectedBuilding(instanceId);
+    if (syncMap) {
+      this.mapView?.setSelectedBuilding(instanceId);
+    }
   }
 
   private showDebugMenu(engine: Engine) {

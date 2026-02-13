@@ -66,6 +66,11 @@ export interface StateBuildingBuildStatus {
   placementReason?: string;
 }
 
+export interface StateBuildingActionStatus {
+  activatable: boolean;
+  reason?: string;
+}
+
 export interface StateBuildingInstance {
   instanceId: string;
   buildingId: StateBuildingId;
@@ -87,7 +92,7 @@ const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition>
       name: 'Castle',
       shortName: 'Csl',
       description:
-        'Capital fortification that anchors settlement growth. Only one Castle can exist.',
+        'Capital fortification that anchors settlement growth. Only one Castle can exist. Passive income each end turn: +5 Gold, +5 Food, +5 Materials.',
       buildCost: {
         gold: 150,
         materials: 120,
@@ -106,14 +111,22 @@ const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition>
         `Built: ${count}/1`,
         'Occupies 3x3 tiles',
       ],
-      actions: [],
+      actions: [
+        {
+          id: 'expand-border',
+          name: 'Expand',
+          description:
+            'Expand state borders by 1 cell in all directions if no edge or ocean blocks expansion.',
+          run: () => {},
+        },
+      ],
     },
     lumbermill: {
       id: 'lumbermill',
       shortName: 'Lmb',
       name: 'Lumbermill',
       description:
-        'Processes nearby forests into construction-grade materials.',
+        'Processes nearby forests into construction-grade materials. Passive income each end turn: +10 Materials.',
       buildCost: {
         gold: 35,
         materials: 20,
@@ -155,7 +168,7 @@ const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition>
       name: 'Mine',
       shortName: 'Min',
       description:
-        'Extracts ore and stone from rocky terrain, improving material throughput.',
+        'Extracts ore and stone from rocky terrain, improving material throughput. Passive income each end turn: +5 to +20 Materials.',
       buildCost: {
         gold: 45,
         materials: 30,
@@ -196,7 +209,7 @@ const stateBuildingDefinitions: Record<StateBuildingId, StateBuildingDefinition>
       shortName: 'Frm',
       name: 'Farm',
       description:
-        'Stores and preserves food gathered from fertile plains for future turns.',
+        'Stores and preserves food gathered from fertile plains for future turns. Passive income each end turn: +10 Food.',
       buildCost: {
         gold: 40,
         materials: 24,
@@ -361,6 +374,18 @@ export class StateManager {
     return this.buildingInstances;
   }
 
+  getLatestBuildingInstance(
+    buildingId?: StateBuildingId
+  ): StateBuildingInstance | undefined {
+    for (let i = this.buildingInstances.length - 1; i >= 0; i--) {
+      const instance = this.buildingInstances[i];
+      if (!buildingId || instance.buildingId === buildingId) {
+        return { ...instance };
+      }
+    }
+    return undefined;
+  }
+
   getBuildingMapOverlays(): StateBuildingMapOverlay[] {
     return this.buildingInstances.map((instance) => ({
       ...instance,
@@ -493,8 +518,13 @@ export class StateManager {
     actionId: string,
     resources: ResourceManager
   ): boolean {
-    if (!this.isBuildingBuilt(buildingId)) {
+    const status = this.canActivateBuildingAction(buildingId, actionId);
+    if (!status.activatable) {
       return false;
+    }
+
+    if (buildingId === 'castle' && actionId === 'expand-border') {
+      return this.expandPlayerBorders();
     }
 
     const definition = this.getBuildingDefinition(buildingId);
@@ -518,6 +548,40 @@ export class StateManager {
       buildingCount,
     });
     return true;
+  }
+
+  canActivateBuildingAction(
+    buildingId: StateBuildingId,
+    actionId: string
+  ): StateBuildingActionStatus {
+    if (!this.isBuildingBuilt(buildingId)) {
+      return {
+        activatable: false,
+        reason: 'Building is not built yet.',
+      };
+    }
+
+    const definition = this.getBuildingDefinition(buildingId);
+    if (!definition) {
+      return {
+        activatable: false,
+        reason: 'Unknown building.',
+      };
+    }
+
+    const action = definition.actions.find((item) => item.id === actionId);
+    if (!action) {
+      return {
+        activatable: false,
+        reason: 'Unknown action.',
+      };
+    }
+
+    if (buildingId === 'castle' && actionId === 'expand-border') {
+      return this.getExpandBorderStatus();
+    }
+
+    return { activatable: true };
   }
 
   private applyProgress(initial?: StateManagerOptions['initial']): void {
@@ -645,6 +709,129 @@ export class StateManager {
     });
     this.buildingCounts[id] += 1;
     this.buildingsVersion++;
+  }
+
+  private expandPlayerBorders(): boolean {
+    if (!this.mapManager) {
+      return false;
+    }
+
+    const status = this.getExpandBorderStatus();
+    if (!status.activatable || !status.candidates) {
+      return false;
+    }
+
+    const map = this.mapManager.getMapRef();
+    const playerZoneId = map.playerZoneId;
+    if (playerZoneId === null) {
+      return false;
+    }
+
+    for (const cell of status.candidates) {
+      map.zones[cell.y][cell.x] = playerZoneId;
+    }
+
+    this.syncStateWithMapSummary();
+    return true;
+  }
+
+  private getExpandBorderStatus(): StateBuildingActionStatus & {
+    candidates?: MapCell[];
+  } {
+    if (!this.mapManager) {
+      return {
+        activatable: false,
+        reason: 'Map is unavailable for expansion.',
+      };
+    }
+
+    const map = this.mapManager.getMapRef();
+    const playerZoneId = map.playerZoneId;
+    if (playerZoneId === null) {
+      return {
+        activatable: false,
+        reason: 'No player zone to expand.',
+      };
+    }
+
+    const zoneCells: MapCell[] = [];
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        if (map.zones[y][x] === playerZoneId) {
+          zoneCells.push({ x, y });
+        }
+      }
+    }
+
+    if (zoneCells.length === 0) {
+      return {
+        activatable: false,
+        reason: 'No player zone to expand.',
+      };
+    }
+
+    const zoneKeys = new Set<string>(zoneCells.map((cell) => `${cell.x},${cell.y}`));
+    const candidatesByKey = new Map<string, MapCell>();
+    let blockedByEdge = false;
+    let blockedByOcean = false;
+
+    for (const cell of zoneCells) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) {
+            continue;
+          }
+
+          const nx = cell.x + dx;
+          const ny = cell.y + dy;
+          if (!this.isInsideMap(nx, ny, map.width, map.height)) {
+            blockedByEdge = true;
+            continue;
+          }
+
+          if (map.tiles[ny][nx] === 'ocean') {
+            blockedByOcean = true;
+            continue;
+          }
+
+          const key = `${nx},${ny}`;
+          if (!zoneKeys.has(key)) {
+            candidatesByKey.set(key, { x: nx, y: ny });
+          }
+        }
+      }
+    }
+
+    const candidates = Array.from(candidatesByKey.values());
+    if (candidates.length === 0) {
+      if (blockedByEdge && blockedByOcean) {
+        return {
+          activatable: false,
+          reason: 'Cannot expand: all sides are blocked by map edge or ocean.',
+        };
+      }
+      if (blockedByEdge) {
+        return {
+          activatable: false,
+          reason: 'Cannot expand: all available sides hit map edge.',
+        };
+      }
+      if (blockedByOcean) {
+        return {
+          activatable: false,
+          reason: 'Cannot expand: all available sides are ocean.',
+        };
+      }
+      return {
+        activatable: false,
+        reason: 'No tiles available to expand.',
+      };
+    }
+
+    return {
+      activatable: true,
+      candidates,
+    };
   }
 
   private findBestPlacement(
@@ -833,5 +1020,14 @@ export class StateManager {
 
   private clamp(value: number, min: number): number {
     return Math.max(min, value);
+  }
+
+  private isInsideMap(
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): boolean {
+    return x >= 0 && x < width && y >= 0 && y < height;
   }
 }
