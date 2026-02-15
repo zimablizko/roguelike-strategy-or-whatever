@@ -12,18 +12,20 @@ import {
 } from 'excalibur';
 import { clamp } from '../../_common/math';
 import { measureTextWidth } from '../../_common/text';
-import { ResourceManager } from '../../managers/ResourceManager';
 import {
-  StateManager,
+  BuildingManager,
   type StateBuildingActionDefinition,
   type TypedBuildingDefinition,
-} from '../../managers/StateManager';
+} from '../../managers/BuildingManager';
+import { ResourceManager } from '../../managers/ResourceManager';
+import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export interface SelectedBuildingViewOptions {
   stateManager: StateManager;
+  buildingManager: BuildingManager;
   resourceManager: ResourceManager;
   turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
@@ -34,6 +36,7 @@ export interface SelectedBuildingViewOptions {
 
 export class SelectedBuildingView extends ScreenElement {
   private readonly stateManager: StateManager;
+  private readonly buildingManager: BuildingManager;
   private readonly resourceManager: ResourceManager;
   private readonly turnManager: TurnManager;
   private readonly tooltipProvider: TooltipProvider;
@@ -53,6 +56,7 @@ export class SelectedBuildingView extends ScreenElement {
   constructor(options: SelectedBuildingViewOptions) {
     super({ x: 0, y: 0 });
     this.stateManager = options.stateManager;
+    this.buildingManager = options.buildingManager;
     this.resourceManager = options.resourceManager;
     this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
@@ -115,7 +119,7 @@ export class SelectedBuildingView extends ScreenElement {
   }
 
   private updateDisplay(force: boolean): void {
-    const bv = this.stateManager.getBuildingsVersion();
+    const bv = this.buildingManager.getBuildingsVersion();
     const rv = this.resourceManager.getResourcesVersion();
     const tv = this.turnManager.getTurnVersion();
     const selId = this.selectedBuildingInstanceId;
@@ -137,7 +141,7 @@ export class SelectedBuildingView extends ScreenElement {
 
     const state = this.stateManager.getStateRef();
     const selected = selId
-      ? this.stateManager
+      ? this.buildingManager
           .getBuildingMapOverlays()
           .find((item) => item.instanceId === selId)
       : undefined;
@@ -179,7 +183,7 @@ export class SelectedBuildingView extends ScreenElement {
       },
     ];
 
-    const definition = this.stateManager.getBuildingDefinition(
+    const definition = this.buildingManager.getBuildingDefinition(
       selected.buildingId
     );
     if (!definition) {
@@ -188,7 +192,7 @@ export class SelectedBuildingView extends ScreenElement {
       return;
     }
 
-    const count = this.stateManager.getBuildingCount(definition.id);
+    const count = this.buildingManager.getBuildingCount(definition.id);
     const stats = definition.getStats(state, count).slice(0, 2);
     const areaLine = `Area ${selected.width}x${selected.height}  Count ${count}`;
 
@@ -295,7 +299,7 @@ export class SelectedBuildingView extends ScreenElement {
         break;
       }
 
-      const actionStatus = this.stateManager.canActivateBuildingAction(
+      const actionStatus = this.buildingManager.canActivateBuildingAction(
         definition.id,
         action.id
       );
@@ -326,7 +330,7 @@ export class SelectedBuildingView extends ScreenElement {
               if (!this.turnManager.spendActionPoints(1)) {
                 return;
               }
-              const activated = this.stateManager.activateBuildingAction(
+              const activated = this.buildingManager.activateBuildingAction(
                 definition.id,
                 action.id,
                 this.resourceManager
@@ -367,7 +371,7 @@ export class SelectedBuildingView extends ScreenElement {
     const state = this.stateManager.getStateRef();
     const buildingCount = Math.max(
       1,
-      this.stateManager.getBuildingCount(definition.id)
+      this.buildingManager.getBuildingCount(definition.id)
     );
 
     const gainByBuilding: Partial<

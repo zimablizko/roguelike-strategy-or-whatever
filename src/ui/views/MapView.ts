@@ -2,6 +2,7 @@ import {
   Actor,
   Canvas,
   Engine,
+  GraphicsGroup,
   Keys,
   PointerButton,
   type Subscription,
@@ -23,10 +24,21 @@ export interface MapBuildingOverlay {
   height: number;
 }
 
+export interface MapBuildPlacementOverlay {
+  buildingId: string;
+  width: number;
+  height: number;
+  validTopLeftCells: ReadonlySet<number>;
+}
+
 export interface MapViewOptions {
   map: MapData;
   buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
   buildingsVersionProvider?: () => number;
+  buildPlacementProvider?: () => MapBuildPlacementOverlay | undefined;
+  buildPlacementVersionProvider?: () => number;
+  onBuildPlacementConfirm?: (tileX: number, tileY: number) => void;
+  onBuildPlacementCancel?: () => void;
   onBuildingSelected?: (instanceId: string | undefined) => void;
   shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
   isInputBlocked?: () => boolean;
@@ -37,6 +49,7 @@ export interface MapViewOptions {
   maxZoom?: number;
   zoomStep?: number;
   showGrid?: boolean;
+  initialPlayerStateCoverage?: number;
 }
 
 /**
@@ -54,9 +67,14 @@ export class MapView extends Actor {
   private readonly maxZoom: number;
   private readonly zoomStep: number;
   private readonly showGrid: boolean;
+  private readonly initialPlayerStateCoverage: number;
   private readonly mapBorderCells = 2;
   private readonly buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
   private readonly buildingsVersionProvider?: () => number;
+  private readonly buildPlacementProvider?: () => MapBuildPlacementOverlay | undefined;
+  private readonly buildPlacementVersionProvider?: () => number;
+  private readonly onBuildPlacementConfirm?: (tileX: number, tileY: number) => void;
+  private readonly onBuildPlacementCancel?: () => void;
   private readonly onBuildingSelected?: (instanceId: string | undefined) => void;
   private readonly shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
   private readonly isInputBlocked?: () => boolean;
@@ -78,8 +96,11 @@ export class MapView extends Actor {
   private zoom = 1;
   private renderedBuildingsVersion = -1;
   private renderedPlayerZoneTileCount = -1;
+  private renderedBuildPlacementVersion = -1;
   private hoveredBuildingInstanceId?: string;
   private selectedBuildingInstanceId?: string;
+  private buildPlacementPreviewTile?: { x: number; y: number };
+  private buildPlacementPreviewValid = false;
 
   constructor(options: MapViewOptions) {
     super({ x: 0, y: 0 });
@@ -93,8 +114,17 @@ export class MapView extends Actor {
     this.maxZoom = options.maxZoom ?? 2.4;
     this.zoomStep = options.zoomStep ?? 0.12;
     this.showGrid = options.showGrid ?? false;
+    this.initialPlayerStateCoverage = this.clamp(
+      options.initialPlayerStateCoverage ?? 2 / 3,
+      0.2,
+      0.95
+    );
     this.buildingsProvider = options.buildingsProvider;
     this.buildingsVersionProvider = options.buildingsVersionProvider;
+    this.buildPlacementProvider = options.buildPlacementProvider;
+    this.buildPlacementVersionProvider = options.buildPlacementVersionProvider;
+    this.onBuildPlacementConfirm = options.onBuildPlacementConfirm;
+    this.onBuildPlacementCancel = options.onBuildPlacementCancel;
     this.onBuildingSelected = options.onBuildingSelected;
     this.shouldIgnoreLeftClick = options.shouldIgnoreLeftClick;
     this.isInputBlocked = options.isInputBlocked;
@@ -120,6 +150,7 @@ export class MapView extends Actor {
   }
 
   onPreUpdate(engine: Engine, elapsedMs: number): void {
+    this.updateBuildPlacementPreview(engine);
     this.refreshMapCanvasIfNeeded();
     this.applyKeyboardPan(engine, elapsedMs);
     this.clampView(engine);
@@ -175,7 +206,92 @@ export class MapView extends Actor {
     }
 
     this.drawPlayerStateBorder(ctx);
+    this.drawBuildPlacementOverlay(ctx);
     this.drawBuildings(ctx);
+  }
+
+  private drawBuildPlacementOverlay(ctx: CanvasRenderingContext2D): void {
+    const placement = this.buildPlacementProvider?.();
+    if (!placement || placement.validTopLeftCells.size === 0) {
+      return;
+    }
+
+    const offset = this.mapBorderPx;
+    const strokeWidth = Math.max(1, Math.floor(this.tileSize * 0.02));
+
+    // Warm yellow improves contrast against forest/river tiles.
+    ctx.fillStyle = 'rgba(255, 214, 76, 0.28)';
+    ctx.strokeStyle = 'rgba(255, 239, 153, 0.35)';
+    ctx.lineWidth = strokeWidth;
+
+    // Paint each tile once (union of all valid placements) to avoid darker
+    // overlap in the center of large available zones.
+    const coveredCells = new Set<number>();
+    for (const key of placement.validTopLeftCells) {
+      const tileX = key % this.map.width;
+      const tileY = (key - tileX) / this.map.width;
+      if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+        continue;
+      }
+
+      for (let dy = 0; dy < placement.height; dy++) {
+        for (let dx = 0; dx < placement.width; dx++) {
+          const x = tileX + dx;
+          const y = tileY + dy;
+          if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) {
+            continue;
+          }
+          coveredCells.add(y * this.map.width + x);
+        }
+      }
+    }
+
+    for (const cellKey of coveredCells) {
+      const tileX = cellKey % this.map.width;
+      const tileY = (cellKey - tileX) / this.map.width;
+      const left = offset + tileX * this.tileSize;
+      const top = offset + tileY * this.tileSize;
+      ctx.fillRect(left, top, this.tileSize, this.tileSize);
+      ctx.strokeRect(
+        left + strokeWidth / 2,
+        top + strokeWidth / 2,
+        Math.max(0, this.tileSize - strokeWidth),
+        Math.max(0, this.tileSize - strokeWidth)
+      );
+    }
+  }
+
+  private drawBuildPlacementPreview(ctx: CanvasRenderingContext2D): void {
+    const placement = this.buildPlacementProvider?.();
+    const preview = this.buildPlacementPreviewTile;
+    if (!placement || !preview) {
+      return;
+    }
+
+    const offset = this.mapBorderPx;
+    const left = offset + preview.x * this.tileSize;
+    const top = offset + preview.y * this.tileSize;
+    const widthPx = placement.width * this.tileSize;
+    const heightPx = placement.height * this.tileSize;
+    const strokeWidth = Math.max(2, Math.floor(this.tileSize * 0.05));
+
+    const fillColor = this.buildPlacementPreviewValid
+      ? 'rgba(120, 233, 144, 0.45)'
+      : 'rgba(233, 96, 86, 0.42)';
+    const strokeColor = this.buildPlacementPreviewValid
+      ? 'rgba(208, 255, 219, 1)'
+      : 'rgba(255, 214, 208, 1)';
+
+    ctx.fillStyle = fillColor;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    ctx.fillRect(left, top, widthPx, heightPx);
+    ctx.strokeRect(
+      left + strokeWidth / 2,
+      top + strokeWidth / 2,
+      Math.max(0, widthPx - strokeWidth),
+      Math.max(0, heightPx - strokeWidth)
+    );
   }
 
   private drawBuildings(ctx: CanvasRenderingContext2D): void {
@@ -330,23 +446,71 @@ export class MapView extends Actor {
   private initializeView(engine: Engine): void {
     const fitZoom = this.getFitZoom(engine);
     const minZoom = this.getEffectiveMinZoom(engine);
-    this.zoom = this.clamp(fitZoom * 0.96, minZoom, this.maxZoom);
 
-    this.viewX = (engine.drawWidth - this.contentWidth * this.zoom) / 2;
-    this.viewY = (engine.drawHeight - this.contentHeight * this.zoom) / 2;
+    const playerStateView = this.getPlayerStateView(
+      engine,
+      this.initialPlayerStateCoverage,
+      fitZoom
+    );
+    if (playerStateView) {
+      this.zoom = this.clamp(playerStateView.zoom, minZoom, this.maxZoom);
+      this.viewX = playerStateView.viewX;
+      this.viewY = playerStateView.viewY;
+    } else {
+      this.zoom = this.clamp(fitZoom * 0.96, minZoom, this.maxZoom);
+      this.viewX = (engine.drawWidth - this.contentWidth * this.zoom) / 2;
+      this.viewY = (engine.drawHeight - this.contentHeight * this.zoom) / 2;
+    }
+
     this.clampView(engine);
     this.applyViewTransform();
+  }
+
+  focusOnPlayerState(coverage?: number): boolean {
+    const engine = this.scene?.engine;
+    if (!engine) {
+      return false;
+    }
+
+    const fitZoom = this.getFitZoom(engine);
+    const requestedCoverage =
+      coverage === undefined
+        ? this.initialPlayerStateCoverage
+        : this.clamp(coverage, 0.2, 0.95);
+    const playerStateView = this.getPlayerStateView(
+      engine,
+      requestedCoverage,
+      fitZoom
+    );
+    if (!playerStateView) {
+      return false;
+    }
+
+    const minZoom = this.getEffectiveMinZoom(engine);
+    this.zoom = this.clamp(playerStateView.zoom, minZoom, this.maxZoom);
+    this.viewX = playerStateView.viewX;
+    this.viewY = playerStateView.viewY;
+    this.clampView(engine);
+    this.applyViewTransform();
+    return true;
   }
 
   private refreshMapCanvasIfNeeded(): void {
     const nextBuildingsVersion = this.buildingsVersionProvider?.();
     const nextPlayerZoneTileCount = this.countPlayerZoneTiles();
+    const nextBuildPlacementVersion = this.buildPlacementVersionProvider?.() ?? 0;
     const buildingsChanged =
       nextBuildingsVersion !== undefined &&
       nextBuildingsVersion !== this.renderedBuildingsVersion;
     const zoneChanged = nextPlayerZoneTileCount !== this.renderedPlayerZoneTileCount;
+    const buildPlacementChanged =
+      nextBuildPlacementVersion !== this.renderedBuildPlacementVersion;
 
-    if (!buildingsChanged && !zoneChanged) {
+    if (
+      !buildingsChanged &&
+      !zoneChanged &&
+      !buildPlacementChanged
+    ) {
       return;
     }
 
@@ -354,16 +518,31 @@ export class MapView extends Actor {
   }
 
   private rebuildCachedMapCanvas(): void {
+    const staticLayer = new Canvas({
+      width: this.contentWidth,
+      height: this.contentHeight,
+      cache: true,
+      draw: (ctx) => this.drawMap(ctx),
+    });
+    const previewLayer = new Canvas({
+      width: this.contentWidth,
+      height: this.contentHeight,
+      cache: false,
+      draw: (ctx) => this.drawBuildPlacementPreview(ctx),
+    });
+
     this.graphics.use(
-      new Canvas({
-        width: this.contentWidth,
-        height: this.contentHeight,
-        cache: true,
-        draw: (ctx) => this.drawMap(ctx),
+      new GraphicsGroup({
+        members: [
+          { graphic: staticLayer, offset: vec(0, 0) },
+          { graphic: previewLayer, offset: vec(0, 0) },
+        ],
       })
     );
     this.renderedBuildingsVersion = this.buildingsVersionProvider?.() ?? 0;
     this.renderedPlayerZoneTileCount = this.countPlayerZoneTiles();
+    this.renderedBuildPlacementVersion =
+      this.buildPlacementVersionProvider?.() ?? 0;
   }
 
   private setupPointerControls(): void {
@@ -374,6 +553,29 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('down', (evt: PointerEvent) => {
+      const placementMode = this.buildPlacementProvider?.();
+      if (placementMode) {
+        if (evt.button === PointerButton.Right) {
+          this.dragging = false;
+          this.onBuildPlacementCancel?.();
+          const nativeEvt = evt.nativeEvent as MouseEvent | undefined;
+          nativeEvt?.preventDefault?.();
+          return;
+        }
+
+        if (evt.button === PointerButton.Left) {
+          const tile = this.getTileFromScreenPosition(
+            evt.screenPos.x,
+            evt.screenPos.y
+          );
+          if (!tile) {
+            return;
+          }
+          this.onBuildPlacementConfirm?.(tile.x, tile.y);
+          return;
+        }
+      }
+
       if (this.isMapInputBlocked()) {
         this.dragging = false;
         return;
@@ -566,6 +768,11 @@ export class MapView extends Actor {
   }
 
   private updateBuildingTooltip(engine: Engine): void {
+    if (this.buildPlacementProvider?.()) {
+      this.clearBuildingTooltip();
+      return;
+    }
+
     if (!this.tooltipProvider || !this.buildingsProvider) {
       return;
     }
@@ -593,6 +800,41 @@ export class MapView extends Actor {
       description: hovered.name,
       width: 180,
     });
+  }
+
+  private updateBuildPlacementPreview(engine: Engine): void {
+    const placement = this.buildPlacementProvider?.();
+    if (!placement) {
+      this.buildPlacementPreviewTile = undefined;
+      this.buildPlacementPreviewValid = false;
+      return;
+    }
+
+    const pointerPos = engine.input.pointers.primary.lastScreenPos;
+    if (!pointerPos) {
+      this.buildPlacementPreviewTile = undefined;
+      this.buildPlacementPreviewValid = false;
+      return;
+    }
+
+    const tile = this.getTileFromScreenPosition(pointerPos.x, pointerPos.y);
+    if (!tile) {
+      this.buildPlacementPreviewTile = undefined;
+      this.buildPlacementPreviewValid = false;
+      return;
+    }
+
+    const inBounds =
+      tile.x >= 0 &&
+      tile.y >= 0 &&
+      tile.x <= this.map.width - placement.width &&
+      tile.y <= this.map.height - placement.height;
+    const validTopLeftCells = placement.validTopLeftCells;
+    const key = tile.y * this.map.width + tile.x;
+    const valid = inBounds && validTopLeftCells.has(key);
+
+    this.buildPlacementPreviewTile = tile;
+    this.buildPlacementPreviewValid = valid;
   }
 
   private clearBuildingTooltip(): void {
@@ -638,15 +880,33 @@ export class MapView extends Actor {
   }
 
   private isScreenPointInsidePlayableMap(screenX: number, screenY: number): boolean {
+    return this.getTileFromScreenPosition(screenX, screenY) !== undefined;
+  }
+
+  private getTileFromScreenPosition(
+    screenX: number,
+    screenY: number
+  ): { x: number; y: number } | undefined {
     const contentX = (screenX - this.viewX) / this.zoom;
     const contentY = (screenY - this.viewY) / this.zoom;
     const mapLocalX = contentX - this.mapBorderPx;
     const mapLocalY = contentY - this.mapBorderPx;
     if (mapLocalX < 0 || mapLocalY < 0) {
-      return false;
+      return undefined;
     }
 
-    return mapLocalX < this.mapWidthPx && mapLocalY < this.mapHeightPx;
+    const tileX = Math.floor(mapLocalX / this.tileSize);
+    const tileY = Math.floor(mapLocalY / this.tileSize);
+    if (
+      tileX < 0 ||
+      tileY < 0 ||
+      tileX >= this.map.width ||
+      tileY >= this.map.height
+    ) {
+      return undefined;
+    }
+
+    return { x: tileX, y: tileY };
   }
 
   private getBuildingAnchorRect(overlay: MapBuildingOverlay): {
@@ -703,6 +963,79 @@ export class MapView extends Actor {
       engine.drawWidth / this.contentWidth,
       engine.drawHeight / this.contentHeight
     );
+  }
+
+  private getPlayerStateView(
+    engine: Engine,
+    targetCoverage: number,
+    fitZoom: number
+  ): { zoom: number; viewX: number; viewY: number } | undefined {
+    const bounds = this.getPlayerZoneBounds();
+    if (!bounds) {
+      return undefined;
+    }
+
+    const paddingTiles = 1;
+    const minTileX = Math.max(0, bounds.minX - paddingTiles);
+    const maxTileX = Math.min(this.map.width - 1, bounds.maxX + paddingTiles);
+    const minTileY = Math.max(0, bounds.minY - paddingTiles);
+    const maxTileY = Math.min(this.map.height - 1, bounds.maxY + paddingTiles);
+
+    const boxWidthPx = (maxTileX - minTileX + 1) * this.tileSize;
+    const boxHeightPx = (maxTileY - minTileY + 1) * this.tileSize;
+    if (boxWidthPx <= 0 || boxHeightPx <= 0) {
+      return undefined;
+    }
+
+    const zoomByWidth = (engine.drawWidth * targetCoverage) / boxWidthPx;
+    const zoomByHeight = (engine.drawHeight * targetCoverage) / boxHeightPx;
+    if (!Number.isFinite(zoomByWidth) || !Number.isFinite(zoomByHeight)) {
+      return undefined;
+    }
+
+    const zoom = Math.max(fitZoom * 0.96, Math.min(zoomByWidth, zoomByHeight));
+
+    const boxLeft = this.mapBorderPx + minTileX * this.tileSize;
+    const boxTop = this.mapBorderPx + minTileY * this.tileSize;
+    const centerLocalX = boxLeft + boxWidthPx / 2;
+    const centerLocalY = boxTop + boxHeightPx / 2;
+    return {
+      zoom,
+      viewX: engine.drawWidth / 2 - centerLocalX * zoom,
+      viewY: engine.drawHeight / 2 - centerLocalY * zoom,
+    };
+  }
+
+  private getPlayerZoneBounds():
+    | { minX: number; minY: number; maxX: number; maxY: number }
+    | undefined {
+    const zoneId = this.map.playerZoneId;
+    if (zoneId === null) {
+      return undefined;
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    for (let y = 0; y < this.map.height; y++) {
+      for (let x = 0; x < this.map.width; x++) {
+        if (this.map.zones[y][x] !== zoneId) {
+          continue;
+        }
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+
+    if (!Number.isFinite(minX)) {
+      return undefined;
+    }
+
+    return { minX, minY, maxX, maxY };
   }
 
   private getEffectiveMinZoom(engine: Engine): number {

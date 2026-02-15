@@ -1,14 +1,14 @@
 import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
 import { wrapText } from '../../_common/text';
 import {
+  BuildingManager,
+  type StateBuildingId,
+  type TypedBuildingDefinition,
+} from '../../managers/BuildingManager';
+import {
   ResourceManager,
   type ResourceType,
 } from '../../managers/ResourceManager';
-import {
-  StateManager,
-  type StateBuildingId,
-  type TypedBuildingDefinition,
-} from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
@@ -18,7 +18,7 @@ export interface BuildPopupOptions {
   x: number;
   y: number;
   buildingId: StateBuildingId;
-  stateManager: StateManager;
+  buildingManager: BuildingManager;
   resourceManager: ResourceManager;
   turnManager: TurnManager;
   anchor?: ScreenPopupAnchor;
@@ -31,7 +31,7 @@ export interface BuildPopupOptions {
  */
 export class BuildPopup extends ScreenPopup {
   constructor(options: BuildPopupOptions) {
-    const definition = options.stateManager.getBuildingDefinition(
+    const definition = options.buildingManager.getBuildingDefinition(
       options.buildingId
     );
     if (!definition) {
@@ -56,7 +56,7 @@ export class BuildPopup extends ScreenPopup {
           contentRoot,
           popup,
           definition,
-          options.stateManager,
+          options.buildingManager,
           options.resourceManager,
           options.turnManager,
           options.onBuilt
@@ -69,13 +69,13 @@ export class BuildPopup extends ScreenPopup {
     contentRoot: ScreenElement,
     popup: ScreenPopup,
     definition: TypedBuildingDefinition,
-    stateManager: StateManager,
+    buildingManager: BuildingManager,
     resourceManager: ResourceManager,
     turnManager: TurnManager,
     onBuilt: ((buildingId: StateBuildingId) => void) | undefined
   ): void {
-    const count = stateManager.getBuildingCount(definition.id);
-    const status = stateManager.canBuildBuilding(
+    const count = buildingManager.getBuildingCount(definition.id);
+    const status = buildingManager.canBuildBuilding(
       definition.id,
       resourceManager
     );
@@ -137,7 +137,7 @@ export class BuildPopup extends ScreenPopup {
       line('- No technology requirements', 13, okColor, 6);
     } else {
       for (const technology of definition.requiredTechnologies) {
-        const unlocked = stateManager.isTechnologyUnlocked(technology);
+        const unlocked = buildingManager.isTechnologyUnlocked(technology);
         line(`- ${technology}`, 13, unlocked ? okColor : warnColor, 4);
       }
       y += 4;
@@ -163,7 +163,7 @@ export class BuildPopup extends ScreenPopup {
         if (!turnManager.spendActionPoints(1)) {
           return;
         }
-        const built = stateManager.buildBuilding(
+        const built = buildingManager.buildBuilding(
           definition.id,
           resourceManager
         );

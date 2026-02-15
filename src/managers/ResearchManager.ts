@@ -7,7 +7,7 @@ import {
   type ResearchTreeId,
   type TypedResearchDefinition,
 } from '../data/researches';
-import { StateManager } from './StateManager';
+import { BuildingManager } from './BuildingManager';
 
 interface ActiveResearchState {
   id: ResearchId;
@@ -38,14 +38,14 @@ export interface ResearchStartStatus {
 }
 
 export class ResearchManager {
-  private readonly stateManager: StateManager;
+  private readonly buildingManager: BuildingManager;
   private activeResearch?: ActiveResearchState;
   private readonly completedResearches = new Set<ResearchId>();
   private latestCompletion?: CompletedResearchSummary;
   private researchVersion = 0;
 
-  constructor(stateManager: StateManager) {
-    this.stateManager = stateManager;
+  constructor(buildingManager: BuildingManager) {
+    this.buildingManager = buildingManager;
     this.bootstrapFromUnlockedTechnologies();
   }
 
@@ -179,7 +179,7 @@ export class ResearchManager {
       const completedDefinition = getResearchDefinition(this.activeResearch.id);
       if (completedDefinition) {
         this.completedResearches.add(completedDefinition.id);
-        this.stateManager.unlockTechnology(completedDefinition.id);
+        this.buildingManager.unlockTechnology(completedDefinition.id);
         completedResearch = {
           id: completedDefinition.id,
           name: completedDefinition.name,
@@ -209,7 +209,7 @@ export class ResearchManager {
   }
 
   private bootstrapFromUnlockedTechnologies(): void {
-    for (const technology of this.stateManager.getUnlockedTechnologies()) {
+    for (const technology of this.buildingManager.getUnlockedTechnologies()) {
       if (isResearchId(technology)) {
         this.completedResearches.add(technology);
       }

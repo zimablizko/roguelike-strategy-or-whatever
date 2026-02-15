@@ -5,6 +5,7 @@ export const CONFIG = {
   GAME_WIDTH: 1280,
   GAME_HEIGHT: 720,
   MAP_SHOW_GRID: false,
+  MAP_INITIAL_STATE_COVERAGE: 0.8,
   DEBUG: import.meta.env.DEV,
   DEBUG_OPTIONS: {
     START_SCENE: 'gameplay',

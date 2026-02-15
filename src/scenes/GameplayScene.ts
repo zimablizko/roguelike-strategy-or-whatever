@@ -2,11 +2,13 @@ import {
   Actor,
   Color,
   Engine,
+  Keys,
   Scene,
   type SceneActivationContext,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
 import { Resources } from '../_common/resources';
+import type { StateBuildingId } from '../managers/BuildingManager';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { TurnManager } from '../managers/TurnManager';
@@ -18,7 +20,7 @@ import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
-import { MapView } from '../ui/views/MapView';
+import { MapView, type MapBuildPlacementOverlay } from '../ui/views/MapView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
@@ -45,6 +47,11 @@ export class GameplayScene extends Scene {
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
+  private pendingManualBuildBuildingId?: StateBuildingId;
+  private placementOverlayCache?: {
+    key: string;
+    overlay: MapBuildPlacementOverlay;
+  };
 
   onInitialize(_engine: Engine): void {
     // Set background color
@@ -55,6 +62,12 @@ export class GameplayScene extends Scene {
     // Excalibur Scenes are initialized once, then re-activated many times.
     // Reset state on activation so starting a new game gets fresh defaults.
     this.resetGame(context.engine);
+  }
+
+  onPreUpdate(engine: Engine): void {
+    if (engine.input.keyboard.wasPressed(Keys.F)) {
+      this.mapView?.focusOnPlayerState();
+    }
   }
 
   onDeactivate(): void {
@@ -70,6 +83,8 @@ export class GameplayScene extends Scene {
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
+    this.pendingManualBuildBuildingId = undefined;
+    this.placementOverlayCache = undefined;
   }
 
   private resetGame(engine: Engine): void {
@@ -85,6 +100,8 @@ export class GameplayScene extends Scene {
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
+    this.pendingManualBuildBuildingId = undefined;
+    this.placementOverlayCache = undefined;
 
     // Recreate managers with default new-game data
     this.gameManager = new GameManager({
@@ -106,7 +123,7 @@ export class GameplayScene extends Scene {
     this.turnManager = new TurnManager(
       this.resourceManager,
       this.gameManager.rulerManager,
-      this.gameManager.stateManager,
+      this.gameManager.buildingManager,
       {
         rng: this.gameManager.rng,
         researchManager: this.gameManager.researchManager,
@@ -139,9 +156,9 @@ export class GameplayScene extends Scene {
     const mapView = new MapView({
       map,
       buildingsProvider: () =>
-        this.gameManager.stateManager.getBuildingMapOverlays(),
+        this.gameManager.buildingManager.getBuildingMapOverlays(),
       buildingsVersionProvider: () =>
-        this.gameManager.stateManager.getBuildingsVersion(),
+        this.gameManager.buildingManager.getBuildingsVersion(),
       onBuildingSelected: (instanceId) => {
         this.selectBuilding(instanceId, false);
       },
@@ -149,10 +166,19 @@ export class GameplayScene extends Scene {
         (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ??
           false) ||
         (this.quickBuildView?.containsScreenPoint(screenX, screenY) ?? false),
+      buildPlacementProvider: () => this.getPlacementOverlay(),
+      buildPlacementVersionProvider: () => this.getPlacementOverlayVersion(),
+      onBuildPlacementConfirm: (tileX, tileY) => {
+        this.handleManualBuildPlacementConfirm(tileX, tileY);
+      },
+      onBuildPlacementCancel: () => {
+        this.cancelManualBuildPlacement();
+      },
       isInputBlocked: () => this.hasOpenPopup(),
       tooltipProvider: this.tooltipProvider,
       tileSize: 56,
       showGrid: CONFIG.MAP_SHOW_GRID,
+      initialPlayerStateCoverage: CONFIG.MAP_INITIAL_STATE_COVERAGE,
     });
 
     this.mapView = mapView;
@@ -194,6 +220,7 @@ export class GameplayScene extends Scene {
       x: engine.drawWidth / 2,
       y: engine.drawHeight / 2,
       stateManager: this.gameManager.stateManager,
+      buildingManager: this.gameManager.buildingManager,
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
@@ -372,6 +399,7 @@ export class GameplayScene extends Scene {
   private addSelectedBuildingView(): void {
     const view = new SelectedBuildingView({
       stateManager: this.gameManager.stateManager,
+      buildingManager: this.gameManager.buildingManager,
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
@@ -383,12 +411,12 @@ export class GameplayScene extends Scene {
 
   private addQuickBuildView(): void {
     const view = new QuickBuildView({
-      stateManager: this.gameManager.stateManager,
+      buildingManager: this.gameManager.buildingManager,
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
-      onBuilt: (instanceId) => {
-        this.selectBuilding(instanceId, true);
+      onSelectBuildingForPlacement: (buildingId) => {
+        this.startManualBuildPlacement(buildingId);
       },
     });
     this.quickBuildView = view;
@@ -560,5 +588,138 @@ export class GameplayScene extends Scene {
       return rulerTop + height;
     }
     return rulerTop + 80;
+  }
+
+  private startManualBuildPlacement(buildingId: StateBuildingId): void {
+    const hasActionPoint =
+      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    if (!hasActionPoint) {
+      return;
+    }
+
+    const status = this.gameManager.buildingManager.canBuildBuilding(
+      buildingId,
+      this.resourceManager
+    );
+    if (!status.buildable) {
+      return;
+    }
+
+    this.pendingManualBuildBuildingId = buildingId;
+    this.placementOverlayCache = undefined;
+  }
+
+  private cancelManualBuildPlacement(): void {
+    if (!this.pendingManualBuildBuildingId) {
+      return;
+    }
+    this.pendingManualBuildBuildingId = undefined;
+    this.placementOverlayCache = undefined;
+  }
+
+  private getPlacementOverlay(): MapBuildPlacementOverlay | undefined {
+    const buildingId = this.pendingManualBuildBuildingId;
+    if (!buildingId) {
+      return undefined;
+    }
+
+    const definition =
+      this.gameManager.buildingManager.getBuildingDefinition(buildingId);
+    if (!definition) {
+      return undefined;
+    }
+
+    const cacheKey = [
+      buildingId,
+      this.resourceManager.getResourcesVersion(),
+      this.turnManager.getTurnVersion(),
+      this.gameManager.buildingManager.getBuildingsVersion(),
+    ].join(':');
+
+    if (this.placementOverlayCache?.key === cacheKey) {
+      return this.placementOverlayCache.overlay;
+    }
+
+    const placements = this.gameManager.buildingManager.getAvailablePlacements(
+      buildingId,
+      this.resourceManager
+    );
+    const mapWidth = this.gameManager.mapManager.getMapRef().width;
+    const validTopLeftCells = new Set<number>();
+    for (const placement of placements) {
+      validTopLeftCells.add(placement.y * mapWidth + placement.x);
+    }
+
+    const overlay: MapBuildPlacementOverlay = {
+      buildingId,
+      width: definition.placementRule.width,
+      height: definition.placementRule.height,
+      validTopLeftCells,
+    };
+
+    this.placementOverlayCache = {
+      key: cacheKey,
+      overlay,
+    };
+    return overlay;
+  }
+
+  private getPlacementOverlayVersion(): number {
+    const buildingId = this.pendingManualBuildBuildingId;
+    if (!buildingId) {
+      return 0;
+    }
+
+    let idHash = 0;
+    for (let i = 0; i < buildingId.length; i++) {
+      idHash += buildingId.charCodeAt(i);
+    }
+
+    return (
+      idHash * 1_000_000 +
+      this.resourceManager.getResourcesVersion() * 101 +
+      this.turnManager.getTurnVersion() * 103 +
+      this.gameManager.buildingManager.getBuildingsVersion() * 107
+    );
+  }
+
+  private handleManualBuildPlacementConfirm(tileX: number, tileY: number): void {
+    const buildingId = this.pendingManualBuildBuildingId;
+    if (!buildingId) {
+      return;
+    }
+
+    const hasActionPoint =
+      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    if (!hasActionPoint) {
+      return;
+    }
+
+    const buildStatus = this.gameManager.buildingManager.canPlaceBuildingAt(
+      buildingId,
+      tileX,
+      tileY,
+      this.resourceManager
+    );
+    if (!buildStatus.buildable) {
+      return;
+    }
+
+    const built = this.gameManager.buildingManager.buildBuildingAt(
+      buildingId,
+      tileX,
+      tileY,
+      this.resourceManager
+    );
+    if (!built) {
+      return;
+    }
+
+    this.turnManager.spendActionPoints(1);
+    const latestInstance =
+      this.gameManager.buildingManager.getLatestBuildingInstance(buildingId);
+    this.selectBuilding(latestInstance?.instanceId, true);
+
+    this.cancelManualBuildPlacement();
   }
 }

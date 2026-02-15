@@ -1,4 +1,5 @@
 import { SeededRandom } from '../_common/random';
+import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
@@ -34,6 +35,7 @@ export class GameManager {
   resourceManager: ResourceManager;
   rulerManager: RulerManager;
   stateManager: StateManager;
+  buildingManager: BuildingManager;
   mapManager: MapManager;
   researchManager: ResearchManager;
   readonly rng: SeededRandom;
@@ -51,7 +53,6 @@ export class GameManager {
     this.mapManager = new MapManager({ ...options.map, rng: this.rng });
     const playerState = this.mapManager.getPlayerStateSummary();
     this.stateManager = new StateManager({
-      mapManager: this.mapManager,
       rng: this.rng,
       initial: {
         tiles: {
@@ -63,7 +64,15 @@ export class GameManager {
         ocean: playerState.ocean,
       },
     });
-    this.researchManager = new ResearchManager(this.stateManager);
+    this.buildingManager = new BuildingManager({
+      mapManager: this.mapManager,
+      rng: this.rng,
+      stateBridge: {
+        getStateRef: () => this.stateManager.getStateRef(),
+        applyMapSummary: (summary) => this.stateManager.applyMapSummary(summary),
+      },
+    });
+    this.researchManager = new ResearchManager(this.buildingManager);
   }
 
   logData() {

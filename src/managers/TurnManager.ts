@@ -1,11 +1,11 @@
 import { CONFIG } from '../_common/config';
 import { SeededRandom } from '../_common/random';
 import { buildingPassiveIncome, type StateBuildingId } from '../data/buildings';
+import { BuildingManager } from './BuildingManager';
 import type { CompletedResearchSummary } from './ResearchManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager, type ResourceType } from './ResourceManager';
 import { RulerManager } from './RulerManager';
-import { StateManager } from './StateManager';
 
 export type TurnData = {
   turnNumber: number;
@@ -33,7 +33,7 @@ export class TurnManager {
   private turnData: TurnData;
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;
-  private stateManager: StateManager;
+  private buildingManager: BuildingManager;
   private researchManager?: ResearchManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
@@ -41,7 +41,7 @@ export class TurnManager {
   constructor(
     resourceManager: ResourceManager,
     rulerManager: RulerManager,
-    stateManager: StateManager,
+    buildingManager: BuildingManager,
     options?: {
       maxActionPoints?: number;
       rng?: SeededRandom;
@@ -58,7 +58,7 @@ export class TurnManager {
     };
     this.resourceManager = resourceManager;
     this.rulerManager = rulerManager;
-    this.stateManager = stateManager;
+    this.buildingManager = buildingManager;
     this.researchManager = options?.researchManager;
     this.rng = options?.rng ?? new SeededRandom();
   }
@@ -127,7 +127,7 @@ export class TurnManager {
   } {
     const byResource: Partial<Record<ResourceType, number>> = {};
     const pulses: EndTurnIncomePulse[] = [];
-    const buildingInstances = this.stateManager.getBuildingInstancesRef();
+    const buildingInstances = this.buildingManager.getBuildingInstancesRef();
 
     const addIncome = (
       tileX: number,

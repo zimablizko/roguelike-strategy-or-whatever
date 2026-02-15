@@ -12,11 +12,12 @@ import {
   type ResourceType,
 } from '../../managers/ResourceManager';
 import {
-  StateManager,
+  BuildingManager,
   type StateBuildingActionDefinition,
   type StateBuildingId,
   type TypedBuildingDefinition,
-} from '../../managers/StateManager';
+} from '../../managers/BuildingManager';
+import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { UI_Z } from '../constants/ZLayers';
 import { ActionElement } from '../elements/ActionElement';
@@ -30,6 +31,7 @@ export interface StatePopupOptions {
   x: number;
   y: number;
   stateManager: StateManager;
+  buildingManager: BuildingManager;
   resourceManager: ResourceManager;
   turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
@@ -57,6 +59,7 @@ const BODY_OFFSET_Y = 46;
  */
 export class StatePopup extends ScreenPopup {
   private stateManager: StateManager;
+  private buildingManager: BuildingManager;
   private resourceManager: ResourceManager;
   private turnManager: TurnManager;
   private tooltipProvider: TooltipProvider;
@@ -86,11 +89,12 @@ export class StatePopup extends ScreenPopup {
       },
     });
     this.stateManager = options.stateManager;
+    this.buildingManager = options.buildingManager;
     this.resourceManager = options.resourceManager;
     this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
 
-    const firstBuilding = this.stateManager.getBuildingDefinitions()[0];
+    const firstBuilding = this.buildingManager.getBuildingDefinitions()[0];
     this.selectedBuildingId = firstBuilding?.id;
   }
 
@@ -159,12 +163,12 @@ export class StatePopup extends ScreenPopup {
 
   private populateOverviewTab(root: ScreenElement): void {
     const state = this.stateManager.getStateRef();
-    const buildingDefinitions = this.stateManager.getBuildingDefinitions();
+    const buildingDefinitions = this.buildingManager.getBuildingDefinitions();
     const builtTypes = buildingDefinitions.filter(
-      (building) => this.stateManager.getBuildingCount(building.id) > 0
+      (building) => this.buildingManager.getBuildingCount(building.id) > 0
     ).length;
     const totalBuilt = buildingDefinitions.reduce(
-      (sum, building) => sum + this.stateManager.getBuildingCount(building.id),
+      (sum, building) => sum + this.buildingManager.getBuildingCount(building.id),
       0
     );
 
@@ -241,7 +245,7 @@ export class StatePopup extends ScreenPopup {
     const rightX = leftWidth + 18;
     const rightWidth = panelWidth - rightX;
 
-    const buildingDefinitions = this.stateManager.getBuildingDefinitions();
+    const buildingDefinitions = this.buildingManager.getBuildingDefinitions();
     if (!buildingDefinitions.length) {
       root.addChild(
         StatePopup.createLine(
@@ -266,7 +270,7 @@ export class StatePopup extends ScreenPopup {
       (definition) => ({
         id: definition.id,
         name: definition.name,
-        count: this.stateManager.getBuildingCount(definition.id),
+        count: this.buildingManager.getBuildingCount(definition.id),
         unique: definition.unique,
       })
     );
@@ -294,7 +298,7 @@ export class StatePopup extends ScreenPopup {
     });
     root.addChild(buildingList);
 
-    const selectedDefinition = this.stateManager.getBuildingDefinition(
+    const selectedDefinition = this.buildingManager.getBuildingDefinition(
       this.selectedBuildingId
     );
     if (!selectedDefinition) {
@@ -321,10 +325,10 @@ export class StatePopup extends ScreenPopup {
     const textColor = Color.fromHex('#dce6ef');
     const okColor = Color.fromHex('#9fe6aa');
     const warnColor = Color.fromHex('#f5c179');
-    const count = this.stateManager.getBuildingCount(definition.id);
+    const count = this.buildingManager.getBuildingCount(definition.id);
     const built = count > 0;
     const canBuildMore = !definition.unique || count === 0;
-    const buildStatus = this.stateManager.canBuildBuilding(
+    const buildStatus = this.buildingManager.canBuildBuilding(
       definition.id,
       this.resourceManager
     );
@@ -385,7 +389,7 @@ export class StatePopup extends ScreenPopup {
         addLine('- technologies: none', 13, okColor, 4);
       } else {
         for (const technology of definition.requiredTechnologies) {
-          const unlocked = this.stateManager.isTechnologyUnlocked(technology);
+          const unlocked = this.buildingManager.isTechnologyUnlocked(technology);
           addLine(
             `- tech: ${technology}`,
             13,
@@ -477,7 +481,7 @@ export class StatePopup extends ScreenPopup {
         break;
       }
 
-      const actionStatus = this.stateManager.canActivateBuildingAction(
+      const actionStatus = this.buildingManager.canActivateBuildingAction(
         definition.id,
         action.id
       );
@@ -494,7 +498,7 @@ export class StatePopup extends ScreenPopup {
           if (!this.turnManager.spendActionPoints(1)) {
             return;
           }
-          const activated = this.stateManager.activateBuildingAction(
+          const activated = this.buildingManager.activateBuildingAction(
             definition.id,
             action.id,
             this.resourceManager
@@ -546,7 +550,7 @@ export class StatePopup extends ScreenPopup {
       x: engine.drawWidth / 2,
       y: engine.drawHeight / 2,
       buildingId,
-      stateManager: this.stateManager,
+      buildingManager: this.buildingManager,
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       onBuilt: () => {
@@ -685,7 +689,7 @@ export class StatePopup extends ScreenPopup {
     const state = this.stateManager.getStateRef();
     const buildingCount = Math.max(
       1,
-      this.stateManager.getBuildingCount(definition.id)
+      this.buildingManager.getBuildingCount(definition.id)
     );
     const gainByBuilding: Partial<Record<StateBuildingId, number>> = {
       lumbermill:

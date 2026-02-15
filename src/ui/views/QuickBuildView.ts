@@ -16,10 +16,11 @@ import {
 import type { ResourceType } from '../../managers/ResourceManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import {
-  StateManager,
+  BuildingManager,
   type StateBuildingBuildStatus,
+  type StateBuildingId,
   type TypedBuildingDefinition,
-} from '../../managers/StateManager';
+} from '../../managers/BuildingManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { ScreenButton } from '../elements/ScreenButton';
 import {
@@ -28,11 +29,11 @@ import {
 } from '../tooltip/TooltipProvider';
 
 export interface QuickBuildViewOptions {
-  stateManager: StateManager;
+  buildingManager: BuildingManager;
   resourceManager: ResourceManager;
   turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
-  onBuilt?: (instanceId: string) => void;
+  onSelectBuildingForPlacement?: (buildingId: StateBuildingId) => void;
   leftMargin?: number;
   bottomMargin?: number;
   width?: number;
@@ -47,11 +48,13 @@ interface BuildRow {
 }
 
 export class QuickBuildView extends ScreenElement {
-  private readonly stateManager: StateManager;
+  private readonly buildingManager: BuildingManager;
   private readonly resourceManager: ResourceManager;
   private readonly turnManager: TurnManager;
   private readonly tooltipProvider: TooltipProvider;
-  private readonly onBuilt?: (instanceId: string) => void;
+  private readonly onSelectBuildingForPlacement?: (
+    buildingId: StateBuildingId
+  ) => void;
 
   private readonly leftMargin: number;
   private readonly bottomMargin: number;
@@ -76,11 +79,11 @@ export class QuickBuildView extends ScreenElement {
 
   constructor(options: QuickBuildViewOptions) {
     super({ x: 0, y: 0 });
-    this.stateManager = options.stateManager;
+    this.buildingManager = options.buildingManager;
     this.resourceManager = options.resourceManager;
     this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
-    this.onBuilt = options.onBuilt;
+    this.onSelectBuildingForPlacement = options.onSelectBuildingForPlacement;
     this.leftMargin = options.leftMargin ?? 20;
     this.bottomMargin = options.bottomMargin ?? 160;
     this.panelWidth = options.width ?? 260;
@@ -175,7 +178,7 @@ export class QuickBuildView extends ScreenElement {
   }
 
   private render(force: boolean): void {
-    const bv = this.stateManager.getBuildingsVersion();
+    const bv = this.buildingManager.getBuildingsVersion();
     const rv = this.resourceManager.getResourcesVersion();
     const tv = this.turnManager.getTurnVersion();
     const ex = this.expanded;
@@ -263,7 +266,7 @@ export class QuickBuildView extends ScreenElement {
             return;
           }
 
-          const buildStatus = this.stateManager.canBuildBuilding(
+          const buildStatus = this.buildingManager.canBuildBuilding(
             row.definition.id,
             this.resourceManager
           );
@@ -271,21 +274,8 @@ export class QuickBuildView extends ScreenElement {
             return;
           }
 
-          const built = this.stateManager.buildBuilding(
-            row.definition.id,
-            this.resourceManager
-          );
-          if (!built) {
-            return;
-          }
-
-          this.turnManager.spendActionPoints(1);
-          const latestInstance = this.stateManager.getLatestBuildingInstance(
-            row.definition.id
-          );
-          if (latestInstance) {
-            this.onBuilt?.(latestInstance.instanceId);
-          }
+          this.onSelectBuildingForPlacement?.(row.definition.id);
+          this.expanded = false;
           this.invalidateRender();
         },
       });
@@ -334,14 +324,14 @@ export class QuickBuildView extends ScreenElement {
   private getRows(): BuildRow[] {
     const hasActionPoint =
       this.turnManager.getTurnDataRef().actionPoints.current >= 1;
-    return this.stateManager
+    return this.buildingManager
       .getBuildingDefinitions()
       .filter((definition) => {
-        const count = this.stateManager.getBuildingCount(definition.id);
+        const count = this.buildingManager.getBuildingCount(definition.id);
         return !definition.unique || count === 0;
       })
       .map((definition) => {
-        const status = this.stateManager.canBuildBuilding(
+        const status = this.buildingManager.canBuildBuilding(
           definition.id,
           this.resourceManager
         );
@@ -357,15 +347,15 @@ export class QuickBuildView extends ScreenElement {
     const lines: string[] = [row.definition.description];
     const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
     if (apCurrent < 1) {
-      lines.push('Not enough Action Points.');
+        lines.push('Not enough Action Points.');
     }
 
     if (row.definition.requiredTechnologies.length > 0) {
       const unlocked = row.definition.requiredTechnologies.filter(
-        (technology) => this.stateManager.isTechnologyUnlocked(technology)
+        (technology) => this.buildingManager.isTechnologyUnlocked(technology)
       );
       const missing = row.definition.requiredTechnologies.filter(
-        (technology) => !this.stateManager.isTechnologyUnlocked(technology)
+        (technology) => !this.buildingManager.isTechnologyUnlocked(technology)
       );
       if (unlocked.length > 0) {
         lines.push(`Tech unlocked: ${unlocked.join(', ')}`);
