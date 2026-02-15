@@ -1,6 +1,8 @@
 import { CONFIG } from '../_common/config';
 import { SeededRandom } from '../_common/random';
 import { buildingPassiveIncome, type StateBuildingId } from '../data/buildings';
+import type { CompletedResearchSummary } from './ResearchManager';
+import { ResearchManager } from './ResearchManager';
 import { ResourceManager, type ResourceType } from './ResourceManager';
 import { RulerManager } from './RulerManager';
 import { StateManager } from './StateManager';
@@ -23,6 +25,7 @@ export interface EndTurnIncomePulse {
 export interface EndTurnResult {
   passiveIncome: Partial<Record<ResourceType, number>>;
   passiveIncomePulses: EndTurnIncomePulse[];
+  completedResearch?: CompletedResearchSummary;
   upkeepPaid: boolean;
 }
 
@@ -31,6 +34,7 @@ export class TurnManager {
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;
   private stateManager: StateManager;
+  private researchManager?: ResearchManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
 
@@ -38,7 +42,11 @@ export class TurnManager {
     resourceManager: ResourceManager,
     rulerManager: RulerManager,
     stateManager: StateManager,
-    options?: { maxActionPoints?: number; rng?: SeededRandom }
+    options?: {
+      maxActionPoints?: number;
+      rng?: SeededRandom;
+      researchManager?: ResearchManager;
+    }
   ) {
     const maxAP = options?.maxActionPoints ?? 10;
     this.turnData = {
@@ -51,6 +59,7 @@ export class TurnManager {
     this.resourceManager = resourceManager;
     this.rulerManager = rulerManager;
     this.stateManager = stateManager;
+    this.researchManager = options?.researchManager;
     this.rng = options?.rng ?? new SeededRandom();
   }
 
@@ -64,6 +73,10 @@ export class TurnManager {
     // Requirement: age increments on end of turn.
     this.rulerManager.incrementAge();
 
+    const researchUpdate = this.researchManager?.advanceTurn(
+      this.turnData.turnNumber
+    );
+
     console.log(`Turn ${this.turnData.turnNumber} ended.`);
     const upkeepPaid = this.resourceManager.spendResources(CONFIG.UPKEEP_COST);
 
@@ -74,6 +87,7 @@ export class TurnManager {
     return {
       passiveIncome: passiveIncome.byResource,
       passiveIncomePulses: passiveIncome.pulses,
+      completedResearch: researchUpdate?.completedResearch,
       upkeepPaid,
     };
   }

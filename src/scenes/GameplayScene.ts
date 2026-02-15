@@ -14,11 +14,13 @@ import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
+import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
+import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
@@ -38,6 +40,8 @@ export class GameplayScene extends Scene {
   private testPopup?: ScreenPopup;
   private statePopup?: StatePopup;
   private rulerPopup?: ScreenPopup;
+  private researchPopup?: ResearchPopup;
+  private rulerDisplay?: RulerDisplay;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
@@ -61,6 +65,8 @@ export class GameplayScene extends Scene {
     this.testPopup = undefined;
     this.statePopup = undefined;
     this.rulerPopup = undefined;
+    this.researchPopup = undefined;
+    this.rulerDisplay = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
@@ -72,6 +78,8 @@ export class GameplayScene extends Scene {
     this.testPopup = undefined;
     this.statePopup = undefined;
     this.rulerPopup = undefined;
+    this.researchPopup = undefined;
+    this.rulerDisplay = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
     this.selectedBuildingView = undefined;
@@ -99,7 +107,10 @@ export class GameplayScene extends Scene {
       this.resourceManager,
       this.gameManager.rulerManager,
       this.gameManager.stateManager,
-      { rng: this.gameManager.rng }
+      {
+        rng: this.gameManager.rng,
+        researchManager: this.gameManager.researchManager,
+      }
     );
 
     this.gameManager.logData();
@@ -112,6 +123,7 @@ export class GameplayScene extends Scene {
     this.addRulerDisplay(engine);
     this.addResourceDisplay(engine);
     this.addTurnDisplay(engine);
+    this.addResearchStatusDisplay(engine);
     this.addButtons(engine);
     this.addQuickBuildView();
     this.addSelectedBuildingView();
@@ -137,6 +149,7 @@ export class GameplayScene extends Scene {
         (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ??
           false) ||
         (this.quickBuildView?.containsScreenPoint(screenX, screenY) ?? false),
+      isInputBlocked: () => this.hasOpenPopup(),
       tooltipProvider: this.tooltipProvider,
       tileSize: 56,
       showGrid: CONFIG.MAP_SHOW_GRID,
@@ -194,16 +207,16 @@ export class GameplayScene extends Scene {
   }
 
   private addRulerDisplay(_engine: Engine) {
-    this.addHudElement(
-      new RulerDisplay({
-        x: 20,
-        y: 100,
-        rulerManager: this.gameManager.rulerManager,
-        onClick: () => {
-          this.showRulerPopup(_engine);
-        },
-      })
-    );
+    const view = new RulerDisplay({
+      x: 20,
+      y: 100,
+      rulerManager: this.gameManager.rulerManager,
+      onClick: () => {
+        this.showRulerPopup(_engine);
+      },
+    });
+    this.rulerDisplay = view;
+    this.addHudElement(view);
   }
 
   private showRulerPopup(engine: Engine): void {
@@ -320,6 +333,40 @@ export class GameplayScene extends Scene {
     });
 
     this.addHudElement(endTurnButton);
+  }
+
+  private addResearchStatusDisplay(engine: Engine): void {
+    this.addHudElement(
+      new ResearchStatusView({
+        x: 20,
+        y: this.getRulerDisplayBottomY() + 16,
+        researchManager: this.gameManager.researchManager,
+        turnManager: this.turnManager,
+        widthProvider: () => this.getRulerDisplayWidth(),
+        onClick: () => this.showResearchPopup(engine),
+      })
+    );
+  }
+
+  private showResearchPopup(engine: Engine): void {
+    if (this.researchPopup) {
+      this.researchPopup.close();
+      this.researchPopup = undefined;
+    }
+
+    const popup = new ResearchPopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      researchManager: this.gameManager.researchManager,
+      turnManager: this.turnManager,
+      tooltipProvider: this.tooltipProvider,
+      onClose: () => {
+        this.researchPopup = undefined;
+      },
+    });
+
+    this.researchPopup = popup;
+    this.add(popup);
   }
 
   private addSelectedBuildingView(): void {
@@ -487,5 +534,31 @@ export class GameplayScene extends Scene {
     actor.z = UI_Z.hud;
     this.add(actor);
     return actor;
+  }
+
+  private hasOpenPopup(): boolean {
+    return (
+      (this.testPopup !== undefined && !this.testPopup.isKilled()) ||
+      (this.statePopup !== undefined && !this.statePopup.isKilled()) ||
+      (this.rulerPopup !== undefined && !this.rulerPopup.isKilled()) ||
+      (this.researchPopup !== undefined && !this.researchPopup.isKilled())
+    );
+  }
+
+  private getRulerDisplayWidth(): number {
+    const width = this.rulerDisplay?.graphics.localBounds.width;
+    if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
+      return width;
+    }
+    return 360;
+  }
+
+  private getRulerDisplayBottomY(): number {
+    const rulerTop = 100;
+    const height = this.rulerDisplay?.graphics.localBounds.height;
+    if (typeof height === 'number' && Number.isFinite(height) && height > 0) {
+      return rulerTop + height;
+    }
+    return rulerTop + 80;
   }
 }

@@ -31,6 +31,7 @@ export interface TooltipOutcome {
 export interface TooltipRequest {
   owner: unknown;
   getAnchorRect: () => TooltipAnchorRect;
+  header?: string;
   description: string;
   outcomes?: TooltipOutcome[];
   placement?: TooltipPlacement;
@@ -50,9 +51,13 @@ export class TooltipProvider extends ScreenElement {
   private readonly minTooltipWidth = 140;
   private readonly defaultBgColor = Color.fromHex('#12202d');
   private readonly defaultTextColor = Color.fromHex('#ecf3fa');
+  private readonly defaultHeaderColor = Color.fromHex('#f7fbff');
+  private readonly separatorColor = Color.fromRGB(190, 210, 228, 0.38);
   private readonly tooltipPadding = 10;
   private readonly lineGap = 3;
+  private readonly headerGap = 6;
   private readonly fontSize = 13;
+  private readonly headerFontSize = 15;
   private readonly outcomeGap = 6;
   private readonly outcomeRowHeight = 18;
   private readonly outcomeIconSize = 14;
@@ -116,11 +121,23 @@ export class TooltipProvider extends ScreenElement {
   private rebuildGraphics(request: TooltipRequest): void {
     const outcomes = request.outcomes ?? [];
     const textColor = request.textColor ?? this.defaultTextColor;
+    const headerText = request.header?.trim() ?? '';
     const maxTooltipWidth = request.width ?? this.defaultTooltipWidth;
     const maxTextWidth = Math.max(
       40,
       maxTooltipWidth - this.tooltipPadding * 2
     );
+
+    const headerGraphic = headerText
+      ? new Text({
+          text: headerText,
+          font: new Font({
+            size: this.headerFontSize,
+            unit: FontUnit.Px,
+            color: this.defaultHeaderColor,
+          }),
+        })
+      : undefined;
 
     const lines = this.wrapTextToWidth(
       request.description,
@@ -144,9 +161,12 @@ export class TooltipProvider extends ScreenElement {
     );
 
     const outcomeRows = outcomes.map((outcome) => {
+      const outcomeTextValue = outcome.label
+        ? `${outcome.label}: ${outcome.value}`
+        : `${outcome.value}`;
       const iconSprite = this.getOutcomeIconSprite(outcome.icon);
       const outcomeText = new Text({
-        text: `${outcome.label}: ${outcome.value}`,
+        text: outcomeTextValue,
         font: new Font({
           size: this.fontSize,
           unit: FontUnit.Px,
@@ -167,6 +187,7 @@ export class TooltipProvider extends ScreenElement {
       0
     );
     const contentWidth = Math.max(
+      headerGraphic?.width ?? 0,
       descriptionContentWidth,
       outcomesContentWidth
     );
@@ -180,12 +201,16 @@ export class TooltipProvider extends ScreenElement {
       (sum, g) => sum + g.height,
       0
     );
+    const headerBlockHeight = headerGraphic
+      ? headerGraphic.height + this.headerGap + 1 + this.headerGap
+      : 0;
     const outcomeHeight =
       outcomes.length > 0
         ? this.outcomeGap + outcomes.length * this.outcomeRowHeight
         : 0;
     this.tooltipHeight =
       this.tooltipPadding * 2 +
+      headerBlockHeight +
       descriptionHeight +
       Math.max(0, textGraphics.length - 1) * this.lineGap +
       outcomeHeight;
@@ -202,6 +227,23 @@ export class TooltipProvider extends ScreenElement {
     ];
 
     let y = this.tooltipPadding;
+    if (headerGraphic) {
+      members.push({
+        graphic: headerGraphic,
+        offset: vec(this.tooltipPadding, y),
+      });
+      y += headerGraphic.height + this.headerGap;
+      members.push({
+        graphic: new Rectangle({
+          width: this.tooltipWidth - this.tooltipPadding * 2,
+          height: 1,
+          color: this.separatorColor,
+        }),
+        offset: vec(this.tooltipPadding, y),
+      });
+      y += this.headerGap + 1;
+    }
+
     for (const textGraphic of textGraphics) {
       members.push({
         graphic: textGraphic,
@@ -486,6 +528,7 @@ export class TooltipProvider extends ScreenElement {
     const textColor = request.textColor?.toHex() ?? '';
 
     return [
+      request.header ?? '',
       request.description,
       request.width ?? this.defaultTooltipWidth,
       bgColor,

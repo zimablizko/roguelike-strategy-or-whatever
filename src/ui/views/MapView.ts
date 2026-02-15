@@ -29,6 +29,7 @@ export interface MapViewOptions {
   buildingsVersionProvider?: () => number;
   onBuildingSelected?: (instanceId: string | undefined) => void;
   shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
+  isInputBlocked?: () => boolean;
   tooltipProvider?: TooltipProvider;
   tileSize?: number;
   panSpeed?: number;
@@ -58,6 +59,7 @@ export class MapView extends Actor {
   private readonly buildingsVersionProvider?: () => number;
   private readonly onBuildingSelected?: (instanceId: string | undefined) => void;
   private readonly shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
+  private readonly isInputBlocked?: () => boolean;
   private readonly tooltipProvider?: TooltipProvider;
 
   private readonly mapWidthPx: number;
@@ -95,6 +97,7 @@ export class MapView extends Actor {
     this.buildingsVersionProvider = options.buildingsVersionProvider;
     this.onBuildingSelected = options.onBuildingSelected;
     this.shouldIgnoreLeftClick = options.shouldIgnoreLeftClick;
+    this.isInputBlocked = options.isInputBlocked;
     this.tooltipProvider = options.tooltipProvider;
 
     this.mapWidthPx = this.map.width * this.tileSize;
@@ -371,6 +374,11 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('down', (evt: PointerEvent) => {
+      if (this.isMapInputBlocked()) {
+        this.dragging = false;
+        return;
+      }
+
       if (evt.button === PointerButton.Left) {
         if (this.shouldIgnoreLeftClick?.(evt.screenPos.x, evt.screenPos.y)) {
           return;
@@ -407,6 +415,11 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('move', (evt: PointerEvent) => {
+      if (this.isMapInputBlocked()) {
+        this.dragging = false;
+        return;
+      }
+
       if (!this.dragging) {
         return;
       }
@@ -420,6 +433,11 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('up', (evt: PointerEvent) => {
+      if (this.isMapInputBlocked()) {
+        this.dragging = false;
+        return;
+      }
+
       if (
         evt.button === PointerButton.Right ||
         evt.button === PointerButton.Middle
@@ -431,6 +449,10 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('wheel', (evt: WheelEvent) => {
+      if (this.isMapInputBlocked()) {
+        return;
+      }
+
       const engine = this.scene?.engine;
       if (!engine) {
         return;
@@ -465,6 +487,11 @@ export class MapView extends Actor {
   }
 
   private applyKeyboardPan(engine: Engine, elapsedMs: number): void {
+    if (this.isMapInputBlocked()) {
+      this.dragging = false;
+      return;
+    }
+
     let dx = 0;
     let dy = 0;
     const keyboard = engine.input.keyboard;
@@ -681,6 +708,10 @@ export class MapView extends Actor {
   private getEffectiveMinZoom(engine: Engine): number {
     // Never block zooming out to full-map fit on large maps.
     return Math.min(this.configuredMinZoom, this.getFitZoom(engine));
+  }
+
+  private isMapInputBlocked(): boolean {
+    return this.isInputBlocked?.() ?? false;
   }
 
   private installContextMenuBlock(engine: Engine): void {

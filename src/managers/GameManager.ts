@@ -1,5 +1,6 @@
 import { SeededRandom } from '../_common/random';
 import { MapManager } from './MapManager';
+import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
 import { StateManager } from './StateManager';
@@ -34,6 +35,7 @@ export class GameManager {
   rulerManager: RulerManager;
   stateManager: StateManager;
   mapManager: MapManager;
+  researchManager: ResearchManager;
   readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
@@ -61,6 +63,7 @@ export class GameManager {
         ocean: playerState.ocean,
       },
     });
+    this.researchManager = new ResearchManager(this.stateManager);
   }
 
   logData() {
