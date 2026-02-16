@@ -12,16 +12,16 @@ import {
   vec,
 } from 'excalibur';
 import type {
-  TooltipOutcomeRenderItem,
-  TooltipOutcomeRenderRow,
-  TooltipProviderOptions,
-} from '../../_common/models/ui.models';
-import type {
   TooltipAnchorRect,
   TooltipOutcome,
   TooltipPlacement,
   TooltipRequest,
 } from '../../_common/models/tooltip.models';
+import type {
+  TooltipOutcomeRenderItem,
+  TooltipOutcomeRenderRow,
+  TooltipProviderOptions,
+} from '../../_common/models/ui.models';
 import { measureTextWidth } from '../../_common/text';
 import {
   TOOLTIP_COLORS,
@@ -231,6 +231,12 @@ export class TooltipProvider extends ScreenElement {
           outcomeX += row.labelGraphic.width + 8;
         }
 
+        // Use a uniform text height across all items so baselines align
+        const uniformTextHeight = row.items.reduce(
+          (max, r) => Math.max(max, r.textGraphic.height),
+          0
+        );
+
         for (let i = 0; i < row.items.length; i++) {
           const item = row.items[i];
           if (item.iconSprite) {
@@ -246,10 +252,7 @@ export class TooltipProvider extends ScreenElement {
 
           members.push({
             graphic: item.textGraphic,
-            offset: vec(
-              outcomeX,
-              y + (row.height - item.textGraphic.height) / 2
-            ),
+            offset: vec(outcomeX, y + (row.height - uniformTextHeight) / 2),
           });
           outcomeX += item.textGraphic.width;
           if (i < row.items.length - 1) {
@@ -556,11 +559,16 @@ export class TooltipProvider extends ScreenElement {
     const itemsWidth =
       items.reduce((sum, item) => sum + item.width, 0) +
       Math.max(0, items.length - 1) * this.outcomeInlineItemGap;
-    const width = (labelGraphic?.width ?? 0) + (labelGraphic ? 8 : 0) + itemsWidth;
+    const width =
+      (labelGraphic?.width ?? 0) + (labelGraphic ? 8 : 0) + itemsWidth;
 
     const maxItemHeight = items.reduce(
       (max, item) =>
-        Math.max(max, item.textGraphic.height, item.iconSprite ? this.outcomeIconSize : 0),
+        Math.max(
+          max,
+          item.textGraphic.height,
+          item.iconSprite ? this.outcomeIconSize : 0
+        ),
       0
     );
     const height = Math.max(
@@ -578,14 +586,17 @@ export class TooltipProvider extends ScreenElement {
   ): TooltipOutcomeRenderRow {
     const iconSprite = this.getOutcomeIconSprite(outcome.icon);
     const textGraphic = new Text({
-      text: outcome.label ? `${outcome.label}: ${outcome.value}` : `${outcome.value}`,
+      text: outcome.label
+        ? `${outcome.label}: ${outcome.value}`
+        : `${outcome.value}`,
       font: new Font({
         size: this.fontSize,
         unit: FontUnit.Px,
         color: outcome.color ?? defaultTextColor,
       }),
     });
-    const width = (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
+    const width =
+      (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
     const height = Math.max(
       this.outcomeRowHeight,
       textGraphic.height,

@@ -7,9 +7,9 @@ import {
   type SceneActivationContext,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
+import type { StateBuildingId } from '../_common/models/buildings.models';
 import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
 import { Resources } from '../_common/resources';
-import type { StateBuildingId } from '../_common/models/buildings.models';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { TurnManager } from '../managers/TurnManager';
@@ -279,6 +279,7 @@ export class GameplayScene extends Scene {
         y: 20,
         bgColor: Color.fromHex('#1a252f'),
         resourceManager: this.resourceManager,
+        buildingManager: this.gameManager.buildingManager,
         tooltipProvider: this.tooltipProvider,
         anchor: 'top-right',
       })
@@ -685,7 +686,10 @@ export class GameplayScene extends Scene {
     );
   }
 
-  private handleManualBuildPlacementConfirm(tileX: number, tileY: number): void {
+  private handleManualBuildPlacementConfirm(
+    tileX: number,
+    tileY: number
+  ): void {
     const buildingId = this.pendingManualBuildBuildingId;
     if (!buildingId) {
       return;

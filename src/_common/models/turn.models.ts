@@ -22,3 +22,12 @@ export interface EndTurnResult {
   completedResearch?: CompletedResearchSummary;
   upkeepPaid: boolean;
 }
+
+export interface UpkeepBreakdown {
+  baseFood: number;
+  baseGold: number;
+  populationFood: number;
+  totalFood: number;
+  totalGold: number;
+  totalPopulation: number;
+}

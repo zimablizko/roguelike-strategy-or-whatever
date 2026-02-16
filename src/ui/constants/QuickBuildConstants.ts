@@ -19,6 +19,7 @@ export const QUICK_BUILD_HOTKEYS: Partial<
   Record<StateBuildingId, BuildingHotkeyConfig>
 > = {
   castle: { key: Keys.C, label: 'C' },
+  house: { key: Keys.H, label: 'H' },
   lumbermill: { key: Keys.L, label: 'L' },
   mine: { key: Keys.M, label: 'M' },
   farm: { key: Keys.F, label: 'F' },

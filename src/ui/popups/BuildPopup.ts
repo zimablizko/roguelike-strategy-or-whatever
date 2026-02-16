@@ -1,11 +1,11 @@
 import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
-import { wrapText } from '../../_common/text';
 import type {
   StateBuildingId,
   TypedBuildingDefinition,
 } from '../../_common/models/buildings.models';
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { BuildPopupOptions } from '../../_common/models/ui.models';
+import { wrapText } from '../../_common/text';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { TurnManager } from '../../managers/TurnManager';
@@ -128,6 +128,26 @@ export class BuildPopup extends ScreenPopup {
         line(`- ${technology}`, 13, unlocked ? okColor : warnColor, 4);
       }
       y += 4;
+    }
+
+    if (definition.populationRequired) {
+      const freePop = buildingManager.getFreePopulation();
+      const enough = freePop >= definition.populationRequired;
+      line(
+        `Population required: ${definition.populationRequired} (free: ${freePop})`,
+        14,
+        enough ? okColor : warnColor,
+        8
+      );
+    }
+
+    if (definition.populationProvided) {
+      line(
+        `Population provided: +${definition.populationProvided}`,
+        14,
+        okColor,
+        8
+      );
     }
 
     if (status.buildable) {

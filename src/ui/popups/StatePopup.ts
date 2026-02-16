@@ -6,7 +6,6 @@ import {
   Text,
   type Scene,
 } from 'excalibur';
-import { Resources } from '../../_common/resources';
 import type {
   StateBuildingActionDefinition,
   StateBuildingId,
@@ -16,22 +15,20 @@ import type {
   ResourceCost,
   ResourceType,
 } from '../../_common/models/resource.models';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type {
   BuildingListItem,
   StatePopupOptions,
   StatePopupTab,
 } from '../../_common/models/ui.models';
-import { ResourceManager } from '../../managers/ResourceManager';
-import {
-  getResearchDefinition,
-  isResearchId,
-} from '../../data/researches';
+import { Resources } from '../../_common/resources';
+import { getResearchDefinition, isResearchId } from '../../data/researches';
 import { BuildingManager } from '../../managers/BuildingManager';
+import { ResourceManager } from '../../managers/ResourceManager';
 import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
-import type { TooltipOutcome } from '../../_common/models/tooltip.models';
-import { UI_Z } from '../constants/ZLayers';
 import { STATE_POPUP_LAYOUT } from '../constants/StatePopupConstants';
+import { UI_Z } from '../constants/ZLayers';
 import { ActionElement } from '../elements/ActionElement';
 import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenList } from '../elements/ScreenList';
@@ -153,73 +150,82 @@ export class StatePopup extends ScreenPopup {
       (building) => this.buildingManager.getBuildingCount(building.id) > 0
     ).length;
     const totalBuilt = buildingDefinitions.reduce(
-      (sum, building) => sum + this.buildingManager.getBuildingCount(building.id),
+      (sum, building) =>
+        sum + this.buildingManager.getBuildingCount(building.id),
       0
     );
 
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        0,
-        `Total Size: ${state.size}`,
-        18,
-        Color.fromHex('#f0f4f8')
-      )
+    const titleColor = Color.fromHex('#f0f4f8');
+    const textColor = Color.fromHex('#cfd9e2');
+    const popColor = Color.fromHex('#e0c6f5');
+    const warnColor = Color.fromHex('#f5c179');
+    const costColor = Color.fromHex('#f2b0a6');
+    const okColor = Color.fromHex('#9fe6aa');
+
+    let y = 0;
+    const addLine = (
+      text: string,
+      size: number,
+      color: Color,
+      gapAfter = 5
+    ) => {
+      root.addChild(StatePopup.createLine(0, y, text, size, color));
+      y += size + gapAfter;
+    };
+
+    // ─── Territory ───
+    addLine(`Total Size: ${state.size}`, 18, titleColor, 12);
+    addLine(`Forest: ${state.tiles.forest}`, 14, Color.fromHex('#a8e6a1'));
+    addLine(`Stone: ${state.tiles.stone}`, 14, Color.fromHex('#d2d5db'));
+    addLine(`Plains: ${state.tiles.plains}`, 14, Color.fromHex('#f5dd90'));
+    addLine(`River: ${state.tiles.river}`, 14, Color.fromHex('#9fd3ff'));
+    addLine(`Ocean border: ${state.ocean}`, 14, Color.fromHex('#7fb7ff'), 12);
+
+    // ─── Buildings ───
+    addLine(
+      `Buildings: ${totalBuilt} total (${builtTypes}/${buildingDefinitions.length} types)`,
+      14,
+      textColor,
+      12
     );
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        36,
-        `Forest: ${state.tiles.forest}`,
-        14,
-        Color.fromHex('#a8e6a1')
-      )
+
+    // ─── Population ───
+    const totalPop = this.buildingManager.getTotalPopulation();
+    const occupiedPop = this.buildingManager.getOccupiedPopulation();
+    const freePop = this.buildingManager.getFreePopulation();
+    addLine('Population', 16, titleColor, 8);
+    addLine(
+      `Total: ${totalPop}  |  Occupied: ${occupiedPop}  |  Free: ${freePop}`,
+      14,
+      freePop > 0 ? popColor : warnColor,
+      12
     );
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        62,
-        `Stone: ${state.tiles.stone}`,
-        14,
-        Color.fromHex('#d2d5db')
-      )
+
+    // ─── Upkeep Breakdown ───
+    const upkeep = this.turnManager.getUpkeepBreakdown();
+    addLine('Upkeep (per turn)', 16, titleColor, 8);
+    addLine(
+      `Gold: ${upkeep.totalGold} (base: ${upkeep.baseGold})`,
+      14,
+      costColor
     );
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        88,
-        `Plains: ${state.tiles.plains}`,
-        14,
-        Color.fromHex('#f5dd90')
-      )
+    addLine(
+      `Food: ${upkeep.totalFood} (base: ${upkeep.baseFood} + population: ${upkeep.populationFood})`,
+      14,
+      costColor
     );
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        114,
-        `River: ${state.tiles.river}`,
-        14,
-        Color.fromHex('#9fd3ff')
-      )
-    );
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        140,
-        `Ocean border: ${state.ocean}`,
-        14,
-        Color.fromHex('#7fb7ff')
-      )
-    );
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        182,
-        `Buildings: ${totalBuilt} total (${builtTypes}/${buildingDefinitions.length} types)`,
-        14,
-        Color.fromHex('#cfd9e2')
-      )
-    );
+    const currentFood = this.resourceManager.getResource('food');
+    const currentGold = this.resourceManager.getResource('gold');
+    if (currentFood < upkeep.totalFood || currentGold < upkeep.totalGold) {
+      addLine(
+        'Warning: insufficient resources for next upkeep!',
+        13,
+        warnColor,
+        4
+      );
+    } else {
+      addLine('Upkeep is affordable.', 13, okColor, 4);
+    }
   }
 
   private populateBuildingsTab(root: ScreenElement): void {
@@ -379,7 +385,8 @@ export class StatePopup extends ScreenPopup {
         addLine('- technologies: none', 13, okColor, 4);
       } else {
         for (const technology of definition.requiredTechnologies) {
-          const unlocked = this.buildingManager.isTechnologyUnlocked(technology);
+          const unlocked =
+            this.buildingManager.isTechnologyUnlocked(technology);
           const technologyName = this.resolveTechnologyName(technology);
           addLine(
             `- tech: ${technologyName}`,
@@ -388,6 +395,17 @@ export class StatePopup extends ScreenPopup {
             4
           );
         }
+      }
+
+      if (definition.populationRequired) {
+        const freePop = this.buildingManager.getFreePopulation();
+        const enough = freePop >= definition.populationRequired;
+        addLine(
+          `- population: ${definition.populationRequired} required (free: ${freePop})`,
+          13,
+          enough ? okColor : warnColor,
+          4
+        );
       }
 
       addLine(
@@ -410,7 +428,8 @@ export class StatePopup extends ScreenPopup {
           'Construct this building in the state. Available only if all requirements are met.',
         outcomes: this.getBuildOutcomes(
           buildStatus.nextCost,
-          definition.requiredTechnologies
+          definition.requiredTechnologies,
+          definition
         ),
         enabled: buildStatus.buildable && hasActionPoint,
         onClick: () => this.openBuildPopup(definition.id),
@@ -643,7 +662,8 @@ export class StatePopup extends ScreenPopup {
 
   private getBuildOutcomes(
     cost: ResourceCost,
-    requiredTechnologies: string[]
+    requiredTechnologies: string[],
+    definition?: TypedBuildingDefinition
   ): TooltipOutcome[] {
     const outcomes: TooltipOutcome[] = [];
     const costOutcomes: TooltipOutcome[] = [];
@@ -670,14 +690,37 @@ export class StatePopup extends ScreenPopup {
       outcomes.push(...costOutcomes);
     }
 
+    if (definition?.populationRequired) {
+      const freePop = this.buildingManager.getFreePopulation();
+      const enough = freePop >= definition.populationRequired;
+      outcomes.push({
+        label: costOutcomes.length === 0 ? 'Costs' : '',
+        icon: this.getResourceIcon('population'),
+        value: `${definition.populationRequired} (free: ${freePop})`,
+        color: enough ? Color.fromHex('#9fe6aa') : Color.fromHex('#f2b0a6'),
+        inline: true,
+      });
+    }
+
     const missingTechnologies = requiredTechnologies
-      .filter((technology) => !this.buildingManager.isTechnologyUnlocked(technology))
+      .filter(
+        (technology) => !this.buildingManager.isTechnologyUnlocked(technology)
+      )
       .map((technology) => this.resolveTechnologyName(technology));
     if (missingTechnologies.length > 0) {
       outcomes.push({
         label: 'Requires',
         value: missingTechnologies.join(', '),
         color: Color.fromHex('#f2b0a6'),
+      });
+    }
+
+    if (definition?.populationProvided) {
+      outcomes.push({
+        label: 'Provides',
+        icon: this.getResourceIcon('population'),
+        value: `+${definition.populationProvided} pop`,
+        color: Color.fromHex('#9fe6aa'),
       });
     }
 
@@ -720,7 +763,7 @@ export class StatePopup extends ScreenPopup {
       return [{ label: 'Action', value: action.id }];
     }
 
-    const resourceByBuilding: Record<StateBuildingId, ResourceType> = {
+    const resourceByBuilding: Partial<Record<StateBuildingId, ResourceType>> = {
       castle: 'gold',
       lumbermill: 'materials',
       mine: 'materials',
@@ -737,7 +780,7 @@ export class StatePopup extends ScreenPopup {
     ];
   }
 
-  private getResourceIcon(resourceType: ResourceType) {
+  private getResourceIcon(resourceType: ResourceType | undefined) {
     if (resourceType === 'gold') {
       return Resources.MoneyIcon;
     }

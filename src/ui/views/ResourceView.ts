@@ -11,13 +11,14 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import { Resources } from '../../_common/resources';
-import { ResourceManager } from '../../managers/ResourceManager';
 import type { ResourceStock } from '../../_common/models/resource.models';
 import type {
   ResourceConfig,
   ResourceDisplayOptions,
 } from '../../_common/models/ui.models';
+import { Resources } from '../../_common/resources';
+import { BuildingManager } from '../../managers/BuildingManager';
+import { ResourceManager } from '../../managers/ResourceManager';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 /**
@@ -25,6 +26,7 @@ import { TooltipProvider } from '../tooltip/TooltipProvider';
  */
 export class ResourceDisplay extends ScreenElement {
   private resourceManager: ResourceManager;
+  private buildingManager: BuildingManager;
   private anchorX: number;
   private anchorY: number;
   private panelAnchor: 'top-left' | 'top-right';
@@ -47,17 +49,20 @@ export class ResourceDisplay extends ScreenElement {
       materials:
         'Materials: wood and stone used for construction and crafting.',
       food: 'Food: consumed each turn to sustain your population.',
-      population: 'Population: available workforce and base of your state.',
+      population:
+        'Population: occupied / total workforce. Build Houses to grow.',
     };
   private iconSprites: Partial<Record<ResourceConfig['key'], Sprite>> = {};
 
   private lastRendered:
     | Pick<ResourceStock, 'gold' | 'materials' | 'food' | 'population'>
     | undefined;
+  private lastBuildingsVersion = -1;
 
   constructor(options: ResourceDisplayOptions) {
     super({ x: options.x, y: options.y });
     this.resourceManager = options.resourceManager;
+    this.buildingManager = options.buildingManager;
     this.tooltipProvider = options.tooltipProvider;
     this.anchorX = options.x;
     this.anchorY = options.y;
@@ -101,10 +106,7 @@ export class ResourceDisplay extends ScreenElement {
     this.updateDisplay(false);
   }
 
-  private sameResources(
-    a: ResourceStock,
-    b: ResourceStock
-  ): boolean {
+  private sameResources(a: ResourceStock, b: ResourceStock): boolean {
     return (
       a.gold === b.gold &&
       a.materials === b.materials &&
@@ -118,10 +120,12 @@ export class ResourceDisplay extends ScreenElement {
    */
   private updateDisplay(force: boolean): void {
     const resources = this.resourceManager.getAllResourcesRef();
+    const buildingsVersion = this.buildingManager.getBuildingsVersion();
 
     if (
       !force &&
       this.lastRendered &&
+      this.lastBuildingsVersion === buildingsVersion &&
       this.sameResources(this.lastRendered, resources)
     ) {
       return;
@@ -132,10 +136,11 @@ export class ResourceDisplay extends ScreenElement {
       food: resources.food,
       population: resources.population,
     };
+    this.lastBuildingsVersion = buildingsVersion;
 
     const padding = 8;
     const iconTextGap = 4;
-    const itemWidth = this.iconSize + iconTextGap + 32; // icon + gap + text space
+    const itemWidth = this.iconSize + iconTextGap + 40; // icon + gap + text space
     const totalWidth =
       padding * 2 +
       this.resourceConfigs.length * itemWidth +
@@ -168,7 +173,14 @@ export class ResourceDisplay extends ScreenElement {
     const iconY = padding + (innerHeight - this.iconSize) / 2;
     let xOffset = padding;
     for (const config of this.resourceConfigs) {
-      const value = resources[config.key];
+      let displayText: string;
+      if (config.key === 'population') {
+        const occupied = this.buildingManager.getOccupiedPopulation();
+        const total = this.buildingManager.getTotalPopulation();
+        displayText = `${occupied}/${total}`;
+      } else {
+        displayText = this.formatValue(resources[config.key]);
+      }
       this.resourceItemRects[config.key] = {
         x: xOffset,
         y: 0,
@@ -187,7 +199,7 @@ export class ResourceDisplay extends ScreenElement {
 
       // Value text with space after icon and vertically centered
       const valueText = new Text({
-        text: this.formatValue(value),
+        text: displayText,
         font: new Font({
           size: 14,
           unit: FontUnit.Px,

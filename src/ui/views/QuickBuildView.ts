@@ -12,31 +12,28 @@ import {
   type Scene,
   type Subscription,
 } from 'excalibur';
-import { Resources } from '../../_common/resources';
-import type { ResourceType } from '../../_common/models/resource.models';
-import { ResourceManager } from '../../managers/ResourceManager';
-import type { TooltipOutcome } from '../../_common/models/tooltip.models';
-import {
-  getResearchDefinition,
-  isResearchId,
-} from '../../data/researches';
 import type {
   StateBuildingId,
   TypedBuildingDefinition,
 } from '../../_common/models/buildings.models';
+import type { ResourceType } from '../../_common/models/resource.models';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
+import type {
+  BuildRow,
+  QuickBuildViewOptions,
+} from '../../_common/models/ui.models';
+import { Resources } from '../../_common/resources';
+import { getResearchDefinition, isResearchId } from '../../data/researches';
 import { BuildingManager } from '../../managers/BuildingManager';
+import { ResourceManager } from '../../managers/ResourceManager';
 import { TurnManager } from '../../managers/TurnManager';
-import { ScreenButton } from '../elements/ScreenButton';
-import { TooltipProvider } from '../tooltip/TooltipProvider';
 import {
   QUICK_BUILD_COLORS,
   QUICK_BUILD_HOTKEYS,
   QUICK_BUILD_LAYOUT,
 } from '../constants/QuickBuildConstants';
-import type {
-  BuildRow,
-  QuickBuildViewOptions,
-} from '../../_common/models/ui.models';
+import { ScreenButton } from '../elements/ScreenButton';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export class QuickBuildView extends ScreenElement {
   private readonly buildingManager: BuildingManager;
@@ -73,7 +70,8 @@ export class QuickBuildView extends ScreenElement {
     this.leftMargin = options.leftMargin ?? QUICK_BUILD_LAYOUT.leftMargin;
     this.bottomMargin = options.bottomMargin ?? QUICK_BUILD_LAYOUT.bottomMargin;
     this.panelWidth = options.width ?? QUICK_BUILD_LAYOUT.panelWidth;
-    this.toggleWidth = options.toggleButtonWidth ?? QUICK_BUILD_LAYOUT.toggleWidth;
+    this.toggleWidth =
+      options.toggleButtonWidth ?? QUICK_BUILD_LAYOUT.toggleWidth;
     this.toggleHeight =
       options.toggleButtonHeight ?? QUICK_BUILD_LAYOUT.toggleHeight;
 
@@ -134,8 +132,9 @@ export class QuickBuildView extends ScreenElement {
     const x = this.globalPos.x;
     const y = this.globalPos.y;
     const totalHeight =
-      (this.expanded ? this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap : 0) +
-      this.toggleHeight;
+      (this.expanded
+        ? this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap
+        : 0) + this.toggleHeight;
     const totalWidth = Math.max(this.panelWidth, this.toggleButton.buttonWidth);
     return (
       screenX >= x &&
@@ -161,8 +160,9 @@ export class QuickBuildView extends ScreenElement {
     }
 
     const totalHeight =
-      (this.expanded ? this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap : 0) +
-      this.toggleHeight;
+      (this.expanded
+        ? this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap
+        : 0) + this.toggleHeight;
     this.pos = vec(
       this.leftMargin,
       engine.drawHeight - this.bottomMargin - totalHeight
@@ -209,7 +209,10 @@ export class QuickBuildView extends ScreenElement {
         rows.length * QUICK_BUILD_LAYOUT.rowHeight +
           Math.max(0, rows.length - 1) * QUICK_BUILD_LAYOUT.rowGap
       );
-    this.toggleButton.pos = vec(0, this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap);
+    this.toggleButton.pos = vec(
+      0,
+      this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap
+    );
 
     const members: GraphicsGrouping[] = [
       {
@@ -237,7 +240,10 @@ export class QuickBuildView extends ScreenElement {
             color: QUICK_BUILD_COLORS.headerText,
           }),
         }),
-        offset: vec(QUICK_BUILD_LAYOUT.panelPadding, QUICK_BUILD_LAYOUT.panelPadding),
+        offset: vec(
+          QUICK_BUILD_LAYOUT.panelPadding,
+          QUICK_BUILD_LAYOUT.panelPadding
+        ),
       },
     ];
     this.graphics.use(new GraphicsGroup({ members }));
@@ -351,6 +357,13 @@ export class QuickBuildView extends ScreenElement {
       lines.push(row.status.placementReason);
     }
 
+    if (row.status.populationInsufficient) {
+      const freePop = this.buildingManager.getFreePopulation();
+      lines.push(
+        `Not enough free population (need ${row.definition.populationRequired}, have ${freePop}).`
+      );
+    }
+
     return lines.join('\n');
   }
 
@@ -396,6 +409,20 @@ export class QuickBuildView extends ScreenElement {
       outcomes.push(...costOutcomes);
     }
 
+    if (row.definition.populationRequired) {
+      const freePop = this.buildingManager.getFreePopulation();
+      const enough = freePop >= row.definition.populationRequired;
+      outcomes.push({
+        label: costOutcomes.length === 0 ? 'Costs' : '',
+        icon: this.getResourceIcon('population'),
+        value: enough
+          ? `${row.definition.populationRequired} (free: ${freePop})`
+          : `${row.definition.populationRequired} (free: ${freePop})`,
+        color: enough ? okColor : badColor,
+        inline: true,
+      });
+    }
+
     const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
     if (apCurrent < 1) {
       outcomes.push({
@@ -406,13 +433,24 @@ export class QuickBuildView extends ScreenElement {
     }
 
     const missingTechnologies = row.definition.requiredTechnologies
-      .filter((technology) => !this.buildingManager.isTechnologyUnlocked(technology))
+      .filter(
+        (technology) => !this.buildingManager.isTechnologyUnlocked(technology)
+      )
       .map((technology) => this.resolveTechnologyName(technology));
     if (missingTechnologies.length > 0) {
       outcomes.push({
         label: 'Requires',
         value: missingTechnologies.join(', '),
         color: badColor,
+      });
+    }
+
+    if (row.definition.populationProvided) {
+      outcomes.push({
+        label: 'Provides',
+        icon: this.getResourceIcon('population'),
+        value: `+${row.definition.populationProvided} pop`,
+        color: okColor,
       });
     }
 

@@ -1,17 +1,16 @@
+import type { MapManager } from '../../managers/MapManager';
 import type { SeededRandom } from '../random';
-import type {
-  StateBuildingId,
-  TechnologyId,
-} from './buildings.models';
+import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { MapPlayerStateSummary } from './map.models';
 import type { ResourceCost } from './resource.models';
 import type { StateData } from './state.models';
-import type { MapManager } from '../../managers/MapManager';
 
 export interface StateBuildingBuildStatus {
   buildable: boolean;
   missingResources: ResourceCost;
   missingTechnologies: TechnologyId[];
+  /** True when the building needs population but not enough free pop is available. */
+  populationInsufficient: boolean;
   nextCost: ResourceCost;
   placementAvailable: boolean;
   placementReason?: string;

@@ -1,12 +1,16 @@
 import { CONFIG } from '../_common/config';
-import { SeededRandom } from '../_common/random';
+import type { StateBuildingId } from '../_common/models/buildings.models';
+import type {
+  ResourceCost,
+  ResourceType,
+} from '../_common/models/resource.models';
 import type {
   EndTurnIncomePulse,
   EndTurnResult,
   TurnData,
+  UpkeepBreakdown,
 } from '../_common/models/turn.models';
-import type { StateBuildingId } from '../_common/models/buildings.models';
-import type { ResourceType } from '../_common/models/resource.models';
+import { SeededRandom } from '../_common/random';
 import { buildingPassiveIncome } from '../data/buildings';
 import { BuildingManager } from './BuildingManager';
 import { ResearchManager } from './ResearchManager';
@@ -62,7 +66,8 @@ export class TurnManager {
     );
 
     console.log(`Turn ${this.turnData.turnNumber} ended.`);
-    const upkeepPaid = this.resourceManager.spendResources(CONFIG.UPKEEP_COST);
+    const upkeepCost = this.getUpkeepCost();
+    const upkeepPaid = this.resourceManager.spendResources(upkeepCost);
 
     if (!upkeepPaid) {
       console.warn('Game Over: Not enough resources to continue!');
@@ -90,6 +95,36 @@ export class TurnManager {
 
   getTurnVersion(): number {
     return this.turnVersion;
+  }
+
+  /**
+   * Calculate the dynamic upkeep cost for the current turn.
+   * Base cost from CONFIG + population-scaled food.
+   */
+  getUpkeepCost(): ResourceCost {
+    const base = { ...CONFIG.UPKEEP_COST } as ResourceCost;
+    const totalPop = this.buildingManager.getTotalPopulation();
+    const foodFromPop = Math.ceil(totalPop / 2);
+    base.food = (base.food ?? 0) + foodFromPop;
+    return base;
+  }
+
+  /**
+   * Detailed breakdown of upkeep costs for UI display.
+   */
+  getUpkeepBreakdown(): UpkeepBreakdown {
+    const totalPop = this.buildingManager.getTotalPopulation();
+    const baseFood = CONFIG.UPKEEP_COST.food ?? 0;
+    const baseGold = CONFIG.UPKEEP_COST.gold ?? 0;
+    const populationFood = Math.ceil(totalPop / 2);
+    return {
+      baseFood,
+      baseGold,
+      populationFood,
+      totalFood: baseFood + populationFood,
+      totalGold: baseGold,
+      totalPopulation: totalPop,
+    };
   }
 
   spendActionPoints(amount: number): boolean {

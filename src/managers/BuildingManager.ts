@@ -1,8 +1,8 @@
 import { clamp } from '../_common/math';
 import type {
-  BuildingMapCell,
   BuildingManagerOptions,
   BuildingManagerStateBridge,
+  BuildingMapCell,
   PlacementCandidate,
   StateBuildingActionStatus,
   StateBuildingBuildStatus,
@@ -10,14 +10,17 @@ import type {
   StateBuildingMapOverlay,
   StateBuildingPlacement,
 } from '../_common/models/building-manager.models';
-import type { MapData } from '../_common/models/map.models';
-import type { ResourceCost, ResourceType } from '../_common/models/resource.models';
 import type {
   StateBuildingDefinition,
   StateBuildingId,
   TechnologyId,
   TypedBuildingDefinition,
 } from '../_common/models/buildings.models';
+import type { MapData } from '../_common/models/map.models';
+import type {
+  ResourceCost,
+  ResourceType,
+} from '../_common/models/resource.models';
 import {
   createEmptyBuildingRecord,
   stateBuildingDefinitions,
@@ -111,6 +114,46 @@ export class BuildingManager {
     return this.buildingsVersion;
   }
 
+  // ─── Population helpers ──────────────────────────────────────────
+
+  /**
+   * Total population provided by all buildings with `populationProvided`.
+   */
+  getTotalPopulation(): number {
+    let total = 0;
+    for (const id of Object.keys(this.buildingCounts) as StateBuildingId[]) {
+      const definition = this.getBuildingDefinition(id);
+      if (definition?.populationProvided) {
+        total += definition.populationProvided * this.buildingCounts[id];
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Population occupied by all buildings with `populationRequired`.
+   */
+  getOccupiedPopulation(): number {
+    let occupied = 0;
+    for (const id of Object.keys(this.buildingCounts) as StateBuildingId[]) {
+      const definition = this.getBuildingDefinition(id);
+      if (definition?.populationRequired) {
+        occupied += definition.populationRequired * this.buildingCounts[id];
+      }
+    }
+    return occupied;
+  }
+
+  /**
+   * Free (unoccupied) population available for new buildings.
+   */
+  getFreePopulation(): number {
+    return Math.max(
+      0,
+      this.getTotalPopulation() - this.getOccupiedPopulation()
+    );
+  }
+
   getBuildingCostForNext(id: StateBuildingId): ResourceCost {
     const definition = this.getBuildingDefinition(id);
     if (!definition) {
@@ -157,6 +200,7 @@ export class BuildingManager {
         buildable: false,
         missingResources: {},
         missingTechnologies: [],
+        populationInsufficient: false,
         nextCost: {},
         placementAvailable: false,
         placementReason: 'Unknown building.',
@@ -169,6 +213,7 @@ export class BuildingManager {
         buildable: false,
         missingResources: {},
         missingTechnologies: [],
+        populationInsufficient: false,
         nextCost: this.getBuildingCostForNext(id),
         placementAvailable: false,
         placementReason: 'Unique building already exists.',
@@ -181,14 +226,19 @@ export class BuildingManager {
       (tech) => !this.isTechnologyUnlocked(tech)
     );
     const placement = this.findBestPlacement(id, false);
+    const populationInsufficient =
+      (definition.populationRequired ?? 0) > 0 &&
+      this.getFreePopulation() < (definition.populationRequired ?? 0);
 
     return {
       buildable:
         Object.keys(missingResources).length === 0 &&
         missingTechnologies.length === 0 &&
+        !populationInsufficient &&
         placement !== undefined,
       missingResources,
       missingTechnologies,
+      populationInsufficient,
       nextCost,
       placementAvailable: placement !== undefined,
       placementReason:
@@ -210,6 +260,7 @@ export class BuildingManager {
         buildable: false,
         missingResources: {},
         missingTechnologies: [],
+        populationInsufficient: false,
         nextCost: {},
         placementAvailable: false,
         placementReason: 'Unknown building.',
@@ -222,6 +273,7 @@ export class BuildingManager {
         buildable: false,
         missingResources: {},
         missingTechnologies: [],
+        populationInsufficient: false,
         nextCost: this.getBuildingCostForNext(id),
         placementAvailable: false,
         placementReason: 'Unique building already exists.',
@@ -234,14 +286,19 @@ export class BuildingManager {
       (tech) => !this.isTechnologyUnlocked(tech)
     );
     const placement = this.findPlacementAt(id, x, y, false);
+    const populationInsufficient =
+      (definition.populationRequired ?? 0) > 0 &&
+      this.getFreePopulation() < (definition.populationRequired ?? 0);
 
     return {
       buildable:
         Object.keys(missingResources).length === 0 &&
         missingTechnologies.length === 0 &&
+        !populationInsufficient &&
         placement !== undefined,
       missingResources,
       missingTechnologies,
+      populationInsufficient,
       nextCost,
       placementAvailable: placement !== undefined,
       placementReason:
@@ -273,6 +330,13 @@ export class BuildingManager {
       definition.requiredTechnologies.some(
         (technology) => !this.isTechnologyUnlocked(technology)
       )
+    ) {
+      return [];
+    }
+
+    if (
+      (definition.populationRequired ?? 0) > 0 &&
+      this.getFreePopulation() < (definition.populationRequired ?? 0)
     ) {
       return [];
     }

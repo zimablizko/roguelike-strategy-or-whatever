@@ -27,6 +27,10 @@ export interface StateBuildingDefinition {
   buildCost: ResourceCost;
   costGrowth: number;
   unique: boolean;
+  /** Population this building adds to the total cap (e.g. House +5, Castle +10). */
+  populationProvided?: number;
+  /** Free population required to operate this building (occupied, not consumed). */
+  populationRequired?: number;
   placementRule: {
     width: number;
     height: number;
@@ -50,7 +54,8 @@ export interface BuildingPassiveIncome {
   amount: number | 'random:5:20';
 }
 
-export type StateBuildingId = keyof typeof import('../../data/buildings').stateBuildingDefinitions;
+export type StateBuildingId =
+  keyof typeof import('../../data/buildings').stateBuildingDefinitions;
 
 export type TypedBuildingDefinition = StateBuildingDefinition & {
   id: StateBuildingId;

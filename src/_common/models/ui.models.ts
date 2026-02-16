@@ -7,19 +7,6 @@ import type {
   Sprite,
   Text,
 } from 'excalibur';
-import type {
-  StateBuildingId,
-  TypedBuildingDefinition,
-} from './buildings.models';
-import type {
-  StateBuildingBuildStatus,
-  StateBuildingMapOverlay,
-} from './building-manager.models';
-import type { MapData } from './map.models';
-import type { TypedResearchDefinition } from './researches.models';
-import type { ResourceType } from './resource.models';
-import type { EndTurnIncomePulse } from './turn.models';
-import type { TooltipOutcome } from './tooltip.models';
 import type { BuildingManager } from '../../managers/BuildingManager';
 import type { ResearchManager } from '../../managers/ResearchManager';
 import type { ResourceManager } from '../../managers/ResourceManager';
@@ -29,6 +16,19 @@ import type { TurnManager } from '../../managers/TurnManager';
 import type { ScreenPopup } from '../../ui/elements/ScreenPopup';
 import type { TooltipProvider } from '../../ui/tooltip/TooltipProvider';
 import type { MapView } from '../../ui/views/MapView';
+import type {
+  StateBuildingBuildStatus,
+  StateBuildingMapOverlay,
+} from './building-manager.models';
+import type {
+  StateBuildingId,
+  TypedBuildingDefinition,
+} from './buildings.models';
+import type { MapData } from './map.models';
+import type { TypedResearchDefinition } from './researches.models';
+import type { ResourceType } from './resource.models';
+import type { TooltipOutcome } from './tooltip.models';
+import type { EndTurnIncomePulse } from './turn.models';
 
 export interface InteractivePanelOptions {
   x: number;
@@ -174,6 +174,7 @@ export interface ResourceDisplayOptions {
   x: number;
   y: number;
   resourceManager: ResourceManager;
+  buildingManager: BuildingManager;
   tooltipProvider?: TooltipProvider;
   anchor?: 'top-left' | 'top-right';
   iconSize?: number;
