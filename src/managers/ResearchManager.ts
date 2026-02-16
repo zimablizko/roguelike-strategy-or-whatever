@@ -3,39 +3,20 @@ import {
   getResearchDefinition,
   isResearchId,
   researchTreeOrder,
-  type ResearchId,
-  type ResearchTreeId,
-  type TypedResearchDefinition,
 } from '../data/researches';
+import type {
+  ActiveResearchState,
+  CompletedResearchSummary,
+  ResearchAdvanceResult,
+  ResearchProgress,
+  ResearchStartStatus,
+} from '../_common/models/research-manager.models';
+import type {
+  ResearchId,
+  ResearchTreeId,
+  TypedResearchDefinition,
+} from '../_common/models/researches.models';
 import { BuildingManager } from './BuildingManager';
-
-interface ActiveResearchState {
-  id: ResearchId;
-  startedOnTurn: number;
-  totalTurns: number;
-  remainingTurns: number;
-}
-
-export interface ResearchProgress extends ActiveResearchState {
-  name: string;
-  tree: ResearchTreeId;
-}
-
-export interface CompletedResearchSummary {
-  id: ResearchId;
-  name: string;
-  tree: ResearchTreeId;
-  completedOnTurn: number;
-}
-
-export interface ResearchAdvanceResult {
-  completedResearch?: CompletedResearchSummary;
-}
-
-export interface ResearchStartStatus {
-  startable: boolean;
-  reason?: string;
-}
 
 export class ResearchManager {
   private readonly buildingManager: BuildingManager;

@@ -1,15 +1,6 @@
 import type { PointerEvent, WheelEvent } from 'excalibur';
 import { ScreenElement } from 'excalibur';
-
-export interface ForegroundPointerBlockOptions {
-  pointerDown?: boolean;
-  pointerUp?: boolean;
-  pointerMove?: boolean;
-  pointerEnter?: boolean;
-  pointerWheel?: boolean;
-  pointerCancel?: boolean;
-  pointerDrag?: boolean;
-}
+import type { ForegroundPointerBlockOptions } from '../../_common/models/ui.models';
 
 /**
  * Ensures pointer events consumed by foreground UI do not leak to lower layers.

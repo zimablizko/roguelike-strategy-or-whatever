@@ -1,4 +1,4 @@
-import type { ResourceCost } from '../managers/ResourceManager';
+import type { ResourceCost } from './models/resource.models';
 
 export const CONFIG = {
   // Game settings
@@ -16,5 +16,4 @@ export const CONFIG = {
     gold: 5,
   } satisfies ResourceCost,
 } as const;
-
 export type Config = typeof CONFIG;

@@ -1,5 +1,4 @@
 import {
-  Color,
   Font,
   FontUnit,
   GraphicsGroup,
@@ -13,39 +12,31 @@ import {
   type Scene,
   type Subscription,
 } from 'excalibur';
-import type { ResourceType } from '../../managers/ResourceManager';
+import { Resources } from '../../_common/resources';
+import type { ResourceType } from '../../_common/models/resource.models';
 import { ResourceManager } from '../../managers/ResourceManager';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import {
-  BuildingManager,
-  type StateBuildingBuildStatus,
-  type StateBuildingId,
-  type TypedBuildingDefinition,
-} from '../../managers/BuildingManager';
+  getResearchDefinition,
+  isResearchId,
+} from '../../data/researches';
+import type {
+  StateBuildingId,
+  TypedBuildingDefinition,
+} from '../../_common/models/buildings.models';
+import { BuildingManager } from '../../managers/BuildingManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { ScreenButton } from '../elements/ScreenButton';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
 import {
-  TooltipProvider,
-  type TooltipOutcome,
-} from '../tooltip/TooltipProvider';
-
-export interface QuickBuildViewOptions {
-  buildingManager: BuildingManager;
-  resourceManager: ResourceManager;
-  turnManager: TurnManager;
-  tooltipProvider: TooltipProvider;
-  onSelectBuildingForPlacement?: (buildingId: StateBuildingId) => void;
-  leftMargin?: number;
-  bottomMargin?: number;
-  width?: number;
-  toggleButtonWidth?: number;
-  toggleButtonHeight?: number;
-}
-
-interface BuildRow {
-  definition: TypedBuildingDefinition;
-  status: StateBuildingBuildStatus;
-  enabled: boolean;
-}
+  QUICK_BUILD_COLORS,
+  QUICK_BUILD_HOTKEYS,
+  QUICK_BUILD_LAYOUT,
+} from '../constants/QuickBuildConstants';
+import type {
+  BuildRow,
+  QuickBuildViewOptions,
+} from '../../_common/models/ui.models';
 
 export class QuickBuildView extends ScreenElement {
   private readonly buildingManager: BuildingManager;
@@ -61,11 +52,6 @@ export class QuickBuildView extends ScreenElement {
   private readonly panelWidth: number;
   private readonly toggleWidth: number;
   private readonly toggleHeight: number;
-  private readonly panelPadding = 8;
-  private readonly panelGap = 6;
-  private readonly rowHeight = 30;
-  private readonly rowGap = 4;
-  private readonly headerHeight = 20;
 
   private expanded = false;
   private currentPanelHeight = 0;
@@ -84,11 +70,12 @@ export class QuickBuildView extends ScreenElement {
     this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
     this.onSelectBuildingForPlacement = options.onSelectBuildingForPlacement;
-    this.leftMargin = options.leftMargin ?? 20;
-    this.bottomMargin = options.bottomMargin ?? 160;
-    this.panelWidth = options.width ?? 260;
-    this.toggleWidth = options.toggleButtonWidth ?? 100;
-    this.toggleHeight = options.toggleButtonHeight ?? 40;
+    this.leftMargin = options.leftMargin ?? QUICK_BUILD_LAYOUT.leftMargin;
+    this.bottomMargin = options.bottomMargin ?? QUICK_BUILD_LAYOUT.bottomMargin;
+    this.panelWidth = options.width ?? QUICK_BUILD_LAYOUT.panelWidth;
+    this.toggleWidth = options.toggleButtonWidth ?? QUICK_BUILD_LAYOUT.toggleWidth;
+    this.toggleHeight =
+      options.toggleButtonHeight ?? QUICK_BUILD_LAYOUT.toggleHeight;
 
     this.toggleButton = new ScreenButton({
       x: 0,
@@ -129,6 +116,7 @@ export class QuickBuildView extends ScreenElement {
     if (this.scene?.engine.input.keyboard.wasPressed(Keys.B)) {
       this.toggleExpanded();
     }
+    this.handleBuildHotkeys();
     this.refresh(false);
   }
 
@@ -146,7 +134,7 @@ export class QuickBuildView extends ScreenElement {
     const x = this.globalPos.x;
     const y = this.globalPos.y;
     const totalHeight =
-      (this.expanded ? this.currentPanelHeight + this.panelGap : 0) +
+      (this.expanded ? this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap : 0) +
       this.toggleHeight;
     const totalWidth = Math.max(this.panelWidth, this.toggleButton.buttonWidth);
     return (
@@ -155,6 +143,10 @@ export class QuickBuildView extends ScreenElement {
       screenY >= y &&
       screenY <= y + totalHeight
     );
+  }
+
+  isExpanded(): boolean {
+    return this.expanded;
   }
 
   private refresh(force: boolean): void {
@@ -169,7 +161,7 @@ export class QuickBuildView extends ScreenElement {
     }
 
     const totalHeight =
-      (this.expanded ? this.currentPanelHeight + this.panelGap : 0) +
+      (this.expanded ? this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap : 0) +
       this.toggleHeight;
     this.pos = vec(
       this.leftMargin,
@@ -210,21 +202,21 @@ export class QuickBuildView extends ScreenElement {
     }
 
     this.currentPanelHeight =
-      this.panelPadding * 2 +
-      this.headerHeight +
+      QUICK_BUILD_LAYOUT.panelPadding * 2 +
+      QUICK_BUILD_LAYOUT.headerHeight +
       Math.max(
         0,
-        rows.length * this.rowHeight +
-          Math.max(0, rows.length - 1) * this.rowGap
+        rows.length * QUICK_BUILD_LAYOUT.rowHeight +
+          Math.max(0, rows.length - 1) * QUICK_BUILD_LAYOUT.rowGap
       );
-    this.toggleButton.pos = vec(0, this.currentPanelHeight + this.panelGap);
+    this.toggleButton.pos = vec(0, this.currentPanelHeight + QUICK_BUILD_LAYOUT.panelGap);
 
     const members: GraphicsGrouping[] = [
       {
         graphic: new Rectangle({
           width: this.panelWidth,
           height: this.currentPanelHeight,
-          color: Color.fromRGB(14, 24, 35, 0.9),
+          color: QUICK_BUILD_COLORS.panelBackground,
         }),
         offset: vec(0, 0),
       },
@@ -232,7 +224,7 @@ export class QuickBuildView extends ScreenElement {
         graphic: new Rectangle({
           width: this.panelWidth,
           height: 1,
-          color: Color.fromRGB(170, 196, 220, 0.55),
+          color: QUICK_BUILD_COLORS.panelBorder,
         }),
         offset: vec(0, 0),
       },
@@ -242,23 +234,23 @@ export class QuickBuildView extends ScreenElement {
           font: new Font({
             size: 13,
             unit: FontUnit.Px,
-            color: Color.fromHex('#d9e4ef'),
+            color: QUICK_BUILD_COLORS.headerText,
           }),
         }),
-        offset: vec(this.panelPadding, this.panelPadding),
+        offset: vec(QUICK_BUILD_LAYOUT.panelPadding, QUICK_BUILD_LAYOUT.panelPadding),
       },
     ];
     this.graphics.use(new GraphicsGroup({ members }));
 
-    const buttonWidth = this.panelWidth - this.panelPadding * 2;
-    let y = this.panelPadding + this.headerHeight;
+    const buttonWidth = this.panelWidth - QUICK_BUILD_LAYOUT.panelPadding * 2;
+    let y = QUICK_BUILD_LAYOUT.panelPadding + QUICK_BUILD_LAYOUT.headerHeight;
     for (const row of rows) {
       const button = new ScreenButton({
-        x: this.panelPadding,
+        x: QUICK_BUILD_LAYOUT.panelPadding,
         y,
         width: buttonWidth,
-        height: this.rowHeight,
-        title: row.definition.name,
+        height: QUICK_BUILD_LAYOUT.rowHeight,
+        title: this.getRowTitle(row.definition),
         onClick: () => {
           const hasActionPoint =
             this.turnManager.getTurnDataRef().actionPoints.current >= 1;
@@ -307,7 +299,7 @@ export class QuickBuildView extends ScreenElement {
 
       this.rowButtons.push(button);
       this.addChild(button);
-      y += this.rowHeight + this.rowGap;
+      y += QUICK_BUILD_LAYOUT.rowHeight + QUICK_BUILD_LAYOUT.rowGap;
     }
   }
 
@@ -328,7 +320,12 @@ export class QuickBuildView extends ScreenElement {
       .getBuildingDefinitions()
       .filter((definition) => {
         const count = this.buildingManager.getBuildingCount(definition.id);
-        return !definition.unique || count === 0;
+        if (definition.unique && count > 0) {
+          return false;
+        }
+        return definition.requiredTechnologies.every((technology) =>
+          this.buildingManager.isTechnologyUnlocked(technology)
+        );
       })
       .map((definition) => {
         const status = this.buildingManager.canBuildBuilding(
@@ -347,22 +344,7 @@ export class QuickBuildView extends ScreenElement {
     const lines: string[] = [row.definition.description];
     const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
     if (apCurrent < 1) {
-        lines.push('Not enough Action Points.');
-    }
-
-    if (row.definition.requiredTechnologies.length > 0) {
-      const unlocked = row.definition.requiredTechnologies.filter(
-        (technology) => this.buildingManager.isTechnologyUnlocked(technology)
-      );
-      const missing = row.definition.requiredTechnologies.filter(
-        (technology) => !this.buildingManager.isTechnologyUnlocked(technology)
-      );
-      if (unlocked.length > 0) {
-        lines.push(`Tech unlocked: ${unlocked.join(', ')}`);
-      }
-      if (missing.length > 0) {
-        lines.push(`Tech missing: ${missing.join(', ')}`);
-      }
+      lines.push('Not enough Action Points.');
     }
 
     if (!row.status.placementAvailable && row.status.placementReason) {
@@ -375,9 +357,9 @@ export class QuickBuildView extends ScreenElement {
   private buildTooltipOutcomes(row: BuildRow): TooltipOutcome[] {
     const outcomes: TooltipOutcome[] = [];
     const keys: ResourceType[] = ['gold', 'materials', 'food', 'population'];
-    const okColor = Color.fromHex('#9fe6aa');
-    const badColor = Color.fromHex('#f2b0a6');
-    const neutralColor = Color.fromHex('#d9e4ef');
+    const okColor = QUICK_BUILD_COLORS.costOk;
+    const badColor = QUICK_BUILD_COLORS.costBad;
+    const neutralColor = QUICK_BUILD_COLORS.neutral;
 
     outcomes.push({
       label: 'Placement',
@@ -385,6 +367,7 @@ export class QuickBuildView extends ScreenElement {
       color: neutralColor,
     });
 
+    const costOutcomes: TooltipOutcome[] = [];
     for (const key of keys) {
       const amount = row.status.nextCost[key];
       if (amount === undefined || amount <= 0) {
@@ -393,19 +376,24 @@ export class QuickBuildView extends ScreenElement {
 
       const have = this.resourceManager.getResource(key);
       const missing = Math.max(0, amount - have);
-      outcomes.push({
-        label: key,
+      costOutcomes.push({
+        label: '',
+        icon: this.getResourceIcon(key),
         value: missing > 0 ? `${amount} (-${missing})` : `${amount}`,
         color: missing > 0 ? badColor : okColor,
+        inline: true,
       });
     }
 
-    if (outcomes.length === 0) {
+    if (costOutcomes.length === 0) {
       outcomes.push({
-        label: 'Cost',
+        label: 'Costs',
         value: 'Free',
         color: okColor,
       });
+    } else {
+      costOutcomes[0].label = 'Costs';
+      outcomes.push(...costOutcomes);
     }
 
     const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
@@ -417,7 +405,76 @@ export class QuickBuildView extends ScreenElement {
       });
     }
 
+    const missingTechnologies = row.definition.requiredTechnologies
+      .filter((technology) => !this.buildingManager.isTechnologyUnlocked(technology))
+      .map((technology) => this.resolveTechnologyName(technology));
+    if (missingTechnologies.length > 0) {
+      outcomes.push({
+        label: 'Requires',
+        value: missingTechnologies.join(', '),
+        color: badColor,
+      });
+    }
+
     return outcomes;
+  }
+
+  private resolveTechnologyName(technologyId: string): string {
+    if (isResearchId(technologyId)) {
+      return getResearchDefinition(technologyId)?.name ?? technologyId;
+    }
+    return technologyId;
+  }
+
+  private getResourceIcon(resourceType: ResourceType) {
+    if (resourceType === 'gold') {
+      return Resources.MoneyIcon;
+    }
+    if (resourceType === 'food') {
+      return Resources.FoodIcon;
+    }
+    if (resourceType === 'materials') {
+      return Resources.ResourcesIcon;
+    }
+    if (resourceType === 'population') {
+      return Resources.PopulationIcon;
+    }
+    return undefined;
+  }
+
+  private getRowTitle(definition: TypedBuildingDefinition): string {
+    const hotkey = QUICK_BUILD_HOTKEYS[definition.id];
+    if (!hotkey) {
+      return definition.name;
+    }
+    return `${definition.name} [${hotkey.label}]`;
+  }
+
+  private handleBuildHotkeys(): void {
+    if (!this.expanded) {
+      return;
+    }
+
+    const keyboard = this.scene?.engine.input.keyboard;
+    if (!keyboard) {
+      return;
+    }
+
+    const rows = this.getRows();
+    for (const row of rows) {
+      const hotkey = QUICK_BUILD_HOTKEYS[row.definition.id];
+      if (!hotkey || !keyboard.wasPressed(hotkey.key)) {
+        continue;
+      }
+      if (!row.enabled) {
+        return;
+      }
+
+      this.onSelectBuildingForPlacement?.(row.definition.id);
+      this.expanded = false;
+      this.invalidateRender();
+      return;
+    }
   }
 
   private invalidateRender(): void {

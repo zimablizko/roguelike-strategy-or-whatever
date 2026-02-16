@@ -7,8 +7,9 @@ import {
   type SceneActivationContext,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
+import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
 import { Resources } from '../_common/resources';
-import type { StateBuildingId } from '../managers/BuildingManager';
+import type { StateBuildingId } from '../_common/models/buildings.models';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { TurnManager } from '../managers/TurnManager';
@@ -20,7 +21,7 @@ import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
-import { MapView, type MapBuildPlacementOverlay } from '../ui/views/MapView';
+import { MapView } from '../ui/views/MapView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
@@ -65,7 +66,8 @@ export class GameplayScene extends Scene {
   }
 
   onPreUpdate(engine: Engine): void {
-    if (engine.input.keyboard.wasPressed(Keys.F)) {
+    const quickBuildExpanded = this.quickBuildView?.isExpanded() ?? false;
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.F)) {
       this.mapView?.focusOnPlayerState();
     }
   }
@@ -495,7 +497,7 @@ export class GameplayScene extends Scene {
         outcomes: [
           { label: 'Action Points', value: '-1' },
           {
-            label: 'Materials',
+            label: '',
             value: '+12',
             icon: Resources.ResourcesIcon,
             color: Color.fromHex('#9fe6aa'),
@@ -520,7 +522,7 @@ export class GameplayScene extends Scene {
         outcomes: [
           { label: 'Action Points', value: '-1' },
           {
-            label: 'Food',
+            label: '',
             value: '+15',
             icon: Resources.FoodIcon,
             color: Color.fromHex('#9fe6aa'),

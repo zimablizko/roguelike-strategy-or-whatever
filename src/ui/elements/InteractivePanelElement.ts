@@ -6,16 +6,7 @@ import {
   ScreenElement,
   vec,
 } from 'excalibur';
-
-export interface InteractivePanelOptions {
-  x: number;
-  y: number;
-  bgColor?: Color;
-  hoverBgColor?: Color;
-  pressedBgColor?: Color;
-  hoverBorderColor?: Color;
-  onClick?: () => void;
-}
+import type { InteractivePanelOptions } from '../../_common/models/ui.models';
 
 /**
  * Shared interactive panel behavior:

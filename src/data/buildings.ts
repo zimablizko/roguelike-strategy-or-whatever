@@ -1,58 +1,12 @@
-import type { MapTileType } from '../managers/MapManager';
-import type { ResourceCost } from '../managers/ResourceManager';
-
-// ─── Types ───────────────────────────────────────────────────────────
-
-export type TechnologyId = string;
-
-interface BuildingActionContext {
-  state: Readonly<{
-    tiles: { forest: number; stone: number; plains: number; river: number };
-    ocean: number;
-  }>;
-  resources: { addResource(type: string, amount: number): void };
-  buildingCount: number;
-}
-
-export interface StateBuildingActionDefinition {
-  id: string;
-  name: string;
-  description: string;
-  run: (context: BuildingActionContext) => void;
-}
-
-export interface StateBuildingDefinition {
-  id: string;
-  name: string;
-  shortName: string;
-  description: string;
-  buildCost: ResourceCost;
-  costGrowth: number;
-  unique: boolean;
-  placementRule: {
-    width: number;
-    height: number;
-    allowedTiles: MapTileType[];
-    fallbackReplacementTile?: MapTileType;
-  };
-  placementDescription: string;
-  requiredTechnologies: TechnologyId[];
-  getStats: (
-    state: Readonly<{
-      tiles: { forest: number; stone: number; plains: number; river: number };
-      ocean: number;
-    }>,
-    count: number
-  ) => string[];
-  actions: StateBuildingActionDefinition[];
-}
+import type {
+  BuildingActionContext,
+  BuildingPassiveIncome,
+  StateBuildingDefinition,
+  StateBuildingId,
+} from '../_common/models/buildings.models';
+import type { MapTileType } from '../_common/models/map.models';
 
 // ─── Passive income config per building type ─────────────────────────
-
-export interface BuildingPassiveIncome {
-  resourceType: 'gold' | 'materials' | 'food' | 'population';
-  amount: number | 'random:5:20';
-}
 
 export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
   castle: [
@@ -203,7 +157,7 @@ export const stateBuildingDefinitions = {
       allowedTiles: ['plains'] as MapTileType[],
     },
     placementDescription: 'Requires 2x2 free Plains area.',
-    requiredTechnologies: [],
+    requiredTechnologies: ['eco-agriculture'],
     getStats: (state: { tiles: { plains: number } }, count: number) => {
       const baseYield = Math.max(1, Math.floor(state.tiles.plains / 4));
       return [
@@ -227,14 +181,6 @@ export const stateBuildingDefinitions = {
     ],
   },
 } as const satisfies Record<string, StateBuildingDefinition>;
-
-/** Building ID type derived from the definitions object keys. */
-export type StateBuildingId = keyof typeof stateBuildingDefinitions;
-
-/** Building definition with id narrowed to known building IDs. */
-export type TypedBuildingDefinition = StateBuildingDefinition & {
-  id: StateBuildingId;
-};
 
 /** Helper to create an empty building count record. */
 export function createEmptyBuildingRecord(): Record<StateBuildingId, number> {

@@ -1,15 +1,9 @@
-import type { TechnologyId } from './buildings';
-
-export type ResearchTreeId = 'economics' | 'politics' | 'military';
-
-export interface ResearchDefinition {
-  id: TechnologyId;
-  tree: ResearchTreeId;
-  name: string;
-  description: string;
-  turns: number;
-  requiredResearches: TechnologyId[];
-}
+import type {
+  ResearchDefinition,
+  ResearchId,
+  ResearchTreeId,
+  TypedResearchDefinition,
+} from '../_common/models/researches.models';
 
 export const researchTreeInfo: Record<
   ResearchTreeId,
@@ -39,11 +33,11 @@ export const researchTreeOrder: ResearchTreeId[] = [
 ];
 
 export const researchDefinitions = {
-  'eco-ledger': {
-    id: 'eco-ledger',
+  'eco-agriculture': {
+    id: 'eco-agriculture',
     tree: 'economics',
-    name: 'Merchant Ledger',
-    description: 'Standardized accounting for local trade and taxation.',
+    name: 'Agriculture',
+    description: 'Organized crop rotation and field management for stable harvests.',
     turns: 2,
     requiredResearches: [],
   },
@@ -53,7 +47,7 @@ export const researchDefinitions = {
     name: 'Market Charters',
     description: 'Legal framework that stabilizes city market operations.',
     turns: 3,
-    requiredResearches: ['eco-ledger'],
+    requiredResearches: ['eco-agriculture'],
   },
   'eco-granary-standards': {
     id: 'eco-granary-standards',
@@ -61,7 +55,7 @@ export const researchDefinitions = {
     name: 'Granary Standards',
     description: 'Improved food storage and spoilage control procedures.',
     turns: 3,
-    requiredResearches: ['eco-ledger'],
+    requiredResearches: ['eco-agriculture'],
   },
   'eco-coin-minting': {
     id: 'eco-coin-minting',
@@ -160,12 +154,6 @@ export const researchDefinitions = {
     requiredResearches: ['mil-fortification-engineering', 'mil-siege-tactics'],
   },
 } as const satisfies Record<string, ResearchDefinition>;
-
-export type ResearchId = keyof typeof researchDefinitions;
-
-export type TypedResearchDefinition = ResearchDefinition & {
-  id: ResearchId;
-};
 
 export function isResearchId(id: string): id is ResearchId {
   return Object.prototype.hasOwnProperty.call(researchDefinitions, id);

@@ -11,58 +11,31 @@ import {
 } from 'excalibur';
 import { clamp } from '../../_common/math';
 import { wrapText } from '../../_common/text';
+import type {
+  ResearchId,
+  ResearchTreeId,
+  TypedResearchDefinition,
+} from '../../_common/models/researches.models';
+import type {
+  ResearchPopupOptions,
+  TreeNodeLayout,
+} from '../../_common/models/ui.models';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import {
   isResearchId,
   researchTreeInfo,
-  type ResearchId,
-  type ResearchTreeId,
-  type TypedResearchDefinition,
 } from '../../data/researches';
 import { ResearchManager } from '../../managers/ResearchManager';
 import { TurnManager } from '../../managers/TurnManager';
+import {
+  RESEARCH_POPUP_LAYOUT,
+  RESEARCH_TREE_DERIVED,
+  RESEARCH_TREE_DRAW,
+} from '../constants/ResearchPopupConstants';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
-import { ScreenPopup, type ScreenPopupAnchor } from '../elements/ScreenPopup';
-import { TooltipProvider, type TooltipOutcome } from '../tooltip/TooltipProvider';
-
-export interface ResearchPopupOptions {
-  x: number;
-  y: number;
-  researchManager: ResearchManager;
-  turnManager: TurnManager;
-  tooltipProvider: TooltipProvider;
-  anchor?: ScreenPopupAnchor;
-  onClose?: () => void;
-}
-
-interface TreeNodeLayout {
-  definition: TypedResearchDefinition;
-  depth: number;
-  x: number;
-  y: number;
-}
-
-const POPUP_WIDTH = 980;
-const POPUP_HEIGHT = 620;
-const POPUP_PADDING = 14;
-const POPUP_HEADER_HEIGHT = 44;
-const CONTENT_WIDTH = POPUP_WIDTH - POPUP_PADDING * 2;
-const CONTENT_HEIGHT = POPUP_HEIGHT - POPUP_HEADER_HEIGHT - POPUP_PADDING * 2;
-const STATUS_OFFSET_Y = 0;
-const TAB_OFFSET_Y = 92;
-const TREE_OFFSET_Y = 138;
-const TREE_VIEWPORT_WIDTH = CONTENT_WIDTH;
-const TREE_VIEWPORT_HEIGHT = CONTENT_HEIGHT - TREE_OFFSET_Y - 6;
-const TREE_DRAW_TOP = 8;
-const TREE_DRAW_BOTTOM = 8;
-const TREE_DRAW_HEIGHT = TREE_VIEWPORT_HEIGHT - TREE_DRAW_TOP - TREE_DRAW_BOTTOM;
-const TREE_SCROLL_STEP = 96;
-const TREE_CONTROL_COLUMN_WIDTH = 44;
-const NODE_WIDTH = 280;
-const NODE_HEIGHT = 78;
-const NODE_BUTTON_ZONE_WIDTH = 86;
-const NODE_VERTICAL_GAP = 56;
-const NODE_HORIZONTAL_GAP = 40;
+import { ScreenPopup } from '../elements/ScreenPopup';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export class ResearchPopup extends ScreenPopup {
   private readonly researchManager: ResearchManager;
@@ -82,8 +55,8 @@ export class ResearchPopup extends ScreenPopup {
       x: options.x,
       y: options.y,
       anchor: options.anchor ?? 'center',
-      width: POPUP_WIDTH,
-      height: POPUP_HEIGHT,
+      width: RESEARCH_POPUP_LAYOUT.width,
+      height: RESEARCH_POPUP_LAYOUT.height,
       title: 'Research',
       z: UI_Z.statePopup,
       backplateStyle: 'gray',
@@ -112,8 +85,8 @@ export class ResearchPopup extends ScreenPopup {
       this.tabsRoot.kill();
     }
 
-    this.statusRoot = new ScreenElement({ x: 0, y: STATUS_OFFSET_Y });
-    this.tabsRoot = new ScreenElement({ x: 0, y: TAB_OFFSET_Y });
+    this.statusRoot = new ScreenElement({ x: 0, y: RESEARCH_POPUP_LAYOUT.statusOffsetY });
+    this.tabsRoot = new ScreenElement({ x: 0, y: RESEARCH_POPUP_LAYOUT.tabOffsetY });
     contentRoot.addChild(this.statusRoot);
     contentRoot.addChild(this.tabsRoot);
 
@@ -132,7 +105,7 @@ export class ResearchPopup extends ScreenPopup {
       this.treeRoot.kill();
     }
 
-    this.treeRoot = new ScreenElement({ x: 0, y: TREE_OFFSET_Y });
+    this.treeRoot = new ScreenElement({ x: 0, y: RESEARCH_POPUP_LAYOUT.treeOffsetY });
     contentRoot.addChild(this.treeRoot);
     this.populateTree(this.treeRoot);
   }
@@ -238,7 +211,7 @@ export class ResearchPopup extends ScreenPopup {
       if (direction === 0) {
         return;
       }
-      this.adjustTreeScroll(direction * TREE_SCROLL_STEP);
+      this.adjustTreeScroll(direction * RESEARCH_POPUP_LAYOUT.treeScrollStep);
       evt.cancel();
     });
 
@@ -247,15 +220,15 @@ export class ResearchPopup extends ScreenPopup {
         members: [
           {
             graphic: new Rectangle({
-              width: TREE_VIEWPORT_WIDTH,
-              height: TREE_VIEWPORT_HEIGHT,
+              width: RESEARCH_TREE_DERIVED.viewportWidth,
+              height: RESEARCH_TREE_DERIVED.viewportHeight,
               color: Color.fromRGB(12, 20, 28, 0.64),
             }),
             offset: vec(0, 0),
           },
           {
             graphic: new Rectangle({
-              width: TREE_VIEWPORT_WIDTH,
+              width: RESEARCH_TREE_DERIVED.viewportWidth,
               height: 1,
               color: Color.fromRGB(170, 196, 220, 0.5),
             }),
@@ -263,16 +236,16 @@ export class ResearchPopup extends ScreenPopup {
           },
           {
             graphic: new Rectangle({
-              width: TREE_VIEWPORT_WIDTH,
+              width: RESEARCH_TREE_DERIVED.viewportWidth,
               height: 1,
               color: Color.fromRGB(170, 196, 220, 0.5),
             }),
-            offset: vec(0, TREE_VIEWPORT_HEIGHT - 1),
+            offset: vec(0, RESEARCH_TREE_DERIVED.viewportHeight - 1),
           },
           {
             graphic: new Rectangle({
               width: 1,
-              height: TREE_VIEWPORT_HEIGHT,
+              height: RESEARCH_TREE_DERIVED.viewportHeight,
               color: Color.fromRGB(170, 196, 220, 0.5),
             }),
             offset: vec(0, 0),
@@ -280,10 +253,10 @@ export class ResearchPopup extends ScreenPopup {
           {
             graphic: new Rectangle({
               width: 1,
-              height: TREE_VIEWPORT_HEIGHT,
+              height: RESEARCH_TREE_DERIVED.viewportHeight,
               color: Color.fromRGB(170, 196, 220, 0.5),
             }),
-            offset: vec(TREE_VIEWPORT_WIDTH - 1, 0),
+            offset: vec(RESEARCH_TREE_DERIVED.viewportWidth - 1, 0),
           },
         ],
       })
@@ -305,11 +278,11 @@ export class ResearchPopup extends ScreenPopup {
       return;
     }
 
-    const treeAreaWidth = TREE_VIEWPORT_WIDTH - TREE_CONTROL_COLUMN_WIDTH;
+    const treeAreaWidth = RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth;
     const layouts = this.buildTreeLayout(definitions, treeAreaWidth);
     const treeContentHeight =
-      layouts.reduce((maxY, layout) => Math.max(maxY, layout.y + NODE_HEIGHT), 0) + 8;
-    this.treeMaxScroll = Math.max(0, treeContentHeight - TREE_DRAW_HEIGHT);
+      layouts.reduce((maxY, layout) => Math.max(maxY, layout.y + RESEARCH_POPUP_LAYOUT.nodeHeight), 0) + 8;
+    this.treeMaxScroll = Math.max(0, treeContentHeight - RESEARCH_TREE_DRAW.height);
     this.treeScrollOffset = clamp(this.treeScrollOffset, 0, this.treeMaxScroll);
 
     const layoutById = new Map<ResearchId, TreeNodeLayout>();
@@ -319,7 +292,7 @@ export class ResearchPopup extends ScreenPopup {
 
     root.addChild(
       ResearchPopup.createTextLine(
-        TREE_VIEWPORT_WIDTH - TREE_CONTROL_COLUMN_WIDTH + 3,
+        RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth + 3,
         8,
         'Scroll',
         11,
@@ -328,12 +301,12 @@ export class ResearchPopup extends ScreenPopup {
     );
 
     const scrollUpButton = new ScreenButton({
-      x: TREE_VIEWPORT_WIDTH - TREE_CONTROL_COLUMN_WIDTH + 6,
+      x: RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth + 6,
       y: 26,
       width: 32,
       height: 22,
       title: '^',
-      onClick: () => this.adjustTreeScroll(-TREE_SCROLL_STEP),
+      onClick: () => this.adjustTreeScroll(-RESEARCH_POPUP_LAYOUT.treeScrollStep),
     });
     if (this.treeScrollOffset <= 0) {
       scrollUpButton.toggle(false);
@@ -341,12 +314,12 @@ export class ResearchPopup extends ScreenPopup {
     root.addChild(scrollUpButton);
 
     const scrollDownButton = new ScreenButton({
-      x: TREE_VIEWPORT_WIDTH - TREE_CONTROL_COLUMN_WIDTH + 6,
-      y: TREE_VIEWPORT_HEIGHT - 30,
+      x: RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth + 6,
+      y: RESEARCH_TREE_DERIVED.viewportHeight - 30,
       width: 32,
       height: 22,
       title: 'v',
-      onClick: () => this.adjustTreeScroll(TREE_SCROLL_STEP),
+      onClick: () => this.adjustTreeScroll(RESEARCH_POPUP_LAYOUT.treeScrollStep),
     });
     if (this.treeScrollOffset >= this.treeMaxScroll) {
       scrollDownButton.toggle(false);
@@ -356,8 +329,8 @@ export class ResearchPopup extends ScreenPopup {
     const connectorColor = Color.fromHex(
       researchTreeInfo[this.selectedTree].colorHex
     );
-    const clipTop = TREE_DRAW_TOP;
-    const clipBottom = TREE_DRAW_TOP + TREE_DRAW_HEIGHT;
+    const clipTop = RESEARCH_POPUP_LAYOUT.treeDrawTop;
+    const clipBottom = RESEARCH_POPUP_LAYOUT.treeDrawTop + RESEARCH_TREE_DRAW.height;
     for (const layout of layouts) {
       for (const requiredId of layout.definition.requiredResearches) {
         if (!isResearchId(requiredId)) {
@@ -381,8 +354,8 @@ export class ResearchPopup extends ScreenPopup {
 
     const active = this.researchManager.getActiveResearch();
     for (const layout of layouts) {
-      const renderY = layout.y - this.treeScrollOffset + TREE_DRAW_TOP;
-      if (!this.isVisibleY(renderY, NODE_HEIGHT, clipTop, TREE_DRAW_HEIGHT)) {
+      const renderY = layout.y - this.treeScrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
+      if (!this.isVisibleY(renderY, RESEARCH_POPUP_LAYOUT.nodeHeight, clipTop, RESEARCH_TREE_DRAW.height)) {
         continue;
       }
 
@@ -440,7 +413,7 @@ export class ResearchPopup extends ScreenPopup {
 
       if (startable) {
         const startButton = new ScreenButton({
-          x: layout.x + NODE_WIDTH - 82,
+          x: layout.x + RESEARCH_POPUP_LAYOUT.nodeWidth - 82,
           y: renderY + 44,
           width: 74,
           height: 22,
@@ -540,15 +513,15 @@ export class ResearchPopup extends ScreenPopup {
       const depthDefinitions = grouped.get(depth) ?? [];
       depthDefinitions.sort((a, b) => a.name.localeCompare(b.name));
       const rowWidth =
-        depthDefinitions.length * NODE_WIDTH +
-        Math.max(0, depthDefinitions.length - 1) * NODE_HORIZONTAL_GAP;
+        depthDefinitions.length * RESEARCH_POPUP_LAYOUT.nodeWidth +
+        Math.max(0, depthDefinitions.length - 1) * RESEARCH_POPUP_LAYOUT.nodeHorizontalGap;
       const startX = Math.max(0, (contentWidth - rowWidth) / 2);
       for (const [index, definition] of depthDefinitions.entries()) {
         layouts.push({
           definition,
           depth,
-          x: startX + index * (NODE_WIDTH + NODE_HORIZONTAL_GAP),
-          y: depth * (NODE_HEIGHT + NODE_VERTICAL_GAP),
+          x: startX + index * (RESEARCH_POPUP_LAYOUT.nodeWidth + RESEARCH_POPUP_LAYOUT.nodeHorizontalGap),
+          y: depth * (RESEARCH_POPUP_LAYOUT.nodeHeight + RESEARCH_POPUP_LAYOUT.nodeVerticalGap),
         });
       }
     }
@@ -566,10 +539,10 @@ export class ResearchPopup extends ScreenPopup {
     clipBottom: number
   ): void {
     const thickness = 2;
-    const parentX = parent.x + NODE_WIDTH / 2;
-    const parentY = parent.y + NODE_HEIGHT - scrollOffset + TREE_DRAW_TOP;
-    const childX = child.x + NODE_WIDTH / 2;
-    const childY = child.y - scrollOffset + TREE_DRAW_TOP;
+    const parentX = parent.x + RESEARCH_POPUP_LAYOUT.nodeWidth / 2;
+    const parentY = parent.y + RESEARCH_POPUP_LAYOUT.nodeHeight - scrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
+    const childX = child.x + RESEARCH_POPUP_LAYOUT.nodeWidth / 2;
+    const childY = child.y - scrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
     const gap = Math.max(1, childY - parentY);
     const preferredEntryStem = 14;
     const maxEntryStem = Math.max(4, gap - 4);
@@ -665,15 +638,15 @@ export class ResearchPopup extends ScreenPopup {
     const members: GraphicsGrouping[] = [
       {
         graphic: new Rectangle({
-          width: NODE_WIDTH,
-          height: NODE_HEIGHT,
+          width: RESEARCH_POPUP_LAYOUT.nodeWidth,
+          height: RESEARCH_POPUP_LAYOUT.nodeHeight,
           color: options.backgroundColor,
         }),
         offset: vec(0, 0),
       },
       {
         graphic: new Rectangle({
-          width: NODE_WIDTH,
+          width: RESEARCH_POPUP_LAYOUT.nodeWidth,
           height: 2,
           color: options.borderColor,
         }),
@@ -681,16 +654,16 @@ export class ResearchPopup extends ScreenPopup {
       },
       {
         graphic: new Rectangle({
-          width: NODE_WIDTH,
+          width: RESEARCH_POPUP_LAYOUT.nodeWidth,
           height: 2,
           color: options.borderColor,
         }),
-        offset: vec(0, NODE_HEIGHT - 2),
+        offset: vec(0, RESEARCH_POPUP_LAYOUT.nodeHeight - 2),
       },
       {
         graphic: new Rectangle({
           width: 2,
-          height: NODE_HEIGHT,
+          height: RESEARCH_POPUP_LAYOUT.nodeHeight,
           color: options.borderColor,
         }),
         offset: vec(0, 0),
@@ -698,10 +671,10 @@ export class ResearchPopup extends ScreenPopup {
       {
         graphic: new Rectangle({
           width: 2,
-          height: NODE_HEIGHT,
+          height: RESEARCH_POPUP_LAYOUT.nodeHeight,
           color: options.borderColor,
         }),
-        offset: vec(NODE_WIDTH - 2, 0),
+        offset: vec(RESEARCH_POPUP_LAYOUT.nodeWidth - 2, 0),
       },
       {
         graphic: new Text({
@@ -760,8 +733,8 @@ export class ResearchPopup extends ScreenPopup {
 
   private getShortNodeDescription(text: string, startable: boolean): string[] {
     const reservedWidth = startable
-      ? NODE_WIDTH - NODE_BUTTON_ZONE_WIDTH - 16
-      : NODE_WIDTH - 16;
+      ? RESEARCH_POPUP_LAYOUT.nodeWidth - RESEARCH_POPUP_LAYOUT.nodeButtonZoneWidth - 16
+      : RESEARCH_POPUP_LAYOUT.nodeWidth - 16;
     const lines = wrapText(text, reservedWidth, 11);
     if (lines.length === 0) {
       return ['', ''];
@@ -809,8 +782,8 @@ export class ResearchPopup extends ScreenPopup {
         getAnchorRect: () => ({
           x: card.globalPos.x,
           y: card.globalPos.y,
-          width: NODE_WIDTH,
-          height: NODE_HEIGHT,
+          width: RESEARCH_POPUP_LAYOUT.nodeWidth,
+          height: RESEARCH_POPUP_LAYOUT.nodeHeight,
         }),
         header: definition.name,
         description: definition.description,
@@ -900,3 +873,4 @@ export class ResearchPopup extends ScreenPopup {
     return line;
   }
 }
+

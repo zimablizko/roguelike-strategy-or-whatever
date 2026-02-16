@@ -8,17 +8,12 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import type { StateData } from '../../managers/StateManager';
+import type { StateData } from '../../_common/models/state.models';
 import { StateManager } from '../../managers/StateManager';
+import type { StateDisplayOptions } from '../../_common/models/ui.models';
 import {
   InteractivePanelElement,
-  type InteractivePanelOptions,
 } from '../elements/InteractivePanelElement';
-
-export interface StateDisplayOptions extends InteractivePanelOptions {
-  stateManager: StateManager;
-  textColor?: Color;
-}
 
 /**
  * UI component that displays current state data (name + size).

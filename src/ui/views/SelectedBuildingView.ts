@@ -10,29 +10,22 @@ import {
   type GraphicsGrouping,
   type Scene,
 } from 'excalibur';
+import { Resources } from '../../_common/resources';
 import { clamp } from '../../_common/math';
 import { measureTextWidth } from '../../_common/text';
-import {
-  BuildingManager,
-  type StateBuildingActionDefinition,
-  type TypedBuildingDefinition,
-} from '../../managers/BuildingManager';
+import type {
+  StateBuildingActionDefinition,
+  TypedBuildingDefinition,
+} from '../../_common/models/buildings.models';
+import type { ResourceType } from '../../_common/models/resource.models';
+import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
+import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
-
-export interface SelectedBuildingViewOptions {
-  stateManager: StateManager;
-  buildingManager: BuildingManager;
-  resourceManager: ResourceManager;
-  turnManager: TurnManager;
-  tooltipProvider: TooltipProvider;
-  width?: number;
-  height?: number;
-  bottomMargin?: number;
-}
 
 export class SelectedBuildingView extends ScreenElement {
   private readonly stateManager: StateManager;
@@ -367,7 +360,7 @@ export class SelectedBuildingView extends ScreenElement {
   private getActionOutcomes(
     definition: TypedBuildingDefinition,
     action: StateBuildingActionDefinition
-  ): { label: string; value: string | number; color?: Color }[] {
+  ): TooltipOutcome[] {
     const state = this.stateManager.getStateRef();
     const buildingCount = Math.max(
       1,
@@ -397,19 +390,36 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     const resourceByBuilding: Partial<
-      Record<TypedBuildingDefinition['id'], string>
+      Record<TypedBuildingDefinition['id'], ResourceType>
     > = {
-      lumbermill: 'Materials',
-      mine: 'Materials',
-      farm: 'Food',
+      lumbermill: 'materials',
+      mine: 'materials',
+      farm: 'food',
     };
     return [
       {
-        label: resourceByBuilding[definition.id] ?? 'Output',
+        label: '',
+        icon: this.getResourceIcon(resourceByBuilding[definition.id]),
         value: `+${value}`,
         color: Color.fromHex('#9fe6aa'),
       },
     ];
+  }
+
+  private getResourceIcon(resourceType: ResourceType | undefined) {
+    if (resourceType === 'gold') {
+      return Resources.MoneyIcon;
+    }
+    if (resourceType === 'food') {
+      return Resources.FoodIcon;
+    }
+    if (resourceType === 'materials') {
+      return Resources.ResourcesIcon;
+    }
+    if (resourceType === 'population') {
+      return Resources.PopulationIcon;
+    }
+    return undefined;
   }
 
   private clearActionRows(): void {

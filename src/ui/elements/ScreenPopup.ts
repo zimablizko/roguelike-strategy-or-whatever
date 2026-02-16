@@ -11,38 +11,15 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import type {
+  ScreenPopupAnchor,
+  ScreenPopupBackplateStyle,
+  ScreenPopupContentBuilder,
+  ScreenPopupOptions,
+} from '../../_common/models/ui.models';
 import { UI_Z } from '../constants/ZLayers';
 import { installForegroundPointerBlocker } from '../utils/PointerBlocker';
 import { ScreenButton } from './ScreenButton';
-
-export type ScreenPopupAnchor = 'top-left' | 'top-right' | 'center';
-export type ScreenPopupBackplateStyle = 'gray';
-
-export type ScreenPopupContentBuilder = (
-  contentRoot: ScreenElement,
-  popup: ScreenPopup
-) => void;
-
-export interface ScreenPopupOptions {
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  anchor?: ScreenPopupAnchor;
-  title?: string;
-  padding?: number;
-  headerHeight?: number;
-  bgColor?: Color;
-  headerColor?: Color;
-  textColor?: Color;
-  z?: number;
-  backplateStyle?: ScreenPopupBackplateStyle;
-  backplateColor?: Color;
-  closeOnBackplateClick?: boolean;
-  content?: Actor | Actor[];
-  contentBuilder?: ScreenPopupContentBuilder;
-  onClose?: () => void;
-}
 
 /**
  * Generic popup container UI.

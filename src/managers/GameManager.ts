@@ -1,30 +1,14 @@
 import { SeededRandom } from '../_common/random';
+import type {
+  GameManagerOptions,
+  PlayerData,
+} from '../_common/models/game.models';
 import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
 import { StateManager } from './StateManager';
-
-export type PlayerData = {
-  race: 'human' | 'elf' | 'dwarf' | 'orc';
-  resources: {
-    gold: number;
-    materials: number;
-    food: number;
-    population: number;
-  };
-};
-
-export type GameManagerOptions = {
-  playerData: PlayerData;
-  map?: {
-    width?: number;
-    height?: number;
-  };
-  /** Optional seed for reproducible randomness across all managers. */
-  seed?: number;
-};
 
 /**
  * High-level game state manager.

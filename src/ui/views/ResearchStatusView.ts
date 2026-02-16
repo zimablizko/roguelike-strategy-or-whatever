@@ -11,17 +11,10 @@ import {
 import { researchTreeInfo } from '../../data/researches';
 import { ResearchManager } from '../../managers/ResearchManager';
 import { TurnManager } from '../../managers/TurnManager';
+import type { ResearchStatusViewOptions } from '../../_common/models/ui.models';
 import {
   InteractivePanelElement,
-  type InteractivePanelOptions,
 } from '../elements/InteractivePanelElement';
-
-export interface ResearchStatusViewOptions extends InteractivePanelOptions {
-  researchManager: ResearchManager;
-  turnManager: TurnManager;
-  width?: number;
-  widthProvider?: () => number;
-}
 
 export class ResearchStatusView extends InteractivePanelElement {
   private readonly researchManager: ResearchManager;

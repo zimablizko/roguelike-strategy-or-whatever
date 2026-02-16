@@ -1,64 +1,17 @@
-export type MapTileType =
-  | 'plains'
-  | 'forest'
-  | 'rocks'
-  | 'sand'
-  | 'river'
-  | 'ocean';
-
 import { clamp } from '../_common/math';
 import { SeededRandom } from '../_common/random';
-
-interface MapCell {
-  x: number;
-  y: number;
-}
-
-interface VoronoiPoint {
-  x: number;
-  y: number;
-}
-
-export interface MapPlayerStateSummary {
-  tiles: {
-    forest: number;
-    stone: number;
-    plains: number;
-    river: number;
-  };
-  size: number;
-  ocean: number;
-}
-
-export interface MapData {
-  width: number;
-  height: number;
-  tiles: MapTileType[][];
-  zones: (number | null)[][];
-  zoneCount: number;
-  playerZoneId: number | null;
-}
-
-export interface MapManagerOptions {
-  width?: number;
-  height?: number;
-  rng?: SeededRandom;
-}
-
-type OceanEdge = 'west' | 'east' | 'north' | 'south';
-type OceanLayout =
-  | OceanEdge
-  | 'north-west'
-  | 'north-east'
-  | 'south-west'
-  | 'south-east'
-  | 'center'
-  | 'none';
-type RiverStartType = 'ocean' | 'river' | 'rocks';
-
-interface RiverStart extends MapCell {
-  type: RiverStartType;
-}
+import type {
+  MapData,
+  MapCell,
+  MapManagerOptions,
+  MapPlayerStateSummary,
+  MapTileType,
+  OceanEdge,
+  OceanLayout,
+  RiverStart,
+  RiverStartType,
+  VoronoiPoint,
+} from '../_common/models/map.models';
 
 const DEFAULT_WIDTH = 30;
 const DEFAULT_HEIGHT = 20;

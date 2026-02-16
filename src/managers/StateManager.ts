@@ -1,27 +1,11 @@
 import { clamp } from '../_common/math';
 import { SeededRandom } from '../_common/random';
-import type { MapPlayerStateSummary } from './MapManager';
-
-export type StateTiles = {
-  forest: number;
-  stone: number;
-  plains: number;
-  river: number;
-};
-
-export type StateData = {
-  name: string;
-  size: number;
-  tiles: StateTiles;
-  ocean: number;
-};
-
-export interface StateManagerOptions {
-  rng?: SeededRandom;
-  initial?: Partial<Omit<StateData, 'size' | 'tiles'>> & {
-    tiles?: Partial<StateTiles>;
-  };
-}
+import type { MapPlayerStateSummary } from '../_common/models/map.models';
+import type {
+  StateData,
+  StateManagerOptions,
+  StateTiles,
+} from '../_common/models/state.models';
 
 /**
  * Manages player state summary (name, tile composition, and size).

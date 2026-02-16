@@ -1,21 +1,16 @@
-import { PlayerData } from './GameManager';
-
-/** Type alias for a resource key */
-export type ResourceType = keyof PlayerData['resources'];
-
-/** A partial cost / reward map keyed by resource type */
-export type ResourceCost = Partial<PlayerData['resources']>;
-
-export interface ResourceManagerOptions {
-  initial: PlayerData['resources'];
-}
+import type {
+  ResourceCost,
+  ResourceManagerOptions,
+  ResourceStock,
+  ResourceType,
+} from '../_common/models/resource.models';
 
 /**
  * Manages all player resource data and operations.
  * Single source of truth for resource state.
  */
 export class ResourceManager {
-  private resources: PlayerData['resources'];
+  private resources: ResourceStock;
   private resourcesVersion = 0;
 
   constructor(options: ResourceManagerOptions) {
@@ -34,7 +29,7 @@ export class ResourceManager {
   /**
    * Get all resources as a shallow copy
    */
-  getAllResources(): PlayerData['resources'] {
+  getAllResources(): ResourceStock {
     return { ...this.resources };
   }
 
@@ -42,7 +37,7 @@ export class ResourceManager {
    * Get all resources by reference (read-only view).
    * Use for hot UI polling paths to avoid per-frame allocations.
    */
-  getAllResourcesRef(): Readonly<PlayerData['resources']> {
+  getAllResourcesRef(): Readonly<ResourceStock> {
     return this.resources;
   }
 

@@ -11,67 +11,50 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import type {
+  TooltipOutcomeRenderItem,
+  TooltipOutcomeRenderRow,
+  TooltipProviderOptions,
+} from '../../_common/models/ui.models';
+import type {
+  TooltipAnchorRect,
+  TooltipOutcome,
+  TooltipPlacement,
+  TooltipRequest,
+} from '../../_common/models/tooltip.models';
 import { measureTextWidth } from '../../_common/text';
+import {
+  TOOLTIP_COLORS,
+  TOOLTIP_LAYOUT,
+  TOOLTIP_PLACEMENT_ORDER,
+} from '../constants/TooltipConstants';
 import { UI_Z } from '../constants/ZLayers';
 
-export interface TooltipAnchorRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface TooltipOutcome {
-  label: string;
-  value: string | number;
-  icon?: ImageSource;
-  color?: Color;
-}
-
-export interface TooltipRequest {
-  owner: unknown;
-  getAnchorRect: () => TooltipAnchorRect;
-  header?: string;
-  description: string;
-  outcomes?: TooltipOutcome[];
-  placement?: TooltipPlacement;
-  width?: number;
-  bgColor?: Color;
-  textColor?: Color;
-}
-
-interface TooltipProviderOptions {
-  z?: number;
-}
-
-type TooltipPlacement = 'right' | 'bottom' | 'left' | 'top';
-
 export class TooltipProvider extends ScreenElement {
-  private readonly defaultTooltipWidth = 300;
-  private readonly minTooltipWidth = 140;
-  private readonly defaultBgColor = Color.fromHex('#12202d');
-  private readonly defaultTextColor = Color.fromHex('#ecf3fa');
-  private readonly defaultHeaderColor = Color.fromHex('#f7fbff');
-  private readonly separatorColor = Color.fromRGB(190, 210, 228, 0.38);
-  private readonly tooltipPadding = 10;
-  private readonly lineGap = 3;
-  private readonly headerGap = 6;
-  private readonly fontSize = 13;
-  private readonly headerFontSize = 15;
-  private readonly outcomeGap = 6;
-  private readonly outcomeRowHeight = 18;
-  private readonly outcomeIconSize = 14;
-  private readonly tooltipGap = 10;
-  private readonly viewportPadding = 8;
+  private readonly defaultTooltipWidth = TOOLTIP_LAYOUT.defaultWidth;
+  private readonly minTooltipWidth = TOOLTIP_LAYOUT.minWidth;
+  private readonly defaultBgColor = TOOLTIP_COLORS.background;
+  private readonly defaultTextColor = TOOLTIP_COLORS.text;
+  private readonly defaultHeaderColor = TOOLTIP_COLORS.headerText;
+  private readonly separatorColor = TOOLTIP_COLORS.separator;
+  private readonly tooltipPadding = TOOLTIP_LAYOUT.padding;
+  private readonly lineGap = TOOLTIP_LAYOUT.lineGap;
+  private readonly headerGap = TOOLTIP_LAYOUT.headerGap;
+  private readonly fontSize = TOOLTIP_LAYOUT.fontSize;
+  private readonly headerFontSize = TOOLTIP_LAYOUT.headerFontSize;
+  private readonly outcomeGap = TOOLTIP_LAYOUT.outcomeGap;
+  private readonly outcomeRowHeight = TOOLTIP_LAYOUT.outcomeRowHeight;
+  private readonly outcomeInlineItemGap = TOOLTIP_LAYOUT.outcomeInlineItemGap;
+  private readonly outcomeRowGap = TOOLTIP_LAYOUT.outcomeRowGap;
+  private readonly outcomeIconSize = TOOLTIP_LAYOUT.outcomeIconSize;
+  private readonly tooltipGap = TOOLTIP_LAYOUT.tooltipGap;
+  private readonly viewportPadding = TOOLTIP_LAYOUT.viewportPadding;
   private readonly placementOrder: TooltipPlacement[] = [
-    'right',
-    'bottom',
-    'left',
-    'top',
+    ...TOOLTIP_PLACEMENT_ORDER,
   ];
 
   private activeTooltip?: TooltipRequest;
-  private tooltipWidth = this.defaultTooltipWidth;
+  private tooltipWidth: number = this.defaultTooltipWidth;
   private tooltipHeight = 0;
   private lastPositionKey?: string;
   private lastContentKey?: string;
@@ -160,30 +143,9 @@ export class TooltipProvider extends ScreenElement {
       0
     );
 
-    const outcomeRows = outcomes.map((outcome) => {
-      const outcomeTextValue = outcome.label
-        ? `${outcome.label}: ${outcome.value}`
-        : `${outcome.value}`;
-      const iconSprite = this.getOutcomeIconSprite(outcome.icon);
-      const outcomeText = new Text({
-        text: outcomeTextValue,
-        font: new Font({
-          size: this.fontSize,
-          unit: FontUnit.Px,
-          color: outcome.color ?? textColor,
-        }),
-      });
-      const rowWidth =
-        (iconSprite ? this.outcomeIconSize + 6 : 0) + outcomeText.width;
-
-      return {
-        iconSprite,
-        outcomeText,
-        rowWidth,
-      };
-    });
+    const outcomeRows = this.buildOutcomeRows(outcomes, textColor);
     const outcomesContentWidth = outcomeRows.reduce(
-      (max, row) => Math.max(max, row.rowWidth),
+      (max, row) => Math.max(max, row.width),
       0
     );
     const contentWidth = Math.max(
@@ -205,8 +167,10 @@ export class TooltipProvider extends ScreenElement {
       ? headerGraphic.height + this.headerGap + 1 + this.headerGap
       : 0;
     const outcomeHeight =
-      outcomes.length > 0
-        ? this.outcomeGap + outcomes.length * this.outcomeRowHeight
+      outcomeRows.length > 0
+        ? this.outcomeGap +
+          outcomeRows.reduce((sum, row) => sum + row.height, 0) +
+          Math.max(0, outcomeRows.length - 1) * this.outcomeRowGap
         : 0;
     this.tooltipHeight =
       this.tooltipPadding * 2 +
@@ -252,32 +216,48 @@ export class TooltipProvider extends ScreenElement {
       y += textGraphic.height + this.lineGap;
     }
 
-    if (outcomes.length > 0) {
+    if (outcomeRows.length > 0) {
       y += this.outcomeGap;
       for (const row of outcomeRows) {
         let outcomeX = this.tooltipPadding;
-        const iconSprite = row.iconSprite;
-        if (iconSprite) {
+        if (row.labelGraphic) {
           members.push({
-            graphic: iconSprite,
+            graphic: row.labelGraphic,
             offset: vec(
               outcomeX,
-              y + (this.outcomeRowHeight - this.outcomeIconSize) / 2
+              y + (row.height - row.labelGraphic.height) / 2
             ),
           });
-          outcomeX += this.outcomeIconSize + 6;
+          outcomeX += row.labelGraphic.width + 8;
         }
-        const outcomeText = row.outcomeText;
 
-        members.push({
-          graphic: outcomeText,
-          offset: vec(
-            outcomeX,
-            y + (this.outcomeRowHeight - outcomeText.height) / 2
-          ),
-        });
+        for (let i = 0; i < row.items.length; i++) {
+          const item = row.items[i];
+          if (item.iconSprite) {
+            members.push({
+              graphic: item.iconSprite,
+              offset: vec(
+                outcomeX,
+                y + (row.height - this.outcomeIconSize) / 2
+              ),
+            });
+            outcomeX += this.outcomeIconSize + 6;
+          }
 
-        y += this.outcomeRowHeight;
+          members.push({
+            graphic: item.textGraphic,
+            offset: vec(
+              outcomeX,
+              y + (row.height - item.textGraphic.height) / 2
+            ),
+          });
+          outcomeX += item.textGraphic.width;
+          if (i < row.items.length - 1) {
+            outcomeX += this.outcomeInlineItemGap;
+          }
+        }
+
+        y += row.height + this.outcomeRowGap;
       }
     }
 
@@ -515,12 +495,118 @@ export class TooltipProvider extends ScreenElement {
     return chunks.length > 0 ? chunks : [''];
   }
 
+  private buildOutcomeRows(
+    outcomes: TooltipOutcome[],
+    defaultTextColor: Color
+  ): TooltipOutcomeRenderRow[] {
+    const rows: TooltipOutcomeRenderRow[] = [];
+
+    let i = 0;
+    while (i < outcomes.length) {
+      const current = outcomes[i];
+      if (current.inline) {
+        const inlineGroup: TooltipOutcome[] = [];
+        while (i < outcomes.length && outcomes[i].inline) {
+          inlineGroup.push(outcomes[i]);
+          i++;
+        }
+        rows.push(this.buildInlineOutcomeRow(inlineGroup, defaultTextColor));
+        continue;
+      }
+
+      rows.push(this.buildSingleOutcomeRow(current, defaultTextColor));
+      i++;
+    }
+
+    return rows;
+  }
+
+  private buildInlineOutcomeRow(
+    outcomes: TooltipOutcome[],
+    defaultTextColor: Color
+  ): TooltipOutcomeRenderRow {
+    const first = outcomes[0];
+    const labelGraphic =
+      first && first.label
+        ? new Text({
+            text: `${first.label}:`,
+            font: new Font({
+              size: this.fontSize,
+              unit: FontUnit.Px,
+              color: defaultTextColor,
+            }),
+          })
+        : undefined;
+
+    const items: TooltipOutcomeRenderItem[] = outcomes.map((outcome) => {
+      const iconSprite = this.getOutcomeIconSprite(outcome.icon);
+      const textGraphic = new Text({
+        text: `${outcome.value}`,
+        font: new Font({
+          size: this.fontSize,
+          unit: FontUnit.Px,
+          color: outcome.color ?? defaultTextColor,
+        }),
+      });
+      const width =
+        (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
+      return { iconSprite, textGraphic, width };
+    });
+
+    const itemsWidth =
+      items.reduce((sum, item) => sum + item.width, 0) +
+      Math.max(0, items.length - 1) * this.outcomeInlineItemGap;
+    const width = (labelGraphic?.width ?? 0) + (labelGraphic ? 8 : 0) + itemsWidth;
+
+    const maxItemHeight = items.reduce(
+      (max, item) =>
+        Math.max(max, item.textGraphic.height, item.iconSprite ? this.outcomeIconSize : 0),
+      0
+    );
+    const height = Math.max(
+      this.outcomeRowHeight,
+      labelGraphic?.height ?? 0,
+      maxItemHeight
+    );
+
+    return { labelGraphic, items, width, height };
+  }
+
+  private buildSingleOutcomeRow(
+    outcome: TooltipOutcome,
+    defaultTextColor: Color
+  ): TooltipOutcomeRenderRow {
+    const iconSprite = this.getOutcomeIconSprite(outcome.icon);
+    const textGraphic = new Text({
+      text: outcome.label ? `${outcome.label}: ${outcome.value}` : `${outcome.value}`,
+      font: new Font({
+        size: this.fontSize,
+        unit: FontUnit.Px,
+        color: outcome.color ?? defaultTextColor,
+      }),
+    });
+    const width = (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
+    const height = Math.max(
+      this.outcomeRowHeight,
+      textGraphic.height,
+      iconSprite ? this.outcomeIconSize : 0
+    );
+
+    return {
+      items: [{ iconSprite, textGraphic, width }],
+      width,
+      height,
+    };
+  }
+
   private buildContentKey(request: TooltipRequest): string {
     const outcomes = (request.outcomes ?? [])
       .map((outcome) => {
         const iconPath = outcome.icon?.path ?? '';
         const color = outcome.color?.toHex() ?? '';
-        return `${outcome.label}:${outcome.value}:${iconPath}:${color}`;
+        return `${outcome.label}:${outcome.value}:${iconPath}:${color}:${
+          outcome.inline ? 1 : 0
+        }`;
       })
       .join('|');
 

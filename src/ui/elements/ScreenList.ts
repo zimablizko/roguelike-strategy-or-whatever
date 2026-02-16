@@ -1,66 +1,10 @@
 import type { PointerEvent, WheelEvent } from 'excalibur';
 import { Canvas, Color, ScreenElement, vec } from 'excalibur';
-
-export type ScreenListRenderItem<TItem> = (args: {
-  ctx: CanvasRenderingContext2D;
-  item: TItem;
-  index: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}) => void;
-
-export interface ScreenListOptions<TItem = unknown> {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  items: TItem[];
-  itemHeight?: number;
-  gap?: number;
-  padding?: number;
-  bgColor?: Color;
-  textColor?: string;
-  fontCss?: string;
-  scrollStep?: number;
-  transparent?: boolean;
-  renderItem?: ScreenListRenderItem<TItem>;
-
-  /**
-   * When provided, list rows become "button-like" and trigger this callback on click.
-   * If omitted, the list only renders and scrolls.
-   */
-  onItemActivate?: (item: TItem, index: number) => void;
-
-  /** Override label extraction used by the default renderer */
-  getItemLabel?: (item: TItem, index: number) => string;
-
-  /** Mark an item disabled (no hover/click styling; no activation) */
-  isItemDisabled?: (item: TItem, index: number) => boolean;
-  /** Mark an item selected (persistent selected styling) */
-  isItemSelected?: (item: TItem, index: number) => boolean;
-
-  /** Draw a scrollbar when content overflows */
-  showScrollbar?: boolean;
-  /** Width of scrollbar thumb/track */
-  scrollbarWidth?: number;
-  /** Minimum thumb height in pixels */
-  scrollbarMinThumbHeight?: number;
-  /** Scrollbar track color */
-  scrollbarTrackColor?: string;
-  /** Scrollbar thumb color */
-  scrollbarThumbColor?: string;
-  /** Scrollbar thumb color when hovered/dragged */
-  scrollbarThumbActiveColor?: string;
-}
-
-/** Simple item type you can use to create a list of working buttons */
-export interface ScreenListButtonItem {
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-}
+import type {
+  ScreenListButtonItem,
+  ScreenListOptions,
+  ScreenListRenderItem,
+} from '../../_common/models/ui.models';
 
 /**
  * Generic scrollable vertical list for UI.

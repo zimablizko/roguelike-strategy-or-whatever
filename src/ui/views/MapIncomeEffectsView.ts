@@ -10,29 +10,14 @@ import {
   vec,
 } from 'excalibur';
 import { Resources } from '../../_common/resources';
-import type { ResourceType } from '../../managers/ResourceManager';
-import type { EndTurnIncomePulse } from '../../managers/TurnManager';
+import type { ResourceType } from '../../_common/models/resource.models';
+import type { EndTurnIncomePulse } from '../../_common/models/turn.models';
+import type {
+  IncomeVisualPulse,
+  MapIncomeEffectsViewOptions,
+} from '../../_common/models/ui.models';
 import { UI_Z } from '../constants/ZLayers';
 import { MapView } from './MapView';
-
-interface IncomeVisualPulse extends EndTurnIncomePulse {
-  ageMs: number;
-  delayMs: number;
-  durationMs: number;
-  liftPx: number;
-  jitterX: number;
-  laneOffsetX: number;
-  laneOffsetY: number;
-  icon?: Sprite;
-  amountText: Text;
-  amountShadow: Text;
-  amountTextWidth: number;
-  amountTextHeight: number;
-}
-
-export interface MapIncomeEffectsViewOptions {
-  mapView: MapView;
-}
 
 export class MapIncomeEffectsView extends ScreenElement {
   private readonly mapView: MapView;

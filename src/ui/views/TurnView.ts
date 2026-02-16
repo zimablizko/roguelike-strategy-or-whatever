@@ -10,19 +10,7 @@ import {
   vec,
 } from 'excalibur';
 import { TurnManager } from '../../managers/TurnManager';
-
-export interface TurnDisplayOptions {
-  x: number;
-  y: number;
-  turnManager: TurnManager;
-  textColor?: Color;
-  panelBgColor?: Color;
-  panelBorderColor?: Color;
-  separatorColor?: Color;
-  segmentColor?: Color;
-  spentSegmentColor?: Color;
-  barWidth?: number;
-}
+import type { TurnDisplayOptions } from '../../_common/models/ui.models';
 
 /**
  * UI component that displays current turn and action points.

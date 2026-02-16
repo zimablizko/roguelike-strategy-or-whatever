@@ -1,30 +1,17 @@
 import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
 import { wrapText } from '../../_common/text';
-import {
-  BuildingManager,
-  type StateBuildingId,
-  type TypedBuildingDefinition,
-} from '../../managers/BuildingManager';
-import {
-  ResourceManager,
-  type ResourceType,
-} from '../../managers/ResourceManager';
+import type {
+  StateBuildingId,
+  TypedBuildingDefinition,
+} from '../../_common/models/buildings.models';
+import type { ResourceType } from '../../_common/models/resource.models';
+import type { BuildPopupOptions } from '../../_common/models/ui.models';
+import { BuildingManager } from '../../managers/BuildingManager';
+import { ResourceManager } from '../../managers/ResourceManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
-import { ScreenPopup, type ScreenPopupAnchor } from '../elements/ScreenPopup';
-
-export interface BuildPopupOptions {
-  x: number;
-  y: number;
-  buildingId: StateBuildingId;
-  buildingManager: BuildingManager;
-  resourceManager: ResourceManager;
-  turnManager: TurnManager;
-  anchor?: ScreenPopupAnchor;
-  onBuilt?: (buildingId: StateBuildingId) => void;
-  onClose?: () => void;
-}
+import { ScreenPopup } from '../elements/ScreenPopup';
 
 /**
  * Popup for confirming construction of a single building.

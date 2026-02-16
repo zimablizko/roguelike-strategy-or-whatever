@@ -6,53 +6,38 @@ import {
   Text,
   type Scene,
 } from 'excalibur';
+import { Resources } from '../../_common/resources';
+import type {
+  StateBuildingActionDefinition,
+  StateBuildingId,
+  TypedBuildingDefinition,
+} from '../../_common/models/buildings.models';
+import type {
+  ResourceCost,
+  ResourceType,
+} from '../../_common/models/resource.models';
+import type {
+  BuildingListItem,
+  StatePopupOptions,
+  StatePopupTab,
+} from '../../_common/models/ui.models';
+import { ResourceManager } from '../../managers/ResourceManager';
 import {
-  ResourceManager,
-  type ResourceCost,
-  type ResourceType,
-} from '../../managers/ResourceManager';
-import {
-  BuildingManager,
-  type StateBuildingActionDefinition,
-  type StateBuildingId,
-  type TypedBuildingDefinition,
-} from '../../managers/BuildingManager';
+  getResearchDefinition,
+  isResearchId,
+} from '../../data/researches';
+import { BuildingManager } from '../../managers/BuildingManager';
 import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import { UI_Z } from '../constants/ZLayers';
+import { STATE_POPUP_LAYOUT } from '../constants/StatePopupConstants';
 import { ActionElement } from '../elements/ActionElement';
 import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenList } from '../elements/ScreenList';
-import { ScreenPopup, type ScreenPopupAnchor } from '../elements/ScreenPopup';
+import { ScreenPopup } from '../elements/ScreenPopup';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 import { BuildPopup } from './BuildPopup';
-
-export interface StatePopupOptions {
-  x: number;
-  y: number;
-  stateManager: StateManager;
-  buildingManager: BuildingManager;
-  resourceManager: ResourceManager;
-  turnManager: TurnManager;
-  tooltipProvider: TooltipProvider;
-  anchor?: ScreenPopupAnchor;
-  onClose?: () => void;
-}
-
-type StatePopupTab = 'overview' | 'buildings';
-
-interface BuildingListItem {
-  id: StateBuildingId;
-  name: string;
-  count: number;
-  unique: boolean;
-}
-
-const POPUP_WIDTH = 820;
-const POPUP_HEIGHT = 560;
-const POPUP_PADDING = 14;
-const POPUP_HEADER_HEIGHT = 44;
-const BODY_OFFSET_Y = 46;
 
 /**
  * Dedicated popup for state details and buildings management.
@@ -75,8 +60,8 @@ export class StatePopup extends ScreenPopup {
       x: options.x,
       y: options.y,
       anchor: options.anchor ?? 'center',
-      width: POPUP_WIDTH,
-      height: POPUP_HEIGHT,
+      width: STATE_POPUP_LAYOUT.width,
+      height: STATE_POPUP_LAYOUT.height,
       title: `State: ${options.stateManager.getStateRef().name}`,
       z: UI_Z.statePopup,
       backplateStyle: 'gray',
@@ -149,7 +134,7 @@ export class StatePopup extends ScreenPopup {
       this.bodyRoot.kill();
     }
 
-    const body = new ScreenElement({ x: 0, y: BODY_OFFSET_Y });
+    const body = new ScreenElement({ x: 0, y: STATE_POPUP_LAYOUT.bodyOffsetY });
     contentRoot.addChild(body);
     this.bodyRoot = body;
 
@@ -238,9 +223,14 @@ export class StatePopup extends ScreenPopup {
   }
 
   private populateBuildingsTab(root: ScreenElement): void {
-    const panelWidth = POPUP_WIDTH - POPUP_PADDING * 2;
+    const panelWidth =
+      STATE_POPUP_LAYOUT.width - STATE_POPUP_LAYOUT.padding * 2;
     const panelHeight =
-      POPUP_HEIGHT - POPUP_HEADER_HEIGHT - POPUP_PADDING - BODY_OFFSET_Y - 8;
+      STATE_POPUP_LAYOUT.height -
+      STATE_POPUP_LAYOUT.headerHeight -
+      STATE_POPUP_LAYOUT.padding -
+      STATE_POPUP_LAYOUT.bodyOffsetY -
+      8;
     const leftWidth = 270;
     const rightX = leftWidth + 18;
     const rightWidth = panelWidth - rightX;
@@ -390,8 +380,9 @@ export class StatePopup extends ScreenPopup {
       } else {
         for (const technology of definition.requiredTechnologies) {
           const unlocked = this.buildingManager.isTechnologyUnlocked(technology);
+          const technologyName = this.resolveTechnologyName(technology);
           addLine(
-            `- tech: ${technology}`,
+            `- tech: ${technologyName}`,
             13,
             unlocked ? okColor : warnColor,
             4
@@ -623,7 +614,7 @@ export class StatePopup extends ScreenPopup {
     width: number;
     title: string;
     description: string;
-    outcomes: { label: string; value: string | number; color?: Color }[];
+    outcomes: TooltipOutcome[];
     enabled: boolean;
     onClick: () => void;
   }): ActionElement {
@@ -653,39 +644,57 @@ export class StatePopup extends ScreenPopup {
   private getBuildOutcomes(
     cost: ResourceCost,
     requiredTechnologies: string[]
-  ): {
-    label: string;
-    value: string | number;
-    color?: Color;
-  }[] {
-    const outcomes: { label: string; value: string | number; color?: Color }[] =
-      [];
+  ): TooltipOutcome[] {
+    const outcomes: TooltipOutcome[] = [];
+    const costOutcomes: TooltipOutcome[] = [];
     for (const [resourceType, amount] of Object.entries(cost) as [
       ResourceType,
       number,
     ][]) {
-      outcomes.push({
-        label: resourceType,
+      costOutcomes.push({
+        label: '',
+        icon: this.getResourceIcon(resourceType),
         value: `-${amount}`,
         color: Color.fromHex('#f2b0a6'),
+        inline: true,
       });
     }
-
-    if (requiredTechnologies.length > 0) {
+    if (costOutcomes.length === 0) {
       outcomes.push({
-        label: 'Tech',
-        value: requiredTechnologies.join(', '),
-        color: Color.fromHex('#f5c179'),
+        label: 'Costs',
+        value: 'Free',
+        color: Color.fromHex('#9fe6aa'),
+      });
+    } else {
+      costOutcomes[0].label = 'Costs';
+      outcomes.push(...costOutcomes);
+    }
+
+    const missingTechnologies = requiredTechnologies
+      .filter((technology) => !this.buildingManager.isTechnologyUnlocked(technology))
+      .map((technology) => this.resolveTechnologyName(technology));
+    if (missingTechnologies.length > 0) {
+      outcomes.push({
+        label: 'Requires',
+        value: missingTechnologies.join(', '),
+        color: Color.fromHex('#f2b0a6'),
       });
     }
 
     return outcomes;
   }
 
+  private resolveTechnologyName(technologyId: string): string {
+    if (isResearchId(technologyId)) {
+      return getResearchDefinition(technologyId)?.name ?? technologyId;
+    }
+    return technologyId;
+  }
+
   private getBuildingActionOutcomes(
     definition: TypedBuildingDefinition,
     action: StateBuildingActionDefinition
-  ): { label: string; value: string | number; color?: Color }[] {
+  ): TooltipOutcome[] {
     const state = this.stateManager.getStateRef();
     const buildingCount = Math.max(
       1,
@@ -711,19 +720,36 @@ export class StatePopup extends ScreenPopup {
       return [{ label: 'Action', value: action.id }];
     }
 
-    const resourceByBuilding: Record<StateBuildingId, string> = {
-      castle: 'Gold',
-      lumbermill: 'Materials',
-      mine: 'Materials',
-      farm: 'Food',
+    const resourceByBuilding: Record<StateBuildingId, ResourceType> = {
+      castle: 'gold',
+      lumbermill: 'materials',
+      mine: 'materials',
+      farm: 'food',
     };
 
     return [
       {
-        label: resourceByBuilding[definition.id],
+        label: '',
+        icon: this.getResourceIcon(resourceByBuilding[definition.id]),
         value: `+${value}`,
         color: Color.fromHex('#9fe6aa'),
       },
     ];
+  }
+
+  private getResourceIcon(resourceType: ResourceType) {
+    if (resourceType === 'gold') {
+      return Resources.MoneyIcon;
+    }
+    if (resourceType === 'food') {
+      return Resources.FoodIcon;
+    }
+    if (resourceType === 'materials') {
+      return Resources.ResourcesIcon;
+    }
+    if (resourceType === 'population') {
+      return Resources.PopulationIcon;
+    }
+    return undefined;
   }
 }

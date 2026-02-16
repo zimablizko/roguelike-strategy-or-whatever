@@ -8,23 +8,7 @@ import {
   Text,
   vec,
 } from 'excalibur';
-
-export interface ScreenButtonOptions {
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  title?: string;
-  idleBgColor?: Color;
-  hoverBgColor?: Color;
-  clickedBgColor?: Color;
-  disabledBgColor?: Color;
-  idleTextColor?: Color;
-  hoverTextColor?: Color;
-  clickedTextColor?: Color;
-  disabledTextColor?: Color;
-  onClick?: () => void;
-}
+import type { ScreenButtonOptions } from '../../_common/models/ui.models';
 
 export class ScreenButton extends ScreenElement {
   title: string;

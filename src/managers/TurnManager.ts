@@ -1,33 +1,17 @@
 import { CONFIG } from '../_common/config';
 import { SeededRandom } from '../_common/random';
-import { buildingPassiveIncome, type StateBuildingId } from '../data/buildings';
+import type {
+  EndTurnIncomePulse,
+  EndTurnResult,
+  TurnData,
+} from '../_common/models/turn.models';
+import type { StateBuildingId } from '../_common/models/buildings.models';
+import type { ResourceType } from '../_common/models/resource.models';
+import { buildingPassiveIncome } from '../data/buildings';
 import { BuildingManager } from './BuildingManager';
-import type { CompletedResearchSummary } from './ResearchManager';
 import { ResearchManager } from './ResearchManager';
-import { ResourceManager, type ResourceType } from './ResourceManager';
+import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
-
-export type TurnData = {
-  turnNumber: number;
-  actionPoints: {
-    current: number;
-    max: number;
-  };
-};
-
-export interface EndTurnIncomePulse {
-  tileX: number;
-  tileY: number;
-  resourceType: ResourceType;
-  amount: number;
-}
-
-export interface EndTurnResult {
-  passiveIncome: Partial<Record<ResourceType, number>>;
-  passiveIncomePulses: EndTurnIncomePulse[];
-  completedResearch?: CompletedResearchSummary;
-  upkeepPaid: boolean;
-}
 
 export class TurnManager {
   private turnData: TurnData;

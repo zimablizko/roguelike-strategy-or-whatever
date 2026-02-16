@@ -10,47 +10,15 @@ import {
   type WheelEvent,
   vec,
 } from 'excalibur';
-import type { MapData, MapTileType } from '../../managers/MapManager';
+import type { MapData, MapTileType } from '../../_common/models/map.models';
+import type {
+  MapBuildPlacementOverlay,
+  MapBuildingOverlay,
+  MapViewOptions,
+} from '../../_common/models/ui.models';
+import { MAP_VIEW_DEFAULTS } from '../constants/MapViewConstants';
 import { UI_Z } from '../constants/ZLayers';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
-
-export interface MapBuildingOverlay {
-  instanceId: string;
-  name: string;
-  shortName: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface MapBuildPlacementOverlay {
-  buildingId: string;
-  width: number;
-  height: number;
-  validTopLeftCells: ReadonlySet<number>;
-}
-
-export interface MapViewOptions {
-  map: MapData;
-  buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
-  buildingsVersionProvider?: () => number;
-  buildPlacementProvider?: () => MapBuildPlacementOverlay | undefined;
-  buildPlacementVersionProvider?: () => number;
-  onBuildPlacementConfirm?: (tileX: number, tileY: number) => void;
-  onBuildPlacementCancel?: () => void;
-  onBuildingSelected?: (instanceId: string | undefined) => void;
-  shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
-  isInputBlocked?: () => boolean;
-  tooltipProvider?: TooltipProvider;
-  tileSize?: number;
-  panSpeed?: number;
-  minZoom?: number;
-  maxZoom?: number;
-  zoomStep?: number;
-  showGrid?: boolean;
-  initialPlayerStateCoverage?: number;
-}
 
 /**
  * World map renderer with camera pan/zoom controls.
@@ -68,7 +36,7 @@ export class MapView extends Actor {
   private readonly zoomStep: number;
   private readonly showGrid: boolean;
   private readonly initialPlayerStateCoverage: number;
-  private readonly mapBorderCells = 2;
+  private readonly mapBorderCells = MAP_VIEW_DEFAULTS.mapBorderCells;
   private readonly buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
   private readonly buildingsVersionProvider?: () => number;
   private readonly buildPlacementProvider?: () => MapBuildPlacementOverlay | undefined;
@@ -108,16 +76,17 @@ export class MapView extends Actor {
     this.z = UI_Z.map;
 
     this.map = options.map;
-    this.tileSize = options.tileSize ?? 56;
-    this.panSpeed = options.panSpeed ?? 620;
-    this.configuredMinZoom = options.minZoom ?? 0.45;
-    this.maxZoom = options.maxZoom ?? 2.4;
-    this.zoomStep = options.zoomStep ?? 0.12;
+    this.tileSize = options.tileSize ?? MAP_VIEW_DEFAULTS.tileSize;
+    this.panSpeed = options.panSpeed ?? MAP_VIEW_DEFAULTS.panSpeed;
+    this.configuredMinZoom = options.minZoom ?? MAP_VIEW_DEFAULTS.minZoom;
+    this.maxZoom = options.maxZoom ?? MAP_VIEW_DEFAULTS.maxZoom;
+    this.zoomStep = options.zoomStep ?? MAP_VIEW_DEFAULTS.zoomStep;
     this.showGrid = options.showGrid ?? false;
     this.initialPlayerStateCoverage = this.clamp(
-      options.initialPlayerStateCoverage ?? 2 / 3,
-      0.2,
-      0.95
+      options.initialPlayerStateCoverage ??
+        MAP_VIEW_DEFAULTS.initialPlayerStateCoverage,
+      MAP_VIEW_DEFAULTS.minPlayerStateCoverage,
+      MAP_VIEW_DEFAULTS.maxPlayerStateCoverage
     );
     this.buildingsProvider = options.buildingsProvider;
     this.buildingsVersionProvider = options.buildingsVersionProvider;
@@ -476,7 +445,11 @@ export class MapView extends Actor {
     const requestedCoverage =
       coverage === undefined
         ? this.initialPlayerStateCoverage
-        : this.clamp(coverage, 0.2, 0.95);
+        : this.clamp(
+            coverage,
+            MAP_VIEW_DEFAULTS.minPlayerStateCoverage,
+            MAP_VIEW_DEFAULTS.maxPlayerStateCoverage
+          );
     const playerStateView = this.getPlayerStateView(
       engine,
       requestedCoverage,
@@ -975,7 +948,7 @@ export class MapView extends Actor {
       return undefined;
     }
 
-    const paddingTiles = 1;
+    const paddingTiles = MAP_VIEW_DEFAULTS.playerStatePaddingTiles;
     const minTileX = Math.max(0, bounds.minX - paddingTiles);
     const maxTileX = Math.min(this.map.width - 1, bounds.maxX + paddingTiles);
     const minTileY = Math.max(0, bounds.minY - paddingTiles);

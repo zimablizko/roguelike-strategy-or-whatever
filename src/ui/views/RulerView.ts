@@ -10,18 +10,12 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import type { RulerData } from '../../managers/RulerManager';
+import type { RulerData } from '../../_common/models/ruler.models';
 import { RulerManager } from '../../managers/RulerManager';
+import type { RulerDisplayOptions } from '../../_common/models/ui.models';
 import {
   InteractivePanelElement,
-  type InteractivePanelOptions,
 } from '../elements/InteractivePanelElement';
-
-export interface RulerDisplayOptions extends InteractivePanelOptions {
-  rulerManager: RulerManager;
-  portraitSize?: number;
-  textColor?: Color;
-}
 
 /**
  * UI component that displays the current ruler (top-left portrait + text).

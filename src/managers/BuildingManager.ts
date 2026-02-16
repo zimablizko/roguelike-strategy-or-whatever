@@ -1,94 +1,29 @@
 import { clamp } from '../_common/math';
-import type { SeededRandom } from '../_common/random';
-import {
-  createEmptyBuildingRecord,
-  stateBuildingDefinitions,
-  type StateBuildingActionDefinition,
-  type StateBuildingDefinition,
-  type StateBuildingId,
-  type TechnologyId,
-  type TypedBuildingDefinition,
-} from '../data/buildings';
-import type { MapData, MapPlayerStateSummary } from './MapManager';
-import { MapManager } from './MapManager';
 import type {
-  ResourceCost,
-  ResourceManager,
-  ResourceType,
-} from './ResourceManager';
-import type { StateData } from './StateManager';
-
-export type {
-  StateBuildingActionDefinition,
+  BuildingMapCell,
+  BuildingManagerOptions,
+  BuildingManagerStateBridge,
+  PlacementCandidate,
+  StateBuildingActionStatus,
+  StateBuildingBuildStatus,
+  StateBuildingInstance,
+  StateBuildingMapOverlay,
+  StateBuildingPlacement,
+} from '../_common/models/building-manager.models';
+import type { MapData } from '../_common/models/map.models';
+import type { ResourceCost, ResourceType } from '../_common/models/resource.models';
+import type {
   StateBuildingDefinition,
   StateBuildingId,
   TechnologyId,
   TypedBuildingDefinition,
-};
-
-export interface StateBuildingBuildStatus {
-  buildable: boolean;
-  missingResources: ResourceCost;
-  missingTechnologies: TechnologyId[];
-  nextCost: ResourceCost;
-  placementAvailable: boolean;
-  placementReason?: string;
-}
-
-export interface StateBuildingActionStatus {
-  activatable: boolean;
-  reason?: string;
-}
-
-export interface StateBuildingInstance {
-  instanceId: string;
-  buildingId: StateBuildingId;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface StateBuildingMapOverlay extends StateBuildingInstance {
-  name: string;
-  shortName: string;
-}
-
-export interface StateBuildingPlacement {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface MapCell {
-  x: number;
-  y: number;
-}
-
-interface PlacementCandidate {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  replacementCells: MapCell[];
-  distanceSq: number;
-}
-
-export interface BuildingManagerStateBridge {
-  getStateRef(): Readonly<StateData>;
-  applyMapSummary(summary: MapPlayerStateSummary): void;
-}
-
-export interface BuildingManagerOptions {
-  mapManager?: MapManager;
-  stateBridge: BuildingManagerStateBridge;
-  rng?: SeededRandom;
-  initial?: {
-    technologies?: TechnologyId[];
-    builtBuildings?: Partial<Record<StateBuildingId, number | boolean>>;
-  };
-}
+} from '../_common/models/buildings.models';
+import {
+  createEmptyBuildingRecord,
+  stateBuildingDefinitions,
+} from '../data/buildings';
+import { MapManager } from './MapManager';
+import type { ResourceManager } from './ResourceManager';
 
 export class BuildingManager {
   private readonly mapManager?: MapManager;
@@ -613,7 +548,7 @@ export class BuildingManager {
   }
 
   private getExpandBorderStatus(): StateBuildingActionStatus & {
-    candidates?: MapCell[];
+    candidates?: BuildingMapCell[];
   } {
     if (!this.mapManager) {
       return {
@@ -631,7 +566,7 @@ export class BuildingManager {
       };
     }
 
-    const zoneCells: MapCell[] = [];
+    const zoneCells: BuildingMapCell[] = [];
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         if (map.zones[y][x] === playerZoneId) {
@@ -650,7 +585,7 @@ export class BuildingManager {
     const zoneKeys = new Set<string>(
       zoneCells.map((cell) => `${cell.x},${cell.y}`)
     );
-    const candidatesByKey = new Map<string, MapCell>();
+    const candidatesByKey = new Map<string, BuildingMapCell>();
     let blockedByEdge = false;
     let blockedByOcean = false;
 
@@ -841,7 +776,7 @@ export class BuildingManager {
     allowTerrainReplacement: boolean,
     anchor: { x: number; y: number }
   ): PlacementCandidate | undefined {
-    const replacementCells: MapCell[] = [];
+    const replacementCells: BuildingMapCell[] = [];
     for (let dy = 0; dy < definition.placementRule.height; dy++) {
       for (let dx = 0; dx < definition.placementRule.width; dx++) {
         const x = startX + dx;

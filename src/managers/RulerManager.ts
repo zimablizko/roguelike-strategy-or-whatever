@@ -1,20 +1,10 @@
-import { ImageSource } from 'excalibur';
 import { clamp } from '../_common/math';
 import { SeededRandom } from '../_common/random';
+import type {
+  RulerData,
+  RulerManagerOptions,
+} from '../_common/models/ruler.models';
 import { Resources } from '../_common/resources';
-
-export type RulerData = {
-  name: string;
-  age: number;
-  popularity: number; // 0..100
-  portrait: ImageSource;
-  // talents: not implemented yet
-};
-
-export interface RulerManagerOptions {
-  initial?: Partial<Omit<RulerData, 'portrait'>> & { portrait?: ImageSource };
-  rng?: SeededRandom;
-}
 
 /**
  * Manages ruler state (name/age/popularity/portrait).

@@ -4,7 +4,6 @@ import {
   FontUnit,
   GraphicsGroup,
   GraphicsGrouping,
-  ImageSource,
   Rectangle,
   type Scene,
   ScreenElement,
@@ -13,27 +12,13 @@ import {
   vec,
 } from 'excalibur';
 import { Resources } from '../../_common/resources';
-import { PlayerData } from '../../managers/GameManager';
 import { ResourceManager } from '../../managers/ResourceManager';
+import type { ResourceStock } from '../../_common/models/resource.models';
+import type {
+  ResourceConfig,
+  ResourceDisplayOptions,
+} from '../../_common/models/ui.models';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
-
-export interface ResourceDisplayOptions {
-  x: number;
-  y: number;
-  resourceManager: ResourceManager;
-  tooltipProvider?: TooltipProvider;
-  anchor?: 'top-left' | 'top-right';
-  iconSize?: number;
-  spacing?: number;
-  bgColor?: Color;
-  textColor?: Color;
-}
-
-interface ResourceConfig {
-  key: keyof PlayerData['resources'];
-  icon: ImageSource;
-  label: string;
-}
 
 /**
  * UI component that displays current player resources with icons
@@ -67,10 +52,7 @@ export class ResourceDisplay extends ScreenElement {
   private iconSprites: Partial<Record<ResourceConfig['key'], Sprite>> = {};
 
   private lastRendered:
-    | Pick<
-        PlayerData['resources'],
-        'gold' | 'materials' | 'food' | 'population'
-      >
+    | Pick<ResourceStock, 'gold' | 'materials' | 'food' | 'population'>
     | undefined;
 
   constructor(options: ResourceDisplayOptions) {
@@ -120,8 +102,8 @@ export class ResourceDisplay extends ScreenElement {
   }
 
   private sameResources(
-    a: PlayerData['resources'],
-    b: PlayerData['resources']
+    a: ResourceStock,
+    b: ResourceStock
   ): boolean {
     return (
       a.gold === b.gold &&

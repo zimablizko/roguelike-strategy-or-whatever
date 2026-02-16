@@ -13,26 +13,12 @@ import {
 } from 'excalibur';
 import {
   InteractivePanelElement,
-  type InteractivePanelOptions,
 } from './InteractivePanelElement';
-import { TooltipProvider, type TooltipOutcome } from '../tooltip/TooltipProvider';
-
-export interface ActionElementOptions extends InteractivePanelOptions {
-  title: string;
-  description: string;
-  outcomes?: ActionOutcome[];
-  tooltipProvider: TooltipProvider;
-  width?: number;
-  height?: number;
-  icon?: ImageSource;
-  iconSize?: number;
-  textColor?: Color;
-  tooltipBgColor?: Color;
-  tooltipTextColor?: Color;
-  tooltipWidth?: number;
-}
-
-export interface ActionOutcome extends TooltipOutcome {}
+import { TooltipProvider } from '../tooltip/TooltipProvider';
+import type {
+  ActionElementOptions,
+  ActionOutcome,
+} from '../../_common/models/ui.models';
 
 /**
  * Reusable interactive action row:
