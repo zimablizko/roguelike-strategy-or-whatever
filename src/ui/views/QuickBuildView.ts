@@ -259,7 +259,7 @@ export class QuickBuildView extends ScreenElement {
         title: this.getRowTitle(row.definition),
         onClick: () => {
           const hasActionPoint =
-            this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+            this.turnManager.getTurnDataRef().focus.current >= 1;
           if (!hasActionPoint) {
             return;
           }
@@ -320,8 +320,7 @@ export class QuickBuildView extends ScreenElement {
   }
 
   private getRows(): BuildRow[] {
-    const hasActionPoint =
-      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
     return this.buildingManager
       .getBuildingDefinitions()
       .filter((definition) => {
@@ -348,9 +347,9 @@ export class QuickBuildView extends ScreenElement {
 
   private buildTooltipDescription(row: BuildRow): string {
     const lines: string[] = [row.definition.description];
-    const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
+    const apCurrent = this.turnManager.getTurnDataRef().focus.current;
     if (apCurrent < 1) {
-      lines.push('Not enough Action Points.');
+      lines.push('Not enough Focus.');
     }
 
     if (!row.status.placementAvailable && row.status.placementReason) {
@@ -423,10 +422,10 @@ export class QuickBuildView extends ScreenElement {
       });
     }
 
-    const apCurrent = this.turnManager.getTurnDataRef().actionPoints.current;
+    const apCurrent = this.turnManager.getTurnDataRef().focus.current;
     if (apCurrent < 1) {
       outcomes.push({
-        label: 'Action Points',
+        label: 'Focus',
         value: 'Not enough',
         color: badColor,
       });

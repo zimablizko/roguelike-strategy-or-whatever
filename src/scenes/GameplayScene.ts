@@ -8,13 +8,13 @@ import {
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
 import type { StateBuildingId } from '../_common/models/buildings.models';
+import type { SaveSlotId } from '../_common/models/save.models';
 import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
 import { Resources } from '../_common/resources';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
-import type { SaveSlotId } from '../_common/models/save.models';
 import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
@@ -494,7 +494,7 @@ export class GameplayScene extends Scene {
         height: 40,
         title: 'Spend Resources',
         onClick: () => {
-          if (!this.turnManager.spendActionPoints(1)) return;
+          if (!this.turnManager.spendFocus(1)) return;
           this.resourceManager.spendResources({
             gold: 30,
             materials: 10,
@@ -525,7 +525,7 @@ export class GameplayScene extends Scene {
           'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants materials.',
         icon: Resources.ResourcesIcon,
         outcomes: [
-          { label: 'Action Points', value: '-1' },
+          { label: 'Focus', value: '-1' },
           {
             label: '',
             value: '+12',
@@ -535,7 +535,7 @@ export class GameplayScene extends Scene {
         ],
         tooltipProvider: this.tooltipProvider,
         onClick: () => {
-          if (!this.turnManager.spendActionPoints(1)) return;
+          if (!this.turnManager.spendFocus(1)) return;
           this.resourceManager.addResource('materials', 12);
         },
       }),
@@ -550,7 +550,7 @@ export class GameplayScene extends Scene {
           'Launch small boats on water tiles to secure food supplies for the next turn.',
         icon: Resources.FoodIcon,
         outcomes: [
-          { label: 'Action Points', value: '-1' },
+          { label: 'Focus', value: '-1' },
           {
             label: '',
             value: '+15',
@@ -560,7 +560,7 @@ export class GameplayScene extends Scene {
         ],
         tooltipProvider: this.tooltipProvider,
         onClick: () => {
-          if (!this.turnManager.spendActionPoints(1)) return;
+          if (!this.turnManager.spendFocus(1)) return;
           this.resourceManager.addResource('food', 15);
         },
       })
@@ -608,15 +608,20 @@ export class GameplayScene extends Scene {
       return;
     }
 
-    const save = SaveManager.captureGameState(this.gameManager, this.turnManager);
+    const save = SaveManager.captureGameState(
+      this.gameManager,
+      this.turnManager
+    );
     SaveManager.saveToSlot(this.activeSaveSlot, save);
     this.lastSavedSignature = signatureOverride ?? this.buildSaveSignature();
   }
 
   private buildSaveSignature(): string {
     const resourcesVersion = this.resourceManager.getResourcesVersion();
-    const buildingsVersion = this.gameManager.buildingManager.getBuildingsVersion();
-    const researchVersion = this.gameManager.researchManager.getResearchVersion();
+    const buildingsVersion =
+      this.gameManager.buildingManager.getBuildingsVersion();
+    const researchVersion =
+      this.gameManager.researchManager.getResearchVersion();
     const turnVersion = this.turnManager.getTurnVersion();
     const rngState = this.gameManager.rng.getState();
     const ruler = this.gameManager.rulerManager.getRulerRef();
@@ -674,8 +679,7 @@ export class GameplayScene extends Scene {
   }
 
   private startManualBuildPlacement(buildingId: StateBuildingId): void {
-    const hasActionPoint =
-      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
     if (!hasActionPoint) {
       return;
     }
@@ -775,8 +779,7 @@ export class GameplayScene extends Scene {
       return;
     }
 
-    const hasActionPoint =
-      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
     if (!hasActionPoint) {
       return;
     }
@@ -801,7 +804,7 @@ export class GameplayScene extends Scene {
       return;
     }
 
-    this.turnManager.spendActionPoints(1);
+    this.turnManager.spendFocus(1);
     const latestInstance =
       this.gameManager.buildingManager.getLatestBuildingInstance(buildingId);
     this.selectBuilding(latestInstance?.instanceId, true);

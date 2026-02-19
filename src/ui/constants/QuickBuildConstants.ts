@@ -23,6 +23,7 @@ export const QUICK_BUILD_HOTKEYS: Partial<
   lumbermill: { key: Keys.L, label: 'L' },
   mine: { key: Keys.M, label: 'M' },
   farm: { key: Keys.F, label: 'F' },
+  'hunters-hut': { key: Keys.T, label: 'T' },
 };
 
 export const QUICK_BUILD_COLORS = {

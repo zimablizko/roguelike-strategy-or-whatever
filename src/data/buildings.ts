@@ -17,6 +17,7 @@ export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
   lumbermill: [{ resourceType: 'materials', amount: 10 }],
   mine: [{ resourceType: 'materials', amount: 'random:5:20' }],
   farm: [{ resourceType: 'food', amount: 10 }],
+  'hunters-hut': [{ resourceType: 'food', amount: 'random:5:10' }],
 };
 
 // ─── Building definitions ────────────────────────────────────────────
@@ -210,6 +211,33 @@ export const stateBuildingDefinitions = {
         },
       },
     ],
+  },
+  'hunters-hut': {
+    id: 'hunters-hut',
+    shortName: 'Hnt',
+    name: "Hunter's Hut",
+    description:
+      "A small hunting lodge that sends hunters into nearby woods. Requires 1 population to operate. Passive income each end turn: +5 to +10 Food.",
+    buildCost: {
+      gold: 30,
+      materials: 18,
+    },
+    costGrowth: 1.2,
+    unique: false,
+    populationRequired: 1,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['forest'] as MapTileType[],
+    },
+    placementDescription: 'Requires 2x2 free Forest area.',
+    requiredTechnologies: [],
+    getStats: (_state: unknown, count: number) => [
+      `Built: ${count}`,
+      'Passive income: +5 to +10 Food/turn per Hunter\'s Hut',
+      'Occupies 2x2 forest tiles',
+    ],
+    actions: [],
   },
 } as const satisfies Record<string, StateBuildingDefinition>;
 

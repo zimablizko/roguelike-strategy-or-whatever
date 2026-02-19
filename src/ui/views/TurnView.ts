@@ -9,11 +9,11 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import { TurnManager } from '../../managers/TurnManager';
 import type { TurnDisplayOptions } from '../../_common/models/ui.models';
+import { TurnManager } from '../../managers/TurnManager';
 
 /**
- * UI component that displays current turn and action points.
+ * UI component that displays current turn and focus.
  */
 export class TurnDisplay extends ScreenElement {
   private turnManager: TurnManager;
@@ -59,8 +59,8 @@ export class TurnDisplay extends ScreenElement {
     const turnData = this.turnManager.getTurnDataRef();
     const next = {
       turnNumber: turnData.turnNumber,
-      apCurrent: turnData.actionPoints.current,
-      apMax: turnData.actionPoints.max,
+      apCurrent: turnData.focus.current,
+      apMax: turnData.focus.max,
     };
 
     if (
@@ -84,7 +84,7 @@ export class TurnDisplay extends ScreenElement {
     });
 
     const apText = new Text({
-      text: `ActionPoints: ${turnData.actionPoints.current} / ${turnData.actionPoints.max}`,
+      text: `Focus: ${turnData.focus.current} / ${turnData.focus.max}`,
       font: new Font({
         size: 14,
         unit: FontUnit.Px,
@@ -103,7 +103,12 @@ export class TurnDisplay extends ScreenElement {
     const panelWidth = contentWidth + panelPaddingX * 2;
     const barX = (contentWidth - this.barWidth) / 2;
     const panelHeight =
-      panelPaddingY * 2 + turnText.height + textGap + apText.height + barGap + barHeight;
+      panelPaddingY * 2 +
+      turnText.height +
+      textGap +
+      apText.height +
+      barGap +
+      barHeight;
 
     // Treat x/y as an anchor point (top-center).
     this.pos = vec(this.anchorX - panelWidth / 2, this.anchorY);
@@ -163,7 +168,7 @@ export class TurnDisplay extends ScreenElement {
       ),
     });
 
-    // Action points text (centered)
+    // Focus text (centered)
     const apY = panelPaddingY + turnText.height + textGap;
     members.push({
       graphic: apText,
@@ -172,10 +177,10 @@ export class TurnDisplay extends ScreenElement {
 
     // Bar geometry
     const barY = apY + apText.height + barGap;
-    const maxSegments = Math.max(1, turnData.actionPoints.max);
+    const maxSegments = Math.max(1, turnData.focus.max);
     const currentSegments = Math.max(
       0,
-      Math.min(turnData.actionPoints.current, maxSegments)
+      Math.min(turnData.focus.current, maxSegments)
     );
 
     const separatorW = 1;
@@ -189,9 +194,9 @@ export class TurnDisplay extends ScreenElement {
           width: this.barWidth,
           height: 1,
           color: this.separatorColor,
-      }),
-      offset: vec(panelPaddingX + barX, barY),
-    },
+        }),
+        offset: vec(panelPaddingX + barX, barY),
+      },
       {
         graphic: new Rectangle({
           width: this.barWidth,

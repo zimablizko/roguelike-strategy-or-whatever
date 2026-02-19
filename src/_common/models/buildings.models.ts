@@ -51,7 +51,7 @@ export interface StateBuildingDefinition {
 
 export interface BuildingPassiveIncome {
   resourceType: ResourceType;
-  amount: number | 'random:5:20';
+  amount: number | `random:${number}:${number}`;
 }
 
 export type StateBuildingId =

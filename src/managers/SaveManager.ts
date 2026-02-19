@@ -1,4 +1,9 @@
-import type { GameSaveData, PendingGameLaunch, SaveSlotId, SaveSlotSummary } from '../_common/models/save.models';
+import type {
+  GameSaveData,
+  PendingGameLaunch,
+  SaveSlotId,
+  SaveSlotSummary,
+} from '../_common/models/save.models';
 import { GameManager } from './GameManager';
 import { TurnManager } from './TurnManager';
 
@@ -176,9 +181,7 @@ export class SaveManager {
     }
   }
 
-  private static isRecord(
-    value: unknown
-  ): value is Record<string, unknown> {
+  private static isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
   }
 
@@ -210,7 +213,10 @@ export class SaveManager {
     if (typeof value.rngState !== 'number') {
       return false;
     }
-    if (!this.isRecord(value.playerData) || typeof value.playerData.race !== 'string') {
+    if (
+      !this.isRecord(value.playerData) ||
+      typeof value.playerData.race !== 'string'
+    ) {
       return false;
     }
     if (
@@ -232,9 +238,9 @@ export class SaveManager {
       return false;
     }
     if (
-      !this.isRecord(value.turn.data.actionPoints) ||
-      typeof value.turn.data.actionPoints.current !== 'number' ||
-      typeof value.turn.data.actionPoints.max !== 'number' ||
+      !this.isRecord(value.turn.data.focus) ||
+      typeof value.turn.data.focus.current !== 'number' ||
+      typeof value.turn.data.focus.max !== 'number' ||
       typeof value.turn.version !== 'number'
     ) {
       return false;

@@ -9,6 +9,7 @@ export const CONFIG = {
   DEBUG: import.meta.env.DEV,
   DEBUG_OPTIONS: {
     START_SCENE: 'gameplay',
+    QUICK_RESEARCH: true,
   },
   /** Resources deducted at the end of each turn. */
   UPKEEP_COST: {

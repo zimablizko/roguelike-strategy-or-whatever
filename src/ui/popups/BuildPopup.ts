@@ -70,8 +70,7 @@ export class BuildPopup extends ScreenPopup {
     const warnColor = Color.fromHex('#f5c179');
     const okColor = Color.fromHex('#9fe6aa');
     const lineWrapWidth = 470;
-    const hasActionPoint =
-      turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint = turnManager.getTurnDataRef().focus.current >= 1;
 
     let y = 0;
     const line = (text: string, size = 14, color = lineColor, gapAfter = 6) => {
@@ -167,7 +166,7 @@ export class BuildPopup extends ScreenPopup {
       height: 38,
       title: 'Build',
       onClick: () => {
-        if (!turnManager.spendActionPoints(1)) {
+        if (!turnManager.spendFocus(1)) {
           return;
         }
         const built = buildingManager.buildBuilding(

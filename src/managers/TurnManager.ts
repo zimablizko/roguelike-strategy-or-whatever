@@ -34,7 +34,7 @@ export class TurnManager {
     rulerManager: RulerManager,
     buildingManager: BuildingManager,
     options?: {
-      maxActionPoints?: number;
+      maxFocus?: number;
       rng?: SeededRandom;
       researchManager?: ResearchManager;
       initial?: {
@@ -43,22 +43,19 @@ export class TurnManager {
       };
     }
   ) {
-    const maxAP = options?.maxActionPoints ?? 10;
+    const maxFocus = options?.maxFocus ?? 10;
     const initialData = options?.initial?.data;
     const initialMax = Math.max(
       1,
-      Math.floor(initialData?.actionPoints.max ?? maxAP)
+      Math.floor(initialData?.focus.max ?? maxFocus)
     );
     const initialCurrent = Math.min(
       initialMax,
-      Math.max(
-        0,
-        Math.floor(initialData?.actionPoints.current ?? initialMax)
-      )
+      Math.max(0, Math.floor(initialData?.focus.current ?? initialMax))
     );
     this.turnData = {
       turnNumber: Math.max(1, Math.floor(initialData?.turnNumber ?? 1)),
-      actionPoints: {
+      focus: {
         current: initialCurrent,
         max: initialMax,
       },
@@ -75,7 +72,7 @@ export class TurnManager {
     const passiveIncome = this.applyPassiveBuildingIncome();
 
     this.turnData.turnNumber++;
-    this.resetActionPoints();
+    this.resetFocus();
     this.turnVersion++;
 
     // Requirement: age increments on end of turn.
@@ -148,17 +145,17 @@ export class TurnManager {
     };
   }
 
-  spendActionPoints(amount: number): boolean {
-    if (this.turnData.actionPoints.current >= amount) {
-      this.turnData.actionPoints.current -= amount;
+  spendFocus(amount: number): boolean {
+    if (this.turnData.focus.current >= amount) {
+      this.turnData.focus.current -= amount;
       this.turnVersion++;
       return true;
     }
     return false;
   }
 
-  resetActionPoints(): void {
-    this.turnData.actionPoints.current = this.turnData.actionPoints.max;
+  resetFocus(): void {
+    this.turnData.focus.current = this.turnData.focus.max;
   }
 
   private applyPassiveBuildingIncome(): {

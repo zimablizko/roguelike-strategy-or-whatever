@@ -10,20 +10,20 @@ import {
   type GraphicsGrouping,
   type Scene,
 } from 'excalibur';
-import { Resources } from '../../_common/resources';
 import { clamp } from '../../_common/math';
-import { measureTextWidth } from '../../_common/text';
 import type {
   StateBuildingActionDefinition,
   TypedBuildingDefinition,
 } from '../../_common/models/buildings.models';
 import type { ResourceType } from '../../_common/models/resource.models';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
+import { Resources } from '../../_common/resources';
+import { measureTextWidth } from '../../_common/text';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
-import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
@@ -285,8 +285,7 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     let y = startY;
-    const hasActionPoint =
-      this.turnManager.getTurnDataRef().actionPoints.current >= 1;
+    const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
     for (const action of definition.actions) {
       if (y + 36 > this.panelHeight - 8) {
         break;
@@ -320,7 +319,7 @@ export class SelectedBuildingView extends ScreenElement {
         tooltipWidth: 260,
         onClick: enabled
           ? () => {
-              if (!this.turnManager.spendActionPoints(1)) {
+              if (!this.turnManager.spendFocus(1)) {
                 return;
               }
               const activated = this.buildingManager.activateBuildingAction(

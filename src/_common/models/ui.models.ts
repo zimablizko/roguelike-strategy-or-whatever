@@ -287,15 +287,6 @@ export interface StatePopupOptions {
   onClose?: () => void;
 }
 
-export type StatePopupTab = 'overview' | 'buildings';
-
-export interface BuildingListItem {
-  id: StateBuildingId;
-  name: string;
-  count: number;
-  unique: boolean;
-}
-
 export interface BuildPopupOptions {
   x: number;
   y: number;

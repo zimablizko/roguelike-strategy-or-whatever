@@ -4,6 +4,7 @@ import {
   isResearchId,
   researchTreeOrder,
 } from '../data/researches';
+import { CONFIG } from '../_common/config';
 import type {
   ActiveResearchState,
   CompletedResearchSummary,
@@ -19,6 +20,10 @@ import type {
 import { BuildingManager } from './BuildingManager';
 
 export class ResearchManager {
+  private static isQuickResearchEnabled(): boolean {
+    return CONFIG.DEBUG && CONFIG.DEBUG_OPTIONS.QUICK_RESEARCH;
+  }
+
   private readonly buildingManager: BuildingManager;
   private activeResearch?: ActiveResearchState;
   private readonly completedResearches = new Set<ResearchId>();
@@ -162,6 +167,11 @@ export class ResearchManager {
       totalTurns,
       remainingTurns: totalTurns,
     };
+
+    if (ResearchManager.isQuickResearchEnabled()) {
+      this.completeActiveResearch(currentTurn);
+    }
+
     this.researchVersion++;
     return true;
   }
@@ -178,19 +188,7 @@ export class ResearchManager {
 
     let completedResearch: CompletedResearchSummary | undefined;
     if (this.activeResearch.remainingTurns <= 0) {
-      const completedDefinition = getResearchDefinition(this.activeResearch.id);
-      if (completedDefinition) {
-        this.completedResearches.add(completedDefinition.id);
-        this.buildingManager.unlockTechnology(completedDefinition.id);
-        completedResearch = {
-          id: completedDefinition.id,
-          name: completedDefinition.name,
-          tree: completedDefinition.tree,
-          completedOnTurn: currentTurn,
-        };
-        this.latestCompletion = completedResearch;
-      }
-      this.activeResearch = undefined;
+      completedResearch = this.completeActiveResearch(currentTurn);
     }
 
     this.researchVersion++;
@@ -273,6 +271,31 @@ export class ResearchManager {
         this.completedResearches.add(technology);
       }
     }
+  }
+
+  private completeActiveResearch(
+    currentTurn: number
+  ): CompletedResearchSummary | undefined {
+    if (!this.activeResearch) {
+      return undefined;
+    }
+
+    const completedDefinition = getResearchDefinition(this.activeResearch.id);
+    this.activeResearch = undefined;
+    if (!completedDefinition) {
+      return undefined;
+    }
+
+    this.completedResearches.add(completedDefinition.id);
+    this.buildingManager.unlockTechnology(completedDefinition.id);
+    const completedResearch: CompletedResearchSummary = {
+      id: completedDefinition.id,
+      name: completedDefinition.name,
+      tree: completedDefinition.tree,
+      completedOnTurn: currentTurn,
+    };
+    this.latestCompletion = completedResearch;
+    return completedResearch;
   }
 
   private sortByTreeDepth(

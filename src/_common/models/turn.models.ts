@@ -3,7 +3,7 @@ import type { ResourceType } from './resource.models';
 
 export type TurnData = {
   turnNumber: number;
-  actionPoints: {
+  focus: {
     current: number;
     max: number;
   };
