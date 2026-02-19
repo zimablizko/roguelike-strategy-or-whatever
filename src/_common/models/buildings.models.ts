@@ -3,6 +3,13 @@ import type { ResourceCost, ResourceType } from './resource.models';
 
 export type TechnologyId = string;
 
+export interface BuildingActionInstanceInfo {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface BuildingActionContext {
   state: Readonly<{
     tiles: { forest: number; stone: number; plains: number; river: number };
@@ -10,6 +17,17 @@ export interface BuildingActionContext {
   }>;
   resources: { addResource(type: string, amount: number): void };
   buildingCount: number;
+  /** All placed instances of the building that triggered the action. */
+  buildingInstances: ReadonlyArray<BuildingActionInstanceInfo>;
+  /** Read a map tile by tile coordinates. Returns undefined if out of bounds. */
+  mapGetTile: (x: number, y: number) => MapTileType | undefined;
+  /** Write a map tile. Triggers state re-sync and version bump automatically. */
+  mapSetTile: (x: number, y: number, tile: MapTileType) => void;
+}
+
+export interface BuildingActionCanRunResult {
+  activatable: boolean;
+  reason?: string;
 }
 
 export interface StateBuildingActionDefinition {
@@ -17,11 +35,16 @@ export interface StateBuildingActionDefinition {
   name: string;
   description: string;
   /**
-   * Number of times this action can be used per turn, multiplied by the
-   * number of building instances of this type. Defaults to 1.
-   * Example: charges=2 on a unique castle means 2 uses per turn.
+   * Number of times this action can be used per turn per building instance. Defaults to 1.
+   * Example: charges=2 means a single instance of that building can use this action twice per turn.
    */
   charges?: number;
+  /**
+   * Optional guard evaluated at action-check time. When provided, its result
+   * replaces the default "activatable: true" check (use-counts are still
+   * enforced separately). Return a reason string when not activatable.
+   */
+  canRun?: (context: BuildingActionContext) => BuildingActionCanRunResult;
   run: (context: BuildingActionContext) => void;
 }
 

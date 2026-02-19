@@ -1,8 +1,7 @@
 import { clamp } from '../_common/math';
-import { SeededRandom } from '../_common/random';
 import type {
-  MapData,
   MapCell,
+  MapData,
   MapManagerOptions,
   MapPlayerStateSummary,
   MapTileType,
@@ -12,6 +11,7 @@ import type {
   RiverStartType,
   VoronoiPoint,
 } from '../_common/models/map.models';
+import { SeededRandom } from '../_common/random';
 
 const DEFAULT_WIDTH = 30;
 const DEFAULT_HEIGHT = 20;
@@ -46,6 +46,19 @@ export class MapManager {
 
   getPlayerStateSummary(): MapPlayerStateSummary {
     return this.summarizePlayerState(this.map);
+  }
+
+  /**
+   * Overwrite a single map tile. No-op if coordinates are out of bounds.
+   * The caller is responsible for triggering any downstream state re-syncs.
+   */
+  setTile(x: number, y: number, tile: MapTileType): void {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    if (xi < 0 || yi < 0 || xi >= this.map.width || yi >= this.map.height) {
+      return;
+    }
+    this.map.tiles[yi][xi] = tile;
   }
 
   regenerate(options?: MapManagerOptions): void {

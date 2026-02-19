@@ -37,6 +37,7 @@ export class TooltipProvider extends ScreenElement {
   private readonly defaultTextColor = TOOLTIP_COLORS.text;
   private readonly defaultHeaderColor = TOOLTIP_COLORS.headerText;
   private readonly separatorColor = TOOLTIP_COLORS.separator;
+  private readonly warningColor = TOOLTIP_COLORS.warning;
   private readonly tooltipPadding = TOOLTIP_LAYOUT.padding;
   private readonly lineGap = TOOLTIP_LAYOUT.lineGap;
   private readonly headerGap = TOOLTIP_LAYOUT.headerGap;
@@ -130,11 +131,11 @@ export class TooltipProvider extends ScreenElement {
     const textGraphics = lines.map(
       (line) =>
         new Text({
-          text: line,
+          text: line.text,
           font: new Font({
             size: this.fontSize,
             unit: FontUnit.Px,
-            color: textColor,
+            color: line.color,
           }),
         })
     );
@@ -426,48 +427,57 @@ export class TooltipProvider extends ScreenElement {
     text: string,
     maxTextWidth: number,
     textColor: Color
-  ): string[] {
-    const words = text.split(/\s+/).filter(Boolean);
-    if (!words.length) {
-      return [''];
-    }
+  ): { text: string; color: Color }[] {
+    // Split on explicit newlines first, then word-wrap each paragraph.
+    const paragraphs = text.split('\n');
+    const result: { text: string; color: Color }[] = [];
 
-    const lines: string[] = [];
-    let current = '';
-    const widthLimit = Math.max(40, maxTextWidth);
-
-    for (const word of words) {
-      if (measureTextWidth(word, this.fontSize, textColor) > widthLimit) {
-        const chunks = this.breakWordToWidth(word, widthLimit, textColor);
-        if (current) {
-          lines.push(current);
-          current = '';
-        }
-
-        for (let i = 0; i < chunks.length - 1; i++) {
-          lines.push(chunks[i]);
-        }
-        current = chunks[chunks.length - 1] ?? '';
+    for (const paragraph of paragraphs) {
+      const words = paragraph.split(/\s+/).filter(Boolean);
+      if (!words.length) {
+        result.push({ text: '', color: textColor });
         continue;
       }
 
-      const next = current ? `${current} ${word}` : word;
-      if (
-        measureTextWidth(next, this.fontSize, textColor) > widthLimit &&
-        current
-      ) {
-        lines.push(current);
-        current = word;
-      } else {
-        current = next;
+      // Lines that start with ⚠ are rendered in the warning colour.
+      const isWarning = paragraph.trimStart().startsWith('\u26a0');
+      const lineColor = isWarning ? this.warningColor : textColor;
+
+      const widthLimit = Math.max(40, maxTextWidth);
+      let current = '';
+
+      for (const word of words) {
+        if (measureTextWidth(word, this.fontSize, lineColor) > widthLimit) {
+          const chunks = this.breakWordToWidth(word, widthLimit, lineColor);
+          if (current) {
+            result.push({ text: current, color: lineColor });
+            current = '';
+          }
+          for (let i = 0; i < chunks.length - 1; i++) {
+            result.push({ text: chunks[i], color: lineColor });
+          }
+          current = chunks[chunks.length - 1] ?? '';
+          continue;
+        }
+
+        const next = current ? `${current} ${word}` : word;
+        if (
+          measureTextWidth(next, this.fontSize, lineColor) > widthLimit &&
+          current
+        ) {
+          result.push({ text: current, color: lineColor });
+          current = word;
+        } else {
+          current = next;
+        }
+      }
+
+      if (current) {
+        result.push({ text: current, color: lineColor });
       }
     }
 
-    if (current) {
-      lines.push(current);
-    }
-
-    return lines;
+    return result;
   }
 
   private breakWordToWidth(

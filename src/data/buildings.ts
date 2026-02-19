@@ -106,25 +106,86 @@ export const stateBuildingDefinitions = {
     },
     placementDescription: 'Requires 2x2 free Forest area.',
     requiredTechnologies: [],
-    getStats: (state: { tiles: { forest: number } }, count: number) => {
-      const baseYield = Math.max(1, Math.floor(state.tiles.forest / 4));
-      return [
-        `Built: ${count}`,
-        `Forests: ${state.tiles.forest}`,
-        `Action yield: +${baseYield * Math.max(1, count)} Materials`,
-      ];
-    },
+    getStats: (_state: unknown, count: number) => [
+      `Built: ${count}`,
+      'Harvest range: 3 tiles',
+    ],
     actions: [
       {
-        id: 'process-timber',
-        name: 'Process Timber',
+        id: 'harvest-timber',
+        name: 'Harvest Timber',
         description:
-          'Convert nearby timber supply into materials based on forest tiles.',
-        run: ({ state, resources, buildingCount }: BuildingActionContext) => {
-          const gain =
-            Math.max(1, Math.floor(state.tiles.forest / 4)) *
-            Math.max(1, buildingCount);
-          resources.addResource('materials', gain);
+          'Fell the nearest Forest tile within range 3 of this Lumbermill, converting it to Plains. Yields 3 Materials per Forest tile in range (with slight diminishing returns).',
+        canRun: ({ buildingInstances, mapGetTile }) => {
+          const RANGE = 3;
+          for (const inst of buildingInstances) {
+            const minTx = inst.x - RANGE;
+            const maxTx = inst.x + inst.width - 1 + RANGE;
+            const minTy = inst.y - RANGE;
+            const maxTy = inst.y + inst.height - 1 + RANGE;
+            for (let ty = minTy; ty <= maxTy; ty++) {
+              for (let tx = minTx; tx <= maxTx; tx++) {
+                if (mapGetTile(tx, ty) === 'forest') {
+                  return { activatable: true };
+                }
+              }
+            }
+          }
+          return {
+            activatable: false,
+            reason: 'No Forest tiles within range 3 of any Lumbermill.',
+          };
+        },
+        run: ({ buildingInstances, mapGetTile, mapSetTile, resources }) => {
+          const RANGE = 3;
+
+          // Collect unique forest tiles in range, tracking min sq-dist to any lumbermill.
+          const forestInRange = new Map<
+            number,
+            { x: number; y: number; distSq: number }
+          >();
+
+          for (const inst of buildingInstances) {
+            const cx = inst.x + inst.width / 2;
+            const cy = inst.y + inst.height / 2;
+            const minTx = inst.x - RANGE;
+            const maxTx = inst.x + inst.width - 1 + RANGE;
+            const minTy = inst.y - RANGE;
+            const maxTy = inst.y + inst.height - 1 + RANGE;
+
+            for (let ty = minTy; ty <= maxTy; ty++) {
+              for (let tx = minTx; tx <= maxTx; tx++) {
+                if (mapGetTile(tx, ty) !== 'forest') continue;
+                const dx = tx + 0.5 - cx;
+                const dy = ty + 0.5 - cy;
+                const distSq = dx * dx + dy * dy;
+                const key = ty * 100000 + tx;
+                const existing = forestInRange.get(key);
+                if (existing === undefined || existing.distSq > distSq) {
+                  forestInRange.set(key, { x: tx, y: ty, distSq });
+                }
+              }
+            }
+          }
+
+          if (forestInRange.size === 0) return;
+
+          // Sort by distance to find the nearest forest tile.
+          const sorted = Array.from(forestInRange.values()).sort(
+            (a, b) => a.distSq - b.distSq
+          );
+          const nearest = sorted[0];
+
+          // Convert nearest forest to plains.
+          mapSetTile(nearest.x, nearest.y, 'plains');
+
+          // Yield: 3 Materials per in-range forest tile, with slight diminishing.
+          const N = sorted.length;
+          let totalYield = 0;
+          for (let i = 0; i < N; i++) {
+            totalYield += Math.max(1, Math.round(3 * Math.pow(0.9, i)));
+          }
+          resources.addResource('materials', totalYield);
         },
       },
     ],

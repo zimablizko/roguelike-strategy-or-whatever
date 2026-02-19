@@ -430,12 +430,45 @@ export class GameplayScene extends Scene {
   }
 
   private addSelectedBuildingView(): void {
+    const HARVEST_TIMBER_RANGE = 3;
     const view = new SelectedBuildingView({
       stateManager: this.gameManager.stateManager,
       buildingManager: this.gameManager.buildingManager,
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
+      onActionHover: (buildingId, actionId, instanceId, hovered) => {
+        if (
+          !hovered ||
+          buildingId !== 'lumbermill' ||
+          actionId !== 'harvest-timber'
+        ) {
+          this.mapView?.setActionRangeHighlight(undefined);
+          return;
+        }
+
+        const map = this.gameManager.mapManager.getMapRef();
+        const instances = this.gameManager.buildingManager
+          .getBuildingInstances()
+          .filter((i) => i.instanceId === instanceId);
+
+        const cells = new Set<number>();
+        for (const inst of instances) {
+          const minTx = inst.x - HARVEST_TIMBER_RANGE;
+          const maxTx = inst.x + inst.width - 1 + HARVEST_TIMBER_RANGE;
+          const minTy = inst.y - HARVEST_TIMBER_RANGE;
+          const maxTy = inst.y + inst.height - 1 + HARVEST_TIMBER_RANGE;
+          for (let ty = minTy; ty <= maxTy; ty++) {
+            for (let tx = minTx; tx <= maxTx; tx++) {
+              if (tx >= 0 && ty >= 0 && tx < map.width && ty < map.height) {
+                cells.add(ty * map.width + tx);
+              }
+            }
+          }
+        }
+
+        this.mapView?.setActionRangeHighlight(cells);
+      },
     });
     view.setSelectedBuilding(this.selectedBuildingInstanceId);
     this.selectedBuildingView = view;
@@ -462,6 +495,7 @@ export class GameplayScene extends Scene {
   ): void {
     this.selectedBuildingInstanceId = instanceId;
     this.selectedBuildingView?.setSelectedBuilding(instanceId);
+    this.mapView?.setActionRangeHighlight(undefined);
     if (syncMap) {
       this.mapView?.setSelectedBuilding(instanceId);
     }

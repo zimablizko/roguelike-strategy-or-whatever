@@ -53,6 +53,10 @@ export interface ActionElementOptions extends InteractivePanelOptions {
   tooltipBgColor?: Color;
   tooltipTextColor?: Color;
   tooltipWidth?: number;
+  /** Called when the pointer enters this action element. */
+  onHoverEnter?: () => void;
+  /** Called when the pointer leaves this action element. */
+  onHoverLeave?: () => void;
 }
 
 export interface ActionOutcome extends TooltipOutcome {}
@@ -218,6 +222,16 @@ export interface SelectedBuildingViewOptions {
   width?: number;
   height?: number;
   bottomMargin?: number;
+  /**
+   * Notifies the caller when an action button is hovered or un-hovered.
+   * Useful for driving map overlays (e.g. range highlights).
+   */
+  onActionHover?: (
+    buildingId: string,
+    actionId: string,
+    instanceId: string,
+    hovered: boolean
+  ) => void;
 }
 
 export interface MapIncomeEffectsViewOptions {

@@ -8,17 +8,15 @@ import {
   Rectangle,
   Sprite,
   Text,
-  type Scene,
   vec,
+  type Scene,
 } from 'excalibur';
-import {
-  InteractivePanelElement,
-} from './InteractivePanelElement';
-import { TooltipProvider } from '../tooltip/TooltipProvider';
 import type {
   ActionElementOptions,
   ActionOutcome,
 } from '../../_common/models/ui.models';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
+import { InteractivePanelElement } from './InteractivePanelElement';
 
 /**
  * Reusable interactive action row:
@@ -39,11 +37,11 @@ export class ActionElement extends InteractivePanelElement {
   private readonly tooltipBgColor: Color;
   private readonly tooltipTextColor: Color;
   private readonly tooltipWidth: number;
+  private readonly onHoverEnterCallback?: () => void;
+  private readonly onHoverLeaveCallback?: () => void;
 
   private cachedIcon?: { source: ImageSource; sprite: Sprite };
-  private lastVisualState:
-    | { hovered: boolean; pressed: boolean }
-    | undefined;
+  private lastVisualState: { hovered: boolean; pressed: boolean } | undefined;
 
   constructor(options: ActionElementOptions) {
     super(options);
@@ -57,8 +55,21 @@ export class ActionElement extends InteractivePanelElement {
     this.textColor = options.textColor ?? Color.White;
     this.tooltipProvider = options.tooltipProvider;
     this.tooltipBgColor = options.tooltipBgColor ?? Color.fromHex('#12202d');
-    this.tooltipTextColor = options.tooltipTextColor ?? Color.fromHex('#ecf3fa');
+    this.tooltipTextColor =
+      options.tooltipTextColor ?? Color.fromHex('#ecf3fa');
     this.tooltipWidth = options.tooltipWidth ?? 300;
+    this.onHoverEnterCallback = options.onHoverEnter;
+    this.onHoverLeaveCallback = options.onHoverLeave;
+  }
+
+  override onInitialize(): void {
+    super.onInitialize();
+    if (this.onHoverEnterCallback) {
+      this.on('pointerenter', () => this.onHoverEnterCallback?.());
+    }
+    if (this.onHoverLeaveCallback) {
+      this.on('pointerleave', () => this.onHoverLeaveCallback?.());
+    }
   }
 
   protected redraw(force: boolean): void {
@@ -171,5 +182,4 @@ export class ActionElement extends InteractivePanelElement {
     this.cachedIcon = { source: this.icon, sprite };
     return sprite;
   }
-
 }

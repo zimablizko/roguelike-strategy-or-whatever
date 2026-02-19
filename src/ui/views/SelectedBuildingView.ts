@@ -33,6 +33,12 @@ export class SelectedBuildingView extends ScreenElement {
   private readonly resourceManager: ResourceManager;
   private readonly turnManager: TurnManager;
   private readonly tooltipProvider: TooltipProvider;
+  private readonly onActionHover?: (
+    buildingId: string,
+    actionId: string,
+    instanceId: string,
+    hovered: boolean
+  ) => void;
   private readonly minPanelWidth: number;
   private readonly maxPanelWidth: number;
   private readonly panelHeight: number;
@@ -53,6 +59,7 @@ export class SelectedBuildingView extends ScreenElement {
     this.resourceManager = options.resourceManager;
     this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
+    this.onActionHover = options.onActionHover;
     this.minPanelWidth = 420;
     this.maxPanelWidth = options.width ?? 560;
     this.panelHeight = options.height ?? 118;
@@ -285,6 +292,7 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     let y = startY;
+    const instanceId = this.selectedBuildingInstanceId ?? '';
     const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
     for (const action of definition.actions) {
       if (y + 36 > this.panelHeight - 8) {
@@ -293,20 +301,23 @@ export class SelectedBuildingView extends ScreenElement {
 
       const actionStatus = this.buildingManager.canActivateBuildingAction(
         definition.id,
-        action.id
+        action.id,
+        instanceId
       );
       const enabled = hasActionPoint && actionStatus.activatable;
       const usesMax = actionStatus.usesMax ?? 0;
       const usesLabel =
         usesMax > 1 ? ` (${actionStatus.usesRemaining}/${usesMax})` : '';
+      const disabledReason =
+        !enabled && actionStatus.reason ? `\n\n⚠ ${actionStatus.reason}` : '';
       const row = new ActionElement({
         x: startX,
         y,
         width: rowWidth,
         height: 34,
         title: action.name + usesLabel,
-        description: action.description,
-        outcomes: this.getActionOutcomes(definition, action),
+        description: action.description + disabledReason,
+        outcomes: this.getActionOutcomes(definition, action, instanceId),
         tooltipProvider: this.tooltipProvider,
         bgColor: enabled ? Color.fromHex('#274158') : Color.fromHex('#2a2f35'),
         hoverBgColor: enabled
@@ -328,6 +339,7 @@ export class SelectedBuildingView extends ScreenElement {
               const activated = this.buildingManager.activateBuildingAction(
                 definition.id,
                 action.id,
+                instanceId,
                 this.resourceManager
               );
               if (!activated) {
@@ -336,6 +348,10 @@ export class SelectedBuildingView extends ScreenElement {
               this.lastBuildingsVersion = -1;
             }
           : undefined,
+        onHoverEnter: () =>
+          this.onActionHover?.(definition.id, action.id, instanceId, true),
+        onHoverLeave: () =>
+          this.onActionHover?.(definition.id, action.id, instanceId, false),
       });
 
       this.actionRows.push(row);
@@ -361,7 +377,8 @@ export class SelectedBuildingView extends ScreenElement {
 
   private getActionOutcomes(
     definition: TypedBuildingDefinition,
-    action: StateBuildingActionDefinition
+    action: StateBuildingActionDefinition,
+    instanceId: string
   ): TooltipOutcome[] {
     const state = this.stateManager.getStateRef();
     const buildingCount = Math.max(
@@ -369,11 +386,26 @@ export class SelectedBuildingView extends ScreenElement {
       this.buildingManager.getBuildingCount(definition.id)
     );
 
+    // Lumbermill: compute preview yield from actual in-range forest tiles.
+    if (definition.id === 'lumbermill' && action.id === 'harvest-timber') {
+      const { forestCount, estimatedYield } =
+        this.buildingManager.getLumermillHarvestYieldPreview(instanceId);
+      if (forestCount === 0) {
+        return [];
+      }
+      return [
+        {
+          label: '',
+          icon: this.getResourceIcon('materials'),
+          value: `+${estimatedYield}`,
+          color: Color.fromHex('#9fe6aa'),
+        },
+      ];
+    }
+
     const gainByBuilding: Partial<
       Record<TypedBuildingDefinition['id'], number>
     > = {
-      lumbermill:
-        Math.max(1, Math.floor(state.tiles.forest / 4)) * buildingCount,
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
       farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };

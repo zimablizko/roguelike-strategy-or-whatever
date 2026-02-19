@@ -22,6 +22,7 @@ export const TOOLTIP_COLORS = {
   text: Color.fromHex('#ecf3fa'),
   headerText: Color.fromHex('#f7fbff'),
   separator: Color.fromRGB(190, 210, 228, 0.38),
+  warning: Color.fromHex('#f5a623'),
 } as const;
 
 export const TOOLTIP_PLACEMENT_ORDER = [

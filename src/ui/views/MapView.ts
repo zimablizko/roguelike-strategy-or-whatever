@@ -5,8 +5,8 @@ import {
   GraphicsGroup,
   Keys,
   PointerButton,
-  type Subscription,
   type PointerEvent,
+  type Subscription,
   type WheelEvent,
   vec,
 } from 'excalibur';
@@ -39,12 +39,22 @@ export class MapView extends Actor {
   private readonly mapBorderCells = MAP_VIEW_DEFAULTS.mapBorderCells;
   private readonly buildingsProvider?: () => ReadonlyArray<MapBuildingOverlay>;
   private readonly buildingsVersionProvider?: () => number;
-  private readonly buildPlacementProvider?: () => MapBuildPlacementOverlay | undefined;
+  private readonly buildPlacementProvider?: () =>
+    | MapBuildPlacementOverlay
+    | undefined;
   private readonly buildPlacementVersionProvider?: () => number;
-  private readonly onBuildPlacementConfirm?: (tileX: number, tileY: number) => void;
+  private readonly onBuildPlacementConfirm?: (
+    tileX: number,
+    tileY: number
+  ) => void;
   private readonly onBuildPlacementCancel?: () => void;
-  private readonly onBuildingSelected?: (instanceId: string | undefined) => void;
-  private readonly shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
+  private readonly onBuildingSelected?: (
+    instanceId: string | undefined
+  ) => void;
+  private readonly shouldIgnoreLeftClick?: (
+    screenX: number,
+    screenY: number
+  ) => boolean;
   private readonly isInputBlocked?: () => boolean;
   private readonly tooltipProvider?: TooltipProvider;
 
@@ -69,6 +79,8 @@ export class MapView extends Actor {
   private selectedBuildingInstanceId?: string;
   private buildPlacementPreviewTile?: { x: number; y: number };
   private buildPlacementPreviewValid = false;
+  /** Tile keys (y * map.width + x) to highlight as an action range overlay. */
+  private actionRangeHighlightCells: Set<number> = new Set();
 
   constructor(options: MapViewOptions) {
     super({ x: 0, y: 0 });
@@ -263,6 +275,35 @@ export class MapView extends Actor {
     );
   }
 
+  private drawActionRangeHighlight(ctx: CanvasRenderingContext2D): void {
+    if (this.actionRangeHighlightCells.size === 0) {
+      return;
+    }
+
+    const offset = this.mapBorderPx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(80, 190, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(120, 210, 255, 0.5)';
+    ctx.lineWidth = Math.max(1, Math.floor(this.tileSize * 0.04));
+
+    for (const key of this.actionRangeHighlightCells) {
+      const tileX = key % this.map.width;
+      const tileY = (key - tileX) / this.map.width;
+      if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) continue;
+      const left = offset + tileX * this.tileSize;
+      const top = offset + tileY * this.tileSize;
+      ctx.fillRect(left, top, this.tileSize, this.tileSize);
+      ctx.strokeRect(
+        left + 0.5,
+        top + 0.5,
+        this.tileSize - 1,
+        this.tileSize - 1
+      );
+    }
+
+    ctx.restore();
+  }
+
   private drawBuildings(ctx: CanvasRenderingContext2D): void {
     const overlays = this.buildingsProvider?.() ?? [];
     if (overlays.length === 0) {
@@ -288,7 +329,9 @@ export class MapView extends Actor {
       const height = overlay.height * this.tileSize;
 
       const selected = overlay.instanceId === this.selectedBuildingInstanceId;
-      ctx.strokeStyle = selected ? 'rgba(245, 196, 15, 0.98)' : 'rgba(34, 35, 37, 0.96)';
+      ctx.strokeStyle = selected
+        ? 'rgba(245, 196, 15, 0.98)'
+        : 'rgba(34, 35, 37, 0.96)';
       ctx.lineWidth = selected ? borderWidth + 2 : borderWidth;
       ctx.strokeRect(
         left + ctx.lineWidth / 2,
@@ -302,7 +345,10 @@ export class MapView extends Actor {
       const maxLabelWidth = this.tileSize * 2 - 12;
       const labelWidth = Math.min(
         maxLabelWidth,
-        Math.max(this.tileSize * 1.5, ctx.measureText(label).width + labelPaddingX * 2)
+        Math.max(
+          this.tileSize * 1.5,
+          ctx.measureText(label).width + labelPaddingX * 2
+        )
       );
       const textMaxWidth = Math.max(1, labelWidth - labelPaddingX * 2);
       let fittedFontSize = labelFontSize;
@@ -339,12 +385,7 @@ export class MapView extends Actor {
     // Frame bands outside the actual map area.
     ctx.fillStyle = frameFill;
     ctx.fillRect(0, 0, this.contentWidth, borderPx);
-    ctx.fillRect(
-      0,
-      this.contentHeight - borderPx,
-      this.contentWidth,
-      borderPx
-    );
+    ctx.fillRect(0, this.contentHeight - borderPx, this.contentWidth, borderPx);
     ctx.fillRect(0, borderPx, borderPx, this.mapHeightPx);
     ctx.fillRect(
       this.contentWidth - borderPx,
@@ -471,19 +512,17 @@ export class MapView extends Actor {
   private refreshMapCanvasIfNeeded(): void {
     const nextBuildingsVersion = this.buildingsVersionProvider?.();
     const nextPlayerZoneTileCount = this.countPlayerZoneTiles();
-    const nextBuildPlacementVersion = this.buildPlacementVersionProvider?.() ?? 0;
+    const nextBuildPlacementVersion =
+      this.buildPlacementVersionProvider?.() ?? 0;
     const buildingsChanged =
       nextBuildingsVersion !== undefined &&
       nextBuildingsVersion !== this.renderedBuildingsVersion;
-    const zoneChanged = nextPlayerZoneTileCount !== this.renderedPlayerZoneTileCount;
+    const zoneChanged =
+      nextPlayerZoneTileCount !== this.renderedPlayerZoneTileCount;
     const buildPlacementChanged =
       nextBuildPlacementVersion !== this.renderedBuildPlacementVersion;
 
-    if (
-      !buildingsChanged &&
-      !zoneChanged &&
-      !buildPlacementChanged
-    ) {
+    if (!buildingsChanged && !zoneChanged && !buildPlacementChanged) {
       return;
     }
 
@@ -501,7 +540,10 @@ export class MapView extends Actor {
       width: this.contentWidth,
       height: this.contentHeight,
       cache: false,
-      draw: (ctx) => this.drawBuildPlacementPreview(ctx),
+      draw: (ctx) => {
+        this.drawActionRangeHighlight(ctx);
+        this.drawBuildPlacementPreview(ctx);
+      },
     });
 
     this.graphics.use(
@@ -526,137 +568,140 @@ export class MapView extends Actor {
 
     this.pointerSubscriptions.push(
       pointers.on('down', (evt: PointerEvent) => {
-      const placementMode = this.buildPlacementProvider?.();
-      if (placementMode) {
-        if (evt.button === PointerButton.Right) {
+        const placementMode = this.buildPlacementProvider?.();
+        if (placementMode) {
+          if (evt.button === PointerButton.Right) {
+            this.dragging = false;
+            this.onBuildPlacementCancel?.();
+            const nativeEvt = evt.nativeEvent as MouseEvent | undefined;
+            nativeEvt?.preventDefault?.();
+            return;
+          }
+
+          if (evt.button === PointerButton.Left) {
+            const tile = this.getTileFromScreenPosition(
+              evt.screenPos.x,
+              evt.screenPos.y
+            );
+            if (!tile) {
+              return;
+            }
+            this.onBuildPlacementConfirm?.(tile.x, tile.y);
+            return;
+          }
+        }
+
+        if (this.isMapInputBlocked()) {
           this.dragging = false;
-          this.onBuildPlacementCancel?.();
-          const nativeEvt = evt.nativeEvent as MouseEvent | undefined;
-          nativeEvt?.preventDefault?.();
           return;
         }
 
         if (evt.button === PointerButton.Left) {
-          const tile = this.getTileFromScreenPosition(
+          if (this.shouldIgnoreLeftClick?.(evt.screenPos.x, evt.screenPos.y)) {
+            return;
+          }
+
+          const picked = this.findBuildingAtScreenPosition(
             evt.screenPos.x,
             evt.screenPos.y
           );
-          if (!tile) {
-            return;
+          if (picked) {
+            this.selectBuilding(picked.instanceId);
+          } else if (
+            this.isScreenPointInsidePlayableMap(
+              evt.screenPos.x,
+              evt.screenPos.y
+            )
+          ) {
+            this.selectBuilding(undefined);
           }
-          this.onBuildPlacementConfirm?.(tile.x, tile.y);
-          return;
-        }
-      }
-
-      if (this.isMapInputBlocked()) {
-        this.dragging = false;
-        return;
-      }
-
-      if (evt.button === PointerButton.Left) {
-        if (this.shouldIgnoreLeftClick?.(evt.screenPos.x, evt.screenPos.y)) {
           return;
         }
 
-        const picked = this.findBuildingAtScreenPosition(
-          evt.screenPos.x,
-          evt.screenPos.y
-        );
-        if (picked) {
-          this.selectBuilding(picked.instanceId);
-        } else if (
-          this.isScreenPointInsidePlayableMap(evt.screenPos.x, evt.screenPos.y)
+        if (
+          evt.button !== PointerButton.Right &&
+          evt.button !== PointerButton.Middle
         ) {
-          this.selectBuilding(undefined);
+          return;
         }
-        return;
-      }
 
-      if (
-        evt.button !== PointerButton.Right &&
-        evt.button !== PointerButton.Middle
-      ) {
-        return;
-      }
-
-      this.dragging = true;
-      this.dragStartScreen = vec(evt.screenPos.x, evt.screenPos.y);
-      this.dragStartView = vec(this.viewX, this.viewY);
-      const nativeEvt = evt.nativeEvent as MouseEvent | undefined;
-      nativeEvt?.preventDefault?.();
+        this.dragging = true;
+        this.dragStartScreen = vec(evt.screenPos.x, evt.screenPos.y);
+        this.dragStartView = vec(this.viewX, this.viewY);
+        const nativeEvt = evt.nativeEvent as MouseEvent | undefined;
+        nativeEvt?.preventDefault?.();
       })
     );
 
     this.pointerSubscriptions.push(
       pointers.on('move', (evt: PointerEvent) => {
-      if (this.isMapInputBlocked()) {
-        this.dragging = false;
-        return;
-      }
+        if (this.isMapInputBlocked()) {
+          this.dragging = false;
+          return;
+        }
 
-      if (!this.dragging) {
-        return;
-      }
+        if (!this.dragging) {
+          return;
+        }
 
-      const dx = evt.screenPos.x - this.dragStartScreen.x;
-      const dy = evt.screenPos.y - this.dragStartScreen.y;
-      this.viewX = this.dragStartView.x + dx;
-      this.viewY = this.dragStartView.y + dy;
+        const dx = evt.screenPos.x - this.dragStartScreen.x;
+        const dy = evt.screenPos.y - this.dragStartScreen.y;
+        this.viewX = this.dragStartView.x + dx;
+        this.viewY = this.dragStartView.y + dy;
       })
     );
 
     this.pointerSubscriptions.push(
       pointers.on('up', (evt: PointerEvent) => {
-      if (this.isMapInputBlocked()) {
-        this.dragging = false;
-        return;
-      }
+        if (this.isMapInputBlocked()) {
+          this.dragging = false;
+          return;
+        }
 
-      if (
-        evt.button === PointerButton.Right ||
-        evt.button === PointerButton.Middle
-      ) {
-        this.dragging = false;
-      }
+        if (
+          evt.button === PointerButton.Right ||
+          evt.button === PointerButton.Middle
+        ) {
+          this.dragging = false;
+        }
       })
     );
 
     this.pointerSubscriptions.push(
       pointers.on('wheel', (evt: WheelEvent) => {
-      if (this.isMapInputBlocked()) {
-        return;
-      }
+        if (this.isMapInputBlocked()) {
+          return;
+        }
 
-      const engine = this.scene?.engine;
-      if (!engine) {
-        return;
-      }
+        const engine = this.scene?.engine;
+        if (!engine) {
+          return;
+        }
 
-      const direction = Math.sign(evt.deltaY);
-      if (direction === 0) {
-        return;
-      }
+        const direction = Math.sign(evt.deltaY);
+        if (direction === 0) {
+          return;
+        }
 
-      const prevZoom = this.zoom;
-      const factor = direction > 0 ? 1 - this.zoomStep : 1 + this.zoomStep;
-      const minZoom = this.getEffectiveMinZoom(engine);
-      const nextZoom = this.clamp(this.zoom * factor, minZoom, this.maxZoom);
-      if (nextZoom === prevZoom) {
-        return;
-      }
+        const prevZoom = this.zoom;
+        const factor = direction > 0 ? 1 - this.zoomStep : 1 + this.zoomStep;
+        const minZoom = this.getEffectiveMinZoom(engine);
+        const nextZoom = this.clamp(this.zoom * factor, minZoom, this.maxZoom);
+        if (nextZoom === prevZoom) {
+          return;
+        }
 
-      // Keep the world point under cursor stable during zoom.
-      const cursorX = evt.screenX;
-      const cursorY = evt.screenY;
-      const worldX = (cursorX - this.viewX) / prevZoom;
-      const worldY = (cursorY - this.viewY) / prevZoom;
+        // Keep the world point under cursor stable during zoom.
+        const cursorX = evt.screenX;
+        const cursorY = evt.screenY;
+        const worldX = (cursorX - this.viewX) / prevZoom;
+        const worldY = (cursorY - this.viewY) / prevZoom;
 
-      this.zoom = nextZoom;
-      this.viewX = cursorX - worldX * this.zoom;
-      this.viewY = cursorY - worldY * this.zoom;
-      this.clampView(engine);
-      this.applyViewTransform();
+        this.zoom = nextZoom;
+        this.viewX = cursorX - worldX * this.zoom;
+        this.viewY = cursorY - worldY * this.zoom;
+        this.clampView(engine);
+        this.applyViewTransform();
       })
     );
   }
@@ -731,6 +776,14 @@ export class MapView extends Actor {
     this.selectBuilding(instanceId);
   }
 
+  /**
+   * Highlights a set of tile cells as an action range on the map preview layer.
+   * Pass `undefined` or an empty Set to clear the highlight.
+   */
+  setActionRangeHighlight(cells: Set<number> | undefined): void {
+    this.actionRangeHighlightCells = cells ?? new Set();
+  }
+
   getMapPositionScreen(tileX: number, tileY: number): { x: number; y: number } {
     const localX = this.mapBorderPx + (tileX + 0.5) * this.tileSize;
     const localY = this.mapBorderPx + (tileY + 0.5) * this.tileSize;
@@ -756,7 +809,10 @@ export class MapView extends Actor {
       return;
     }
 
-    const hovered = this.findBuildingAtScreenPosition(pointerPos.x, pointerPos.y);
+    const hovered = this.findBuildingAtScreenPosition(
+      pointerPos.x,
+      pointerPos.y
+    );
     if (!hovered) {
       this.clearBuildingTooltip();
       return;
@@ -852,7 +908,10 @@ export class MapView extends Actor {
     );
   }
 
-  private isScreenPointInsidePlayableMap(screenX: number, screenY: number): boolean {
+  private isScreenPointInsidePlayableMap(
+    screenX: number,
+    screenY: number
+  ): boolean {
     return this.getTileFromScreenPosition(screenX, screenY) !== undefined;
   }
 

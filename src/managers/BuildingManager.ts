@@ -36,7 +36,7 @@ export class BuildingManager {
   private buildingInstanceSerial = 0;
   private buildingsVersion = 0;
   private unlockedTechnologies = new Set<TechnologyId>();
-  /** Tracks how many times each action has been used this turn. Key: "buildingId:actionId". */
+  /** Tracks how many times each action has been used this turn. Key: "instanceId:actionId". */
   private actionUsesThisTurn = new Map<string, number>();
 
   constructor(options: BuildingManagerOptions) {
@@ -158,6 +158,58 @@ export class BuildingManager {
       0,
       this.getTotalPopulation() - this.getOccupiedPopulation()
     );
+  }
+
+  /**
+   * Computes a preview of the Harvest Timber action yield.
+   * When instanceId is provided, only that lumbermill instance is considered.
+   * Returns the number of in-range forest tiles and the estimated material gain.
+   */
+  getLumermillHarvestYieldPreview(
+    instanceId?: string,
+    range = 3
+  ): {
+    forestCount: number;
+    estimatedYield: number;
+  } {
+    if (!this.mapManager) {
+      return { forestCount: 0, estimatedYield: 0 };
+    }
+
+    const map = this.mapManager.getMapRef();
+    const instances = this.buildingInstances.filter(
+      (i) =>
+        i.buildingId === 'lumbermill' &&
+        (instanceId === undefined || i.instanceId === instanceId)
+    );
+
+    const seen = new Set<number>();
+    for (const inst of instances) {
+      for (
+        let ty = inst.y - range;
+        ty <= inst.y + inst.height - 1 + range;
+        ty++
+      ) {
+        for (
+          let tx = inst.x - range;
+          tx <= inst.x + inst.width - 1 + range;
+          tx++
+        ) {
+          if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) continue;
+          if (map.tiles[ty][tx] === 'forest') {
+            seen.add(ty * map.width + tx);
+          }
+        }
+      }
+    }
+
+    const N = seen.size;
+    let estimatedYield = 0;
+    for (let i = 0; i < N; i++) {
+      estimatedYield += Math.max(1, Math.round(3 * Math.pow(0.9, i)));
+    }
+
+    return { forestCount: N, estimatedYield };
   }
 
   getBuildingCostForNext(id: StateBuildingId): ResourceCost {
@@ -439,9 +491,10 @@ export class BuildingManager {
   activateBuildingAction(
     buildingId: StateBuildingId,
     actionId: string,
+    instanceId: string,
     resources: ResourceManager
   ): boolean {
-    const status = this.canActivateBuildingAction(buildingId, actionId);
+    const status = this.canActivateBuildingAction(buildingId, actionId, instanceId);
     if (!status.activatable) {
       return false;
     }
@@ -449,7 +502,7 @@ export class BuildingManager {
     if (buildingId === 'castle' && actionId === 'expand-border') {
       const expanded = this.expandPlayerBorders();
       if (expanded) {
-        this.incrementActionUsage(buildingId, actionId);
+        this.incrementActionUsage(instanceId, actionId);
       }
       return expanded;
     }
@@ -464,23 +517,52 @@ export class BuildingManager {
       return false;
     }
 
-    const buildingCount = this.getBuildingCount(buildingId);
-    if (buildingCount <= 0) {
+    const instance = this.buildingInstances.find((i) => i.instanceId === instanceId);
+    if (!instance) {
       return false;
     }
 
-    action.run({
+    action.run(this.buildActionContext(buildingId, instanceId, resources));
+    this.incrementActionUsage(instanceId, actionId);
+    return true;
+  }
+
+  private buildActionContext(
+    buildingId: StateBuildingId,
+    instanceId: string,
+    resources: ResourceManager
+  ) {
+    const instance = this.buildingInstances.find((i) => i.instanceId === instanceId);
+    return {
       state: this.stateBridge.getStateRef(),
       resources,
-      buildingCount,
-    });
-    this.incrementActionUsage(buildingId, actionId);
-    return true;
+      buildingCount: this.getBuildingCount(buildingId),
+      buildingInstances: instance
+        ? [{ x: instance.x, y: instance.y, width: instance.width, height: instance.height }]
+        : [],
+
+      mapGetTile: (x: number, y: number) => {
+        const map = this.mapManager?.getMapRef();
+        if (!map) return undefined;
+        return map.tiles[Math.floor(y)]?.[Math.floor(x)];
+      },
+      mapSetTile: (
+        x: number,
+        y: number,
+        tile: import('../_common/models/map.models').MapTileType
+      ) => {
+        if (!this.mapManager) return;
+        this.mapManager.setTile(x, y, tile);
+        this.syncStateWithMapSummary();
+        this.buildingsVersion++;
+      },
+    };
   }
 
   canActivateBuildingAction(
     buildingId: StateBuildingId,
-    actionId: string
+    actionId: string,
+    instanceId: string
   ): StateBuildingActionStatus {
     if (!this.isBuildingBuilt(buildingId)) {
       return {
@@ -505,9 +587,9 @@ export class BuildingManager {
       };
     }
 
-    const usesMax = this.getBuildingCount(buildingId) * (action.charges ?? 1);
+    const usesMax = action.charges ?? 1;
     const usedCount =
-      this.actionUsesThisTurn.get(`${buildingId}:${actionId}`) ?? 0;
+      this.actionUsesThisTurn.get(`${instanceId}:${actionId}`) ?? 0;
     const usesRemaining = Math.max(0, usesMax - usedCount);
 
     if (usesRemaining === 0) {
@@ -522,6 +604,24 @@ export class BuildingManager {
     if (buildingId === 'castle' && actionId === 'expand-border') {
       const expandStatus = this.getExpandBorderStatus();
       return { ...expandStatus, usesRemaining, usesMax };
+    }
+
+    if (action.canRun) {
+      const noopResources = { addResource: () => {} };
+      const ctx = this.buildActionContext(
+        buildingId,
+        instanceId,
+        noopResources as unknown as ResourceManager
+      );
+      const canRunResult = action.canRun(ctx);
+      if (!canRunResult.activatable) {
+        return {
+          activatable: false,
+          reason: canRunResult.reason,
+          usesRemaining,
+          usesMax,
+        };
+      }
     }
 
     return { activatable: true, usesRemaining, usesMax };
@@ -673,10 +773,10 @@ export class BuildingManager {
   }
 
   private incrementActionUsage(
-    buildingId: StateBuildingId,
+    instanceId: string,
     actionId: string
   ): void {
-    const key = `${buildingId}:${actionId}`;
+    const key = `${instanceId}:${actionId}`;
     this.actionUsesThisTurn.set(
       key,
       (this.actionUsesThisTurn.get(key) ?? 0) + 1
