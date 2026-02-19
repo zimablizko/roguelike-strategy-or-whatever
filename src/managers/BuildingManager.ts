@@ -506,7 +506,8 @@ export class BuildingManager {
     }
 
     const usesMax = this.getBuildingCount(buildingId) * (action.charges ?? 1);
-    const usedCount = this.actionUsesThisTurn.get(`${buildingId}:${actionId}`) ?? 0;
+    const usedCount =
+      this.actionUsesThisTurn.get(`${buildingId}:${actionId}`) ?? 0;
     const usesRemaining = Math.max(0, usesMax - usedCount);
 
     if (usesRemaining === 0) {
@@ -671,9 +672,15 @@ export class BuildingManager {
     this.buildingsVersion++;
   }
 
-  private incrementActionUsage(buildingId: StateBuildingId, actionId: string): void {
+  private incrementActionUsage(
+    buildingId: StateBuildingId,
+    actionId: string
+  ): void {
     const key = `${buildingId}:${actionId}`;
-    this.actionUsesThisTurn.set(key, (this.actionUsesThisTurn.get(key) ?? 0) + 1);
+    this.actionUsesThisTurn.set(
+      key,
+      (this.actionUsesThisTurn.get(key) ?? 0) + 1
+    );
   }
 
   private expandPlayerBorders(): boolean {

@@ -297,7 +297,8 @@ export class SelectedBuildingView extends ScreenElement {
       );
       const enabled = hasActionPoint && actionStatus.activatable;
       const usesMax = actionStatus.usesMax ?? 0;
-      const usesLabel = usesMax > 1 ? ` (${actionStatus.usesRemaining}/${usesMax})` : '';
+      const usesLabel =
+        usesMax > 1 ? ` (${actionStatus.usesRemaining}/${usesMax})` : '';
       const row = new ActionElement({
         x: startX,
         y,

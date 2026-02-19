@@ -218,7 +218,7 @@ export const stateBuildingDefinitions = {
     shortName: 'Hnt',
     name: "Hunter's Hut",
     description:
-      "A small hunting lodge that sends hunters into nearby woods. Requires 1 population to operate. Passive income each end turn: +5 to +10 Food.",
+      'A small hunting lodge that sends hunters into nearby woods. Requires 1 population to operate. Passive income each end turn: +5 to +10 Food.',
     buildCost: {
       gold: 30,
       materials: 18,
@@ -235,7 +235,7 @@ export const stateBuildingDefinitions = {
     requiredTechnologies: [],
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
-      'Passive income: +5 to +10 Food/turn per Hunter\'s Hut',
+      "Passive income: +5 to +10 Food/turn per Hunter's Hut",
       'Occupies 2x2 forest tiles',
     ],
     actions: [],
