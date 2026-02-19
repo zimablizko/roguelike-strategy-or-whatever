@@ -494,7 +494,11 @@ export class BuildingManager {
     instanceId: string,
     resources: ResourceManager
   ): boolean {
-    const status = this.canActivateBuildingAction(buildingId, actionId, instanceId);
+    const status = this.canActivateBuildingAction(
+      buildingId,
+      actionId,
+      instanceId
+    );
     if (!status.activatable) {
       return false;
     }
@@ -517,7 +521,9 @@ export class BuildingManager {
       return false;
     }
 
-    const instance = this.buildingInstances.find((i) => i.instanceId === instanceId);
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
     if (!instance) {
       return false;
     }
@@ -532,13 +538,22 @@ export class BuildingManager {
     instanceId: string,
     resources: ResourceManager
   ) {
-    const instance = this.buildingInstances.find((i) => i.instanceId === instanceId);
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
     return {
       state: this.stateBridge.getStateRef(),
       resources,
       buildingCount: this.getBuildingCount(buildingId),
       buildingInstances: instance
-        ? [{ x: instance.x, y: instance.y, width: instance.width, height: instance.height }]
+        ? [
+            {
+              x: instance.x,
+              y: instance.y,
+              width: instance.width,
+              height: instance.height,
+            },
+          ]
         : [],
 
       mapGetTile: (x: number, y: number) => {
@@ -772,10 +787,7 @@ export class BuildingManager {
     this.buildingsVersion++;
   }
 
-  private incrementActionUsage(
-    instanceId: string,
-    actionId: string
-  ): void {
+  private incrementActionUsage(instanceId: string, actionId: string): void {
     const key = `${instanceId}:${actionId}`;
     this.actionUsesThisTurn.set(
       key,
