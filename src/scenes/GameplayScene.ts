@@ -12,7 +12,9 @@ import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
 import { Resources } from '../_common/resources';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
+import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
+import type { SaveSlotId } from '../_common/models/save.models';
 import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
@@ -53,6 +55,8 @@ export class GameplayScene extends Scene {
     key: string;
     overlay: MapBuildPlacementOverlay;
   };
+  private activeSaveSlot?: SaveSlotId;
+  private lastSavedSignature = '';
 
   onInitialize(_engine: Engine): void {
     // Set background color
@@ -70,9 +74,13 @@ export class GameplayScene extends Scene {
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.F)) {
       this.mapView?.focusOnPlayerState();
     }
+
+    this.autoSaveIfDirty();
   }
 
   onDeactivate(): void {
+    this.saveCurrentGame();
+
     // Clean up references so they can be garbage-collected between scene transitions
     this.tooltipProvider = undefined!;
     this.mapView = undefined;
@@ -87,6 +95,8 @@ export class GameplayScene extends Scene {
     this.selectedBuildingInstanceId = undefined;
     this.pendingManualBuildBuildingId = undefined;
     this.placementOverlayCache = undefined;
+    this.activeSaveSlot = undefined;
+    this.lastSavedSignature = '';
   }
 
   private resetGame(engine: Engine): void {
@@ -105,22 +115,31 @@ export class GameplayScene extends Scene {
     this.pendingManualBuildBuildingId = undefined;
     this.placementOverlayCache = undefined;
 
-    // Recreate managers with default new-game data
-    this.gameManager = new GameManager({
-      playerData: {
-        race: 'human',
-        resources: {
-          gold: 100,
-          materials: 50,
-          food: 75,
-          population: 10,
-        },
-      },
-      map: {
-        width: 100,
-        height: 60,
-      },
-    });
+    const launch = SaveManager.consumePendingLaunch();
+    const selectedSlot: SaveSlotId = launch?.slot ?? 1;
+    const slotSave =
+      launch?.mode === 'continue'
+        ? SaveManager.loadFromSlot(selectedSlot)
+        : undefined;
+
+    this.activeSaveSlot = selectedSlot;
+    this.gameManager = slotSave
+      ? new GameManager({ saveData: slotSave })
+      : new GameManager({
+          playerData: {
+            race: 'human',
+            resources: {
+              gold: 100,
+              materials: 50,
+              food: 75,
+              population: 10,
+            },
+          },
+          map: {
+            width: 100,
+            height: 60,
+          },
+        });
     this.resourceManager = this.gameManager.resourceManager;
     this.turnManager = new TurnManager(
       this.resourceManager,
@@ -129,6 +148,12 @@ export class GameplayScene extends Scene {
       {
         rng: this.gameManager.rng,
         researchManager: this.gameManager.researchManager,
+        initial: slotSave?.turn
+          ? {
+              data: slotSave.turn.data,
+              version: slotSave.turn.version,
+            }
+          : undefined,
       }
     );
 
@@ -146,6 +171,8 @@ export class GameplayScene extends Scene {
     this.addButtons(engine);
     this.addQuickBuildView();
     this.addSelectedBuildingView();
+
+    this.saveCurrentGame();
   }
 
   private addTooltipProvider(): void {
@@ -306,6 +333,7 @@ export class GameplayScene extends Scene {
         height: 40,
         title: 'Exit',
         onClick: () => {
+          this.saveCurrentGame();
           engine.goToScene('main-menu');
         },
       })
@@ -334,6 +362,7 @@ export class GameplayScene extends Scene {
       onClick: () => {
         const result = this.turnManager.endTurn();
         this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
+        this.saveCurrentGame();
         if (!result.upkeepPaid) {
           engine.goToScene('game-over');
         }
@@ -559,6 +588,57 @@ export class GameplayScene extends Scene {
 
     this.testPopup = popup;
     this.add(popup);
+  }
+
+  private autoSaveIfDirty(): void {
+    if (!this.activeSaveSlot) {
+      return;
+    }
+
+    const signature = this.buildSaveSignature();
+    if (signature === this.lastSavedSignature) {
+      return;
+    }
+
+    this.saveCurrentGame(signature);
+  }
+
+  private saveCurrentGame(signatureOverride?: string): void {
+    if (!this.activeSaveSlot) {
+      return;
+    }
+
+    const save = SaveManager.captureGameState(this.gameManager, this.turnManager);
+    SaveManager.saveToSlot(this.activeSaveSlot, save);
+    this.lastSavedSignature = signatureOverride ?? this.buildSaveSignature();
+  }
+
+  private buildSaveSignature(): string {
+    const resourcesVersion = this.resourceManager.getResourcesVersion();
+    const buildingsVersion = this.gameManager.buildingManager.getBuildingsVersion();
+    const researchVersion = this.gameManager.researchManager.getResearchVersion();
+    const turnVersion = this.turnManager.getTurnVersion();
+    const rngState = this.gameManager.rng.getState();
+    const ruler = this.gameManager.rulerManager.getRulerRef();
+    const state = this.gameManager.stateManager.getStateRef();
+
+    return [
+      resourcesVersion,
+      buildingsVersion,
+      researchVersion,
+      turnVersion,
+      rngState,
+      ruler.age,
+      ruler.popularity,
+      ruler.name,
+      state.name,
+      state.size,
+      state.ocean,
+      state.tiles.forest,
+      state.tiles.stone,
+      state.tiles.plains,
+      state.tiles.river,
+    ].join('|');
   }
 
   private addHudElement<TActor extends Actor>(actor: TActor): TActor {

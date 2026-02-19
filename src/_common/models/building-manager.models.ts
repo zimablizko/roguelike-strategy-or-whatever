@@ -68,5 +68,7 @@ export interface BuildingManagerOptions {
   initial?: {
     technologies?: TechnologyId[];
     builtBuildings?: Partial<Record<StateBuildingId, number | boolean>>;
+    buildingInstances?: StateBuildingInstance[];
+    buildingInstanceSerial?: number;
   };
 }

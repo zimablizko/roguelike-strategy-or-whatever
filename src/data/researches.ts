@@ -37,7 +37,7 @@ export const researchDefinitions = {
     id: 'eco-agriculture',
     tree: 'economics',
     name: 'Agriculture',
-    description: 'Organized crop rotation and field management for stable harvests.',
+    description: 'Unlocks Farm construction through organized crop rotation and field management.',
     turns: 2,
     requiredResearches: [],
   },
@@ -57,11 +57,11 @@ export const researchDefinitions = {
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },
-  'eco-granary-standards': {
-    id: 'eco-granary-standards',
+  'eco-mining': {
+    id: 'eco-mining',
     tree: 'economics',
-    name: 'Granary Standards',
-    description: 'Improved food storage and spoilage control procedures.',
+    name: 'Mining',
+    description: 'Unlocks Mine construction with systematic ore extraction and quarry methods.',
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },
@@ -79,7 +79,7 @@ export const researchDefinitions = {
     name: 'Trade Caravans',
     description: 'Organized caravan networks connecting distant settlements.',
     turns: 4,
-    requiredResearches: ['eco-coin-minting', 'eco-granary-standards'],
+    requiredResearches: ['eco-coin-minting', 'eco-mining'],
   },
   'pol-clan-council': {
     id: 'pol-clan-council',

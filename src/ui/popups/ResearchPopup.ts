@@ -10,7 +10,7 @@ import {
   type GraphicsGrouping,
 } from 'excalibur';
 import { clamp } from '../../_common/math';
-import { wrapText } from '../../_common/text';
+import { measureTextWidth } from '../../_common/text';
 import type {
   ResearchId,
   ResearchTreeId,
@@ -364,10 +364,7 @@ export class ResearchPopup extends ScreenPopup {
       const activeThis = this.researchManager.isActive(definition.id);
       const startStatus = this.researchManager.canStartResearch(definition.id);
       const startable = startStatus.startable;
-      const shortDescription = this.getShortNodeDescription(
-        definition.description,
-        startable
-      );
+      const shortDescription = this.getShortNodeDescription(definition.description);
 
       let statusText = `Turns: ${definition.turns}`;
       let statusColor = Color.fromHex('#cfd9e2');
@@ -413,9 +410,9 @@ export class ResearchPopup extends ScreenPopup {
 
       if (startable) {
         const startButton = new ScreenButton({
-          x: layout.x + RESEARCH_POPUP_LAYOUT.nodeWidth - 82,
-          y: renderY + 44,
-          width: 74,
+          x: layout.x + RESEARCH_POPUP_LAYOUT.nodeWidth - 68,
+          y: renderY + 8,
+          width: 60,
           height: 22,
           title: 'Start',
           onClick: () => this.startResearch(definition.id),
@@ -731,39 +728,59 @@ export class ResearchPopup extends ScreenPopup {
     return card;
   }
 
-  private getShortNodeDescription(text: string, startable: boolean): string[] {
-    const reservedWidth = startable
-      ? RESEARCH_POPUP_LAYOUT.nodeWidth - RESEARCH_POPUP_LAYOUT.nodeButtonZoneWidth - 16
-      : RESEARCH_POPUP_LAYOUT.nodeWidth - 16;
-    const lines = wrapText(text, reservedWidth, 11);
-    if (lines.length === 0) {
+  private getShortNodeDescription(text: string): string[] {
+    const maxWidth = RESEARCH_POPUP_LAYOUT.nodeWidth - 16;
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
       return ['', ''];
     }
 
-    if (lines.length === 1) {
-      return [lines[0], ''];
+    const firstLine = this.fitLineByWidth(words, maxWidth, 11);
+    if (firstLine.usedWords >= words.length) {
+      return [firstLine.text, ''];
     }
 
-    if (lines.length === 2) {
-      return [lines[0], lines[1]];
+    const secondLineSource = words.slice(firstLine.usedWords).join(' ');
+    return [firstLine.text, this.ellipsis(secondLineSource, maxWidth, 11)];
+  }
+
+  private fitLineByWidth(
+    words: string[],
+    maxWidth: number,
+    fontSize: number
+  ): { text: string; usedWords: number } {
+    let line = '';
+    let usedWords = 0;
+
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (
+        measureTextWidth(next, fontSize) <= maxWidth ||
+        (line.length === 0 && usedWords === 0)
+      ) {
+        line = next;
+        usedWords++;
+        continue;
+      }
+      break;
     }
 
-    return [lines[0], this.ellipsis(lines[1], reservedWidth, 11)];
+    return { text: line, usedWords };
   }
 
   private ellipsis(text: string, width: number, fontSize: number): string {
     const suffix = '...';
-    if (wrapText(text, width, fontSize)[0] === text) {
+    if (measureTextWidth(text, fontSize) <= width) {
       return text;
     }
 
-    let candidate = text;
+    let candidate = text.trim();
     while (candidate.length > 1) {
       const next = `${candidate}${suffix}`;
-      if (wrapText(next, width, fontSize)[0] === next) {
+      if (measureTextWidth(next, fontSize) <= width) {
         return next;
       }
-      candidate = candidate.slice(0, -1);
+      candidate = candidate.slice(0, -1).trimEnd();
     }
     return suffix;
   }

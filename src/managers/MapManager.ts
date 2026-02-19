@@ -30,6 +30,11 @@ export class MapManager {
 
   constructor(options: MapManagerOptions = {}) {
     this.rng = options.rng ?? new SeededRandom();
+    if (options.initialMap) {
+      this.map = this.cloneMap(options.initialMap);
+      return;
+    }
+
     const width = Math.max(8, Math.floor(options.width ?? DEFAULT_WIDTH));
     const height = Math.max(8, Math.floor(options.height ?? DEFAULT_HEIGHT));
     this.map = this.generate(width, height);
@@ -44,9 +49,26 @@ export class MapManager {
   }
 
   regenerate(options?: MapManagerOptions): void {
+    if (options?.initialMap) {
+      this.map = this.cloneMap(options.initialMap);
+      return;
+    }
+
     const width = Math.max(8, Math.floor(options?.width ?? this.map.width));
     const height = Math.max(8, Math.floor(options?.height ?? this.map.height));
     this.map = this.generate(width, height);
+  }
+
+  private cloneMap(map: Readonly<MapData>): MapData {
+    return {
+      width: Math.max(1, Math.floor(map.width)),
+      height: Math.max(1, Math.floor(map.height)),
+      tiles: map.tiles.map((row) => row.slice()),
+      zones: map.zones.map((row) => row.slice()),
+      zoneCount: Math.max(0, Math.floor(map.zoneCount)),
+      playerZoneId:
+        map.playerZoneId === null ? null : Math.floor(map.playerZoneId),
+    };
   }
 
   private generate(width: number, height: number): MapData {

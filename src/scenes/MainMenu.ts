@@ -3,9 +3,17 @@ import { ScreenButton } from '../ui/elements/ScreenButton';
 
 export class MainMenu extends Scene {
   onInitialize(engine: Engine): void {
-    // Set background color
     this.backgroundColor = Color.fromHex('#34495e');
-    // Create title label
+    this.render(engine);
+  }
+
+  onActivate(): void {
+    this.render(this.engine);
+  }
+
+  private render(engine: Engine): void {
+    this.clear();
+
     const title = new Label({
       text: 'Roguelike Strategy Game',
       x: engine.drawWidth / 2,
@@ -22,17 +30,17 @@ export class MainMenu extends Scene {
   }
 
   private addButtons(engine: Engine) {
-    const startButton = new ScreenButton({
+    const playButton = new ScreenButton({
       x: engine.drawWidth / 2 - 75,
       y: engine.drawHeight / 2 + 20,
       width: 150,
       height: 50,
-      title: 'New Game',
+      title: 'Play',
       onClick: () => {
         engine.goToScene('preparation');
       },
     });
-    this.add(startButton);
+    this.add(playButton);
 
     const optionsButton = new ScreenButton({
       x: engine.drawWidth / 2 - 75,

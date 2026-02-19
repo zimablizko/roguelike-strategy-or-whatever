@@ -32,6 +32,7 @@ export interface MapManagerOptions {
   width?: number;
   height?: number;
   rng?: SeededRandom;
+  initialMap?: MapData;
 }
 
 export interface MapCell {

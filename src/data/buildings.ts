@@ -146,7 +146,7 @@ export const stateBuildingDefinitions = {
       allowedTiles: ['rocks'] as MapTileType[],
     },
     placementDescription: 'Requires 2x2 free Rocks area.',
-    requiredTechnologies: [],
+    requiredTechnologies: ['eco-mining'],
     getStats: (state: { tiles: { stone: number } }, count: number) => {
       const baseYield = Math.max(1, Math.floor(state.tiles.stone / 4));
       return [

@@ -37,14 +37,30 @@ export class TurnManager {
       maxActionPoints?: number;
       rng?: SeededRandom;
       researchManager?: ResearchManager;
+      initial?: {
+        data?: TurnData;
+        version?: number;
+      };
     }
   ) {
     const maxAP = options?.maxActionPoints ?? 10;
+    const initialData = options?.initial?.data;
+    const initialMax = Math.max(
+      1,
+      Math.floor(initialData?.actionPoints.max ?? maxAP)
+    );
+    const initialCurrent = Math.min(
+      initialMax,
+      Math.max(
+        0,
+        Math.floor(initialData?.actionPoints.current ?? initialMax)
+      )
+    );
     this.turnData = {
-      turnNumber: 1,
+      turnNumber: Math.max(1, Math.floor(initialData?.turnNumber ?? 1)),
       actionPoints: {
-        current: maxAP,
-        max: maxAP,
+        current: initialCurrent,
+        max: initialMax,
       },
     };
     this.resourceManager = resourceManager;
@@ -52,6 +68,7 @@ export class TurnManager {
     this.buildingManager = buildingManager;
     this.researchManager = options?.researchManager;
     this.rng = options?.rng ?? new SeededRandom();
+    this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
   }
 
   endTurn(): EndTurnResult {

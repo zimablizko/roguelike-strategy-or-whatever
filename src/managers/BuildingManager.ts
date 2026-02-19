@@ -90,6 +90,10 @@ export class BuildingManager {
     return this.buildingInstances;
   }
 
+  getBuildingInstanceSerial(): number {
+    return this.buildingInstanceSerial;
+  }
+
   getLatestBuildingInstance(
     buildingId?: StateBuildingId
   ): StateBuildingInstance | undefined {
@@ -510,6 +514,38 @@ export class BuildingManager {
     }
 
     this.buildingCounts = createEmptyBuildingRecord();
+    this.buildingInstances = [];
+    this.buildingInstanceSerial = 0;
+
+    if (initial?.buildingInstances && initial.buildingInstances.length > 0) {
+      for (const rawInstance of initial.buildingInstances) {
+        const definition = this.getBuildingDefinition(rawInstance.buildingId);
+        if (!definition) {
+          continue;
+        }
+
+        const width = clamp(Math.floor(rawInstance.width), 1);
+        const height = clamp(Math.floor(rawInstance.height), 1);
+        this.buildingInstances.push({
+          instanceId: rawInstance.instanceId,
+          buildingId: rawInstance.buildingId,
+          x: clamp(Math.floor(rawInstance.x), 0),
+          y: clamp(Math.floor(rawInstance.y), 0),
+          width,
+          height,
+        });
+        this.buildingCounts[rawInstance.buildingId] += 1;
+      }
+
+      const highestSerial = this.collectHighestBuildingInstanceSerial();
+      const requestedSerial = clamp(
+        Math.floor(initial.buildingInstanceSerial ?? 0),
+        0
+      );
+      this.buildingInstanceSerial = Math.max(requestedSerial, highestSerial);
+      return;
+    }
+
     for (const id of Object.keys(this.buildingCounts) as StateBuildingId[]) {
       const raw = initial?.builtBuildings?.[id];
       if (raw === true) {
@@ -538,7 +574,10 @@ export class BuildingManager {
   }
 
   private ensureStartingCastle(): void {
-    if (!this.mapManager || this.getBuildingCount('castle') > 0) {
+    const hasCastleInstance = this.buildingInstances.some(
+      (instance) => instance.buildingId === 'castle'
+    );
+    if (!this.mapManager || hasCastleInstance) {
       return;
     }
 
@@ -559,6 +598,22 @@ export class BuildingManager {
     }
 
     this.registerBuildingInstance('castle', placement);
+  }
+
+  private collectHighestBuildingInstanceSerial(): number {
+    let highest = 0;
+    for (const instance of this.buildingInstances) {
+      const dashIndex = instance.instanceId.lastIndexOf('-');
+      if (dashIndex < 0) {
+        continue;
+      }
+      const serialText = instance.instanceId.slice(dashIndex + 1);
+      const serial = Number.parseInt(serialText, 10);
+      if (Number.isFinite(serial)) {
+        highest = Math.max(highest, serial);
+      }
+    }
+    return highest;
   }
 
   private syncStateWithMapSummary(): void {

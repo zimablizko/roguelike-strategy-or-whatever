@@ -25,9 +25,19 @@ export class ResearchManager {
   private latestCompletion?: CompletedResearchSummary;
   private researchVersion = 0;
 
-  constructor(buildingManager: BuildingManager) {
+  constructor(
+    buildingManager: BuildingManager,
+    options?: {
+      initial?: {
+        activeResearch?: ActiveResearchState;
+        completedResearches?: ResearchId[];
+        latestCompletion?: CompletedResearchSummary;
+        researchVersion?: number;
+      };
+    }
+  ) {
     this.buildingManager = buildingManager;
-    this.bootstrapFromUnlockedTechnologies();
+    this.bootstrap(options?.initial);
   }
 
   getResearchDefinitions(): TypedResearchDefinition[] {
@@ -72,6 +82,13 @@ export class ResearchManager {
     };
   }
 
+  getActiveResearchState(): ActiveResearchState | undefined {
+    if (!this.activeResearch) {
+      return undefined;
+    }
+    return { ...this.activeResearch };
+  }
+
   getLatestCompletion(): CompletedResearchSummary | undefined {
     if (!this.latestCompletion) {
       return undefined;
@@ -81,6 +98,10 @@ export class ResearchManager {
 
   getCompletedCount(): number {
     return this.completedResearches.size;
+  }
+
+  getCompletedResearchIds(): ResearchId[] {
+    return Array.from(this.completedResearches.values());
   }
 
   getTotalCount(): number {
@@ -187,6 +208,63 @@ export class ResearchManager {
       }
     }
     return false;
+  }
+
+  private bootstrap(initial?: {
+    activeResearch?: ActiveResearchState;
+    completedResearches?: ResearchId[];
+    latestCompletion?: CompletedResearchSummary;
+    researchVersion?: number;
+  }): void {
+    this.completedResearches.clear();
+    this.activeResearch = undefined;
+    this.latestCompletion = undefined;
+    this.researchVersion = Math.max(
+      0,
+      Math.floor(initial?.researchVersion ?? 0)
+    );
+
+    const completedFromSave = initial?.completedResearches ?? [];
+    if (completedFromSave.length > 0) {
+      for (const id of completedFromSave) {
+        if (isResearchId(id)) {
+          this.completedResearches.add(id);
+          this.buildingManager.unlockTechnology(id);
+        }
+      }
+    } else {
+      this.bootstrapFromUnlockedTechnologies();
+    }
+
+    if (initial?.activeResearch && isResearchId(initial.activeResearch.id)) {
+      this.activeResearch = {
+        id: initial.activeResearch.id,
+        startedOnTurn: Math.max(1, Math.floor(initial.activeResearch.startedOnTurn)),
+        totalTurns: Math.max(1, Math.floor(initial.activeResearch.totalTurns)),
+        remainingTurns: Math.max(
+          0,
+          Math.floor(initial.activeResearch.remainingTurns)
+        ),
+      };
+    }
+
+    if (
+      initial?.latestCompletion &&
+      isResearchId(initial.latestCompletion.id)
+    ) {
+      const definition = getResearchDefinition(initial.latestCompletion.id);
+      if (definition) {
+        this.latestCompletion = {
+          id: definition.id,
+          name: definition.name,
+          tree: definition.tree,
+          completedOnTurn: Math.max(
+            1,
+            Math.floor(initial.latestCompletion.completedOnTurn)
+          ),
+        };
+      }
+    }
   }
 
   private bootstrapFromUnlockedTechnologies(): void {

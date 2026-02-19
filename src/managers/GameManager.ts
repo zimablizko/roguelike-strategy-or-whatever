@@ -3,6 +3,7 @@ import type {
   GameManagerOptions,
   PlayerData,
 } from '../_common/models/game.models';
+import type { GameSaveData } from '../_common/models/save.models';
 import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
 import { ResearchManager } from './ResearchManager';
@@ -15,6 +16,16 @@ import { StateManager } from './StateManager';
  * Resource manipulation is delegated to ResourceManager.
  */
 export class GameManager {
+  private static readonly DEFAULT_PLAYER_DATA: PlayerData = {
+    race: 'human',
+    resources: {
+      gold: 100,
+      materials: 50,
+      food: 75,
+      population: 10,
+    },
+  };
+
   playerData: PlayerData;
   resourceManager: ResourceManager;
   rulerManager: RulerManager;
@@ -25,20 +36,40 @@ export class GameManager {
   readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
-    this.playerData = options.playerData;
-    this.rng = new SeededRandom(options.seed);
+    const saveData = options.saveData;
+    this.playerData =
+      saveData?.playerData ?? options.playerData ?? GameManager.DEFAULT_PLAYER_DATA;
+    this.rng = new SeededRandom(saveData?.rngState ?? options.seed);
 
     this.resourceManager = new ResourceManager({
-      initial: options.playerData.resources,
+      initial: saveData?.resources ?? this.playerData.resources,
     });
 
-    // Ruler is generated at the beginning of the game.
-    this.rulerManager = new RulerManager({ rng: this.rng });
-    this.mapManager = new MapManager({ ...options.map, rng: this.rng });
-    const playerState = this.mapManager.getPlayerStateSummary();
+    this.rulerManager = new RulerManager({
+      rng: this.rng,
+      initial: saveData?.ruler
+        ? {
+            name: saveData.ruler.name,
+            age: saveData.ruler.age,
+            popularity: saveData.ruler.popularity,
+          }
+        : undefined,
+    });
+
+    this.mapManager = new MapManager(
+      saveData
+        ? {
+            rng: this.rng,
+            initialMap: saveData.map,
+          }
+        : { ...options.map, rng: this.rng }
+    );
+
+    const playerState = saveData?.state ?? this.mapManager.getPlayerStateSummary();
     this.stateManager = new StateManager({
       rng: this.rng,
       initial: {
+        name: saveData?.state.name,
         tiles: {
           forest: playerState.tiles.forest,
           stone: playerState.tiles.stone,
@@ -55,8 +86,29 @@ export class GameManager {
         getStateRef: () => this.stateManager.getStateRef(),
         applyMapSummary: (summary) => this.stateManager.applyMapSummary(summary),
       },
+      initial: saveData?.buildings
+        ? {
+            technologies: saveData.buildings.technologies,
+            builtBuildings: saveData.buildings.counts,
+            buildingInstances: saveData.buildings.instances,
+            buildingInstanceSerial: saveData.buildings.instanceSerial,
+          }
+        : undefined,
     });
-    this.researchManager = new ResearchManager(this.buildingManager);
+    this.researchManager = new ResearchManager(this.buildingManager, {
+      initial: saveData?.research
+        ? {
+            activeResearch: saveData.research.activeResearch,
+            completedResearches: saveData.research.completedResearches,
+            latestCompletion: saveData.research.latestCompletion,
+            researchVersion: saveData.research.researchVersion,
+          }
+        : undefined,
+    });
+
+    if (saveData) {
+      this.rng.setState(saveData.rngState);
+    }
   }
 
   logData() {
@@ -68,5 +120,59 @@ export class GameManager {
       width: this.mapManager.getMapRef().width,
       height: this.mapManager.getMapRef().height,
     });
+  }
+
+  getSnapshot(turnData: GameSaveData['turn']): GameSaveData {
+    const map = this.mapManager.getMapRef();
+    const ruler = this.rulerManager.getRulerRef();
+    const state = this.stateManager.getStateRef();
+
+    return {
+      version: 1,
+      savedAt: Date.now(),
+      playerData: {
+        race: this.playerData.race,
+        resources: this.resourceManager.getAllResources(),
+      },
+      rngState: this.rng.getState(),
+      map: {
+        width: map.width,
+        height: map.height,
+        tiles: map.tiles.map((row) => row.slice()),
+        zones: map.zones.map((row) => row.slice()),
+        zoneCount: map.zoneCount,
+        playerZoneId: map.playerZoneId,
+      },
+      resources: this.resourceManager.getAllResources(),
+      ruler: {
+        name: ruler.name,
+        age: ruler.age,
+        popularity: ruler.popularity,
+      },
+      state: {
+        name: state.name,
+        size: state.size,
+        ocean: state.ocean,
+        tiles: {
+          forest: state.tiles.forest,
+          stone: state.tiles.stone,
+          plains: state.tiles.plains,
+          river: state.tiles.river,
+        },
+      },
+      buildings: {
+        counts: this.buildingManager.getBuildingCounts(),
+        instances: this.buildingManager.getBuildingInstances(),
+        instanceSerial: this.buildingManager.getBuildingInstanceSerial(),
+        technologies: this.buildingManager.getUnlockedTechnologies(),
+      },
+      research: {
+        activeResearch: this.researchManager.getActiveResearchState(),
+        completedResearches: this.researchManager.getCompletedResearchIds(),
+        latestCompletion: this.researchManager.getLatestCompletion(),
+        researchVersion: this.researchManager.getResearchVersion(),
+      },
+      turn: turnData,
+    };
   }
 }
