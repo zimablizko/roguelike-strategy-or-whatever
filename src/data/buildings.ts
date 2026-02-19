@@ -62,7 +62,7 @@ export const stateBuildingDefinitions = {
     name: 'House',
     shortName: 'Hse',
     description:
-      'Residential dwelling that shelters settlers and grows your workforce. Provides +5 population.',
+      'Residential dwelling that shelters settlers and grows your workforce. Provides +5 population. After researching Tax Collection, each House passively generates +2 Gold per turn.',
     buildCost: {
       gold: 25,
       materials: 15,
@@ -80,6 +80,7 @@ export const stateBuildingDefinitions = {
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
       `Population provided: +${count * 5}`,
+      'Tax Collection: +2 Gold/turn per House',
     ],
     actions: [],
   },

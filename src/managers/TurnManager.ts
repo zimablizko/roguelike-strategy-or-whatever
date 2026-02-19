@@ -18,6 +18,9 @@ import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
 
 export class TurnManager {
+  private static readonly HOUSE_TAX_TECHNOLOGY_ID = 'eco-tax-collection';
+  private static readonly HOUSE_TAX_GOLD_PER_TURN = 2;
+
   private turnData: TurnData;
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;
@@ -114,8 +117,9 @@ export class TurnManager {
    */
   getUpkeepBreakdown(): UpkeepBreakdown {
     const totalPop = this.buildingManager.getTotalPopulation();
-    const baseFood = CONFIG.UPKEEP_COST.food ?? 0;
-    const baseGold = CONFIG.UPKEEP_COST.gold ?? 0;
+    const baseCost = CONFIG.UPKEEP_COST as ResourceCost;
+    const baseFood = baseCost.food ?? 0;
+    const baseGold = baseCost.gold ?? 0;
     const populationFood = Math.ceil(totalPop / 2);
     return {
       baseFood,
@@ -168,15 +172,16 @@ export class TurnManager {
       });
     };
 
+    const hasHouseTaxCollection = this.buildingManager.isTechnologyUnlocked(
+      TurnManager.HOUSE_TAX_TECHNOLOGY_ID
+    );
+
     for (const instance of buildingInstances) {
       const centerX = instance.x + (instance.width - 1) / 2;
       const centerY = instance.y + (instance.height - 1) / 2;
 
       const incomeEntries =
-        buildingPassiveIncome[instance.buildingId as StateBuildingId];
-      if (!incomeEntries) {
-        continue;
-      }
+        buildingPassiveIncome[instance.buildingId as StateBuildingId] ?? [];
 
       for (const entry of incomeEntries) {
         let amount: number;
@@ -190,6 +195,15 @@ export class TurnManager {
           amount = entry.amount;
         }
         addIncome(centerX, centerY, entry.resourceType, amount);
+      }
+
+      if (hasHouseTaxCollection && instance.buildingId === 'house') {
+        addIncome(
+          centerX,
+          centerY,
+          'gold',
+          TurnManager.HOUSE_TAX_GOLD_PER_TURN
+        );
       }
     }
 

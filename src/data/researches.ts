@@ -41,6 +41,14 @@ export const researchDefinitions = {
     turns: 2,
     requiredResearches: [],
   },
+  'eco-tax-collection': {
+    id: 'eco-tax-collection',
+    tree: 'economics',
+    name: 'Tax Collection',
+    description: 'Establishes regular tax registers. Houses passively generate +2 Gold per turn.',
+    turns: 2,
+    requiredResearches: [],
+  },
   'eco-market-charters': {
     id: 'eco-market-charters',
     tree: 'economics',

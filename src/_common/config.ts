@@ -13,7 +13,6 @@ export const CONFIG = {
   /** Resources deducted at the end of each turn. */
   UPKEEP_COST: {
     food: 10,
-    gold: 5,
   } satisfies ResourceCost,
 } as const;
 export type Config = typeof CONFIG;
