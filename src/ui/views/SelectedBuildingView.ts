@@ -296,12 +296,14 @@ export class SelectedBuildingView extends ScreenElement {
         action.id
       );
       const enabled = hasActionPoint && actionStatus.activatable;
+      const usesMax = actionStatus.usesMax ?? 0;
+      const usesLabel = usesMax > 1 ? ` (${actionStatus.usesRemaining}/${usesMax})` : '';
       const row = new ActionElement({
         x: startX,
         y,
         width: rowWidth,
         height: 34,
-        title: action.name,
+        title: action.name + usesLabel,
         description: action.description,
         outcomes: this.getActionOutcomes(definition, action),
         tooltipProvider: this.tooltipProvider,

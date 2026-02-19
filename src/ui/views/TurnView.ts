@@ -11,6 +11,7 @@ import {
 } from 'excalibur';
 import type { TurnDisplayOptions } from '../../_common/models/ui.models';
 import { TurnManager } from '../../managers/TurnManager';
+import type { TooltipProvider } from '../tooltip/TooltipProvider';
 
 /**
  * UI component that displays current turn and focus.
@@ -26,6 +27,9 @@ export class TurnDisplay extends ScreenElement {
   private segmentColor: Color;
   private spentSegmentColor: Color;
   private barWidth: number;
+  private tooltipProvider?: TooltipProvider;
+  private lastPanelWidth = 0;
+  private lastPanelHeight = 0;
 
   private lastRendered:
     | { turnNumber: number; apCurrent: number; apMax: number }
@@ -45,10 +49,38 @@ export class TurnDisplay extends ScreenElement {
     this.spentSegmentColor =
       options.spentSegmentColor ?? Color.fromHex('#1a252f');
     this.barWidth = options.barWidth ?? 280;
+    this.tooltipProvider = options.tooltipProvider;
   }
 
   onInitialize(): void {
     this.updateDisplay(true);
+
+    if (this.tooltipProvider) {
+      const provider = this.tooltipProvider;
+      this.pointer.useGraphicsBounds = true;
+      this.on('pointerenter', () => {
+        provider.show({
+          owner: this,
+          getAnchorRect: () => ({
+            x: this.globalPos.x,
+            y: this.globalPos.y,
+            width: this.lastPanelWidth,
+            height: this.lastPanelHeight,
+          }),
+          header: 'Focus',
+          description:
+            'The Ruler has limited focus each turn. Each action — construction, border expansion, or personal deed — demands their attention. Focus fully recovers at the start of a new turn.',
+          placement: 'bottom',
+          width: 280,
+        });
+      });
+      this.on('pointerleave', () => {
+        provider.hide(this);
+      });
+      this.on('prekill', () => {
+        provider.hide(this);
+      });
+    }
   }
 
   onPreUpdate(): void {
@@ -112,6 +144,8 @@ export class TurnDisplay extends ScreenElement {
 
     // Treat x/y as an anchor point (top-center).
     this.pos = vec(this.anchorX - panelWidth / 2, this.anchorY);
+    this.lastPanelWidth = panelWidth;
+    this.lastPanelHeight = panelHeight;
 
     const members: GraphicsGrouping[] = [];
 

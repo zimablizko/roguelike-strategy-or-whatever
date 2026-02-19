@@ -16,6 +16,12 @@ export interface StateBuildingActionDefinition {
   id: string;
   name: string;
   description: string;
+  /**
+   * Number of times this action can be used per turn, multiplied by the
+   * number of building instances of this type. Defaults to 1.
+   * Example: charges=2 on a unique castle means 2 uses per turn.
+   */
+  charges?: number;
   run: (context: BuildingActionContext) => void;
 }
 

@@ -319,6 +319,7 @@ export class GameplayScene extends Scene {
         x: engine.drawWidth / 2,
         y: 20,
         turnManager: this.turnManager,
+        tooltipProvider: this.tooltipProvider,
       })
     );
   }

@@ -150,6 +150,7 @@ export interface TurnDisplayOptions {
   x: number;
   y: number;
   turnManager: TurnManager;
+  tooltipProvider?: TooltipProvider;
   textColor?: Color;
   panelBgColor?: Color;
   panelBorderColor?: Color;

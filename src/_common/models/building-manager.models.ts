@@ -19,6 +19,10 @@ export interface StateBuildingBuildStatus {
 export interface StateBuildingActionStatus {
   activatable: boolean;
   reason?: string;
+  /** Remaining uses this turn across all instances of this building. */
+  usesRemaining?: number;
+  /** Maximum uses this turn (building count × action charges). */
+  usesMax?: number;
 }
 
 export interface StateBuildingInstance {

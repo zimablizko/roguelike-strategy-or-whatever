@@ -54,6 +54,7 @@ export const stateBuildingDefinitions = {
         name: 'Expand',
         description:
           'Expand state borders by 1 cell in all directions if no edge or ocean blocks expansion.',
+        charges: 2,
         run: () => {},
       },
     ],

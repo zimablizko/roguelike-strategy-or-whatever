@@ -156,6 +156,7 @@ export class TurnManager {
 
   resetFocus(): void {
     this.turnData.focus.current = this.turnData.focus.max;
+    this.buildingManager.resetActionUsage();
   }
 
   private applyPassiveBuildingIncome(): {

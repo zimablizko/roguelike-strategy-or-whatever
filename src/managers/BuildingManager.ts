@@ -36,6 +36,8 @@ export class BuildingManager {
   private buildingInstanceSerial = 0;
   private buildingsVersion = 0;
   private unlockedTechnologies = new Set<TechnologyId>();
+  /** Tracks how many times each action has been used this turn. Key: "buildingId:actionId". */
+  private actionUsesThisTurn = new Map<string, number>();
 
   constructor(options: BuildingManagerOptions) {
     this.mapManager = options.mapManager;
@@ -445,7 +447,11 @@ export class BuildingManager {
     }
 
     if (buildingId === 'castle' && actionId === 'expand-border') {
-      return this.expandPlayerBorders();
+      const expanded = this.expandPlayerBorders();
+      if (expanded) {
+        this.incrementActionUsage(buildingId, actionId);
+      }
+      return expanded;
     }
 
     const definition = this.getBuildingDefinition(buildingId);
@@ -468,6 +474,7 @@ export class BuildingManager {
       resources,
       buildingCount,
     });
+    this.incrementActionUsage(buildingId, actionId);
     return true;
   }
 
@@ -498,11 +505,33 @@ export class BuildingManager {
       };
     }
 
-    if (buildingId === 'castle' && actionId === 'expand-border') {
-      return this.getExpandBorderStatus();
+    const usesMax = this.getBuildingCount(buildingId) * (action.charges ?? 1);
+    const usedCount = this.actionUsesThisTurn.get(`${buildingId}:${actionId}`) ?? 0;
+    const usesRemaining = Math.max(0, usesMax - usedCount);
+
+    if (usesRemaining === 0) {
+      return {
+        activatable: false,
+        reason: 'No uses remaining this turn.',
+        usesRemaining: 0,
+        usesMax,
+      };
     }
 
-    return { activatable: true };
+    if (buildingId === 'castle' && actionId === 'expand-border') {
+      const expandStatus = this.getExpandBorderStatus();
+      return { ...expandStatus, usesRemaining, usesMax };
+    }
+
+    return { activatable: true, usesRemaining, usesMax };
+  }
+
+  /**
+   * Resets all per-turn action usage counters.
+   * Called at the start of each new turn.
+   */
+  resetActionUsage(): void {
+    this.actionUsesThisTurn.clear();
   }
 
   private applyProgress(initial?: BuildingManagerOptions['initial']): void {
@@ -640,6 +669,11 @@ export class BuildingManager {
     });
     this.buildingCounts[id] += 1;
     this.buildingsVersion++;
+  }
+
+  private incrementActionUsage(buildingId: StateBuildingId, actionId: string): void {
+    const key = `${buildingId}:${actionId}`;
+    this.actionUsesThisTurn.set(key, (this.actionUsesThisTurn.get(key) ?? 0) + 1);
   }
 
   private expandPlayerBorders(): boolean {
