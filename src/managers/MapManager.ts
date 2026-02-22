@@ -11,7 +11,9 @@ import type {
   RiverStartType,
   VoronoiPoint,
 } from '../_common/models/map.models';
+import type { RareResourceMap } from '../_common/models/rare-resource.models';
 import { SeededRandom } from '../_common/random';
+import { rareResourceDefinitions } from '../data/rareResources';
 
 const DEFAULT_WIDTH = 30;
 const DEFAULT_HEIGHT = 20;
@@ -81,6 +83,7 @@ export class MapManager {
       zoneCount: Math.max(0, Math.floor(map.zoneCount)),
       playerZoneId:
         map.playerZoneId === null ? null : Math.floor(map.playerZoneId),
+      rareResources: { ...(map.rareResources ?? {}) },
     };
   }
 
@@ -91,6 +94,7 @@ export class MapManager {
     this.applyRivers(tiles, width, height);
     this.applySand(tiles, width, height);
     const zonesData = this.generateZones(tiles, width, height);
+    const rareResources = this.generateRareResources(tiles, width, height);
 
     return {
       width,
@@ -99,7 +103,72 @@ export class MapManager {
       zones: zonesData.zones,
       zoneCount: zonesData.zoneCount,
       playerZoneId: zonesData.playerZoneId,
+      rareResources,
     };
+  }
+
+  private generateRareResources(
+    tiles: MapTileType[][],
+    width: number,
+    height: number
+  ): RareResourceMap {
+    const result: RareResourceMap = {};
+    const defs = Object.values(rareResourceDefinitions);
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tile = tiles[y][x];
+        for (const def of defs) {
+          if (!def.spawnOnTiles.includes(tile)) continue;
+          if (
+            def.requiresContiguous2x2 &&
+            !this.hasContiguous2x2(tiles, x, y, def.spawnOnTiles, width, height)
+          )
+            continue;
+          if (this.rng.next() < def.spawnChance) {
+            result[`${x},${y}`] = {
+              resourceId: def.id,
+              x,
+              y,
+              visible: def.visible,
+            };
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns true if (x, y) is part of at least one 2×2 block where all four
+   * tiles belong to the given allowed tile set. Checks all four possible
+   * top-left offsets of a 2×2 block that cover (x, y).
+   */
+  private hasContiguous2x2(
+    tiles: MapTileType[][],
+    x: number,
+    y: number,
+    allowedTiles: readonly MapTileType[],
+    width: number,
+    height: number
+  ): boolean {
+    for (let dy = 0; dy >= -1; dy--) {
+      for (let dx = 0; dx >= -1; dx--) {
+        const tx = x + dx;
+        const ty = y + dy;
+        if (tx < 0 || ty < 0 || tx + 1 >= width || ty + 1 >= height) continue;
+        if (
+          allowedTiles.includes(tiles[ty][tx]) &&
+          allowedTiles.includes(tiles[ty][tx + 1]) &&
+          allowedTiles.includes(tiles[ty + 1][tx]) &&
+          allowedTiles.includes(tiles[ty + 1][tx + 1])
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private createGrid(

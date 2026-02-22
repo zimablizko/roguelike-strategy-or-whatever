@@ -142,6 +142,7 @@ export class GameManager {
         zones: map.zones.map((row) => row.slice()),
         zoneCount: map.zoneCount,
         playerZoneId: map.playerZoneId,
+        rareResources: { ...map.rareResources },
       },
       resources: this.resourceManager.getAllResources(),
       ruler: {

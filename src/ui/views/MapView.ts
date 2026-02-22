@@ -16,6 +16,10 @@ import type {
   MapBuildingOverlay,
   MapViewOptions,
 } from '../../_common/models/ui.models';
+import {
+  rareResourceDefinitions,
+  type RareResourceId,
+} from '../../data/rareResources';
 import { MAP_VIEW_DEFAULTS } from '../constants/MapViewConstants';
 import { UI_Z } from '../constants/ZLayers';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
@@ -76,6 +80,7 @@ export class MapView extends Actor {
   private renderedPlayerZoneTileCount = -1;
   private renderedBuildPlacementVersion = -1;
   private hoveredBuildingInstanceId?: string;
+  private hoveredRareResourceKey?: string;
   private selectedBuildingInstanceId?: string;
   private buildPlacementPreviewTile?: { x: number; y: number };
   private buildPlacementPreviewValid = false;
@@ -166,6 +171,8 @@ export class MapView extends Actor {
       }
     }
 
+    this.drawRareResourceIcons(ctx);
+
     if (this.showGrid) {
       // Optional subtle grid lines to keep tile readability at medium/high zoom.
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
@@ -189,6 +196,29 @@ export class MapView extends Actor {
     this.drawPlayerStateBorder(ctx);
     this.drawBuildPlacementOverlay(ctx);
     this.drawBuildings(ctx);
+  }
+
+  private drawRareResourceIcons(ctx: CanvasRenderingContext2D): void {
+    const rareResources = this.map.rareResources;
+    if (!rareResources) return;
+    const offset = this.mapBorderPx;
+    const padding = Math.max(2, Math.floor(this.tileSize * 0.15));
+    const iconSize = this.tileSize - padding * 2;
+
+    for (const rr of Object.values(rareResources)) {
+      if (!rr.visible) continue;
+      const def = rareResourceDefinitions[rr.resourceId as RareResourceId];
+      if (!def) continue;
+      const img = def.icon.image;
+      if (!img) continue;
+      ctx.drawImage(
+        img,
+        offset + rr.x * this.tileSize + padding,
+        offset + rr.y * this.tileSize + padding,
+        iconSize,
+        iconSize
+      );
+    }
   }
 
   private drawBuildPlacementOverlay(ctx: CanvasRenderingContext2D): void {
@@ -799,7 +829,7 @@ export class MapView extends Actor {
       return;
     }
 
-    if (!this.tooltipProvider || !this.buildingsProvider) {
+    if (!this.tooltipProvider) {
       return;
     }
 
@@ -809,26 +839,54 @@ export class MapView extends Actor {
       return;
     }
 
-    const hovered = this.findBuildingAtScreenPosition(
-      pointerPos.x,
-      pointerPos.y
-    );
-    if (!hovered) {
-      this.clearBuildingTooltip();
+    const hovered = this.buildingsProvider
+      ? this.findBuildingAtScreenPosition(pointerPos.x, pointerPos.y)
+      : undefined;
+
+    if (hovered) {
+      if (this.hoveredBuildingInstanceId === hovered.instanceId) {
+        return;
+      }
+
+      this.hoveredBuildingInstanceId = hovered.instanceId;
+      this.hoveredRareResourceKey = undefined;
+      this.tooltipProvider.show({
+        owner: this,
+        getAnchorRect: () => this.getBuildingAnchorRect(hovered),
+        description: hovered.name,
+        width: 180,
+      });
       return;
     }
 
-    if (this.hoveredBuildingInstanceId === hovered.instanceId) {
-      return;
+    // Check for rare resource tile tooltip
+    const tile = this.getTileFromScreenPosition(pointerPos.x, pointerPos.y);
+    if (tile) {
+      const key = `${tile.x},${tile.y}`;
+      const rr = this.map.rareResources?.[key];
+      if (rr?.visible) {
+        const def =
+          rareResourceDefinitions[rr.resourceId as RareResourceId];
+        if (def) {
+          if (this.hoveredRareResourceKey === key) {
+            return;
+          }
+          this.hoveredBuildingInstanceId = undefined;
+          this.hoveredRareResourceKey = key;
+          const tileX = tile.x;
+          const tileY = tile.y;
+          this.tooltipProvider.show({
+            owner: this,
+            getAnchorRect: () => this.getTileAnchorRect(tileX, tileY),
+            description: `${def.name}\n${def.description}`,
+            width: 220,
+          });
+          return;
+        }
+      }
     }
 
-    this.hoveredBuildingInstanceId = hovered.instanceId;
-    this.tooltipProvider.show({
-      owner: this,
-      getAnchorRect: () => this.getBuildingAnchorRect(hovered),
-      description: hovered.name,
-      width: 180,
-    });
+    this.clearBuildingTooltip();
   }
 
   private updateBuildPlacementPreview(engine: Engine): void {
@@ -868,6 +926,7 @@ export class MapView extends Actor {
 
   private clearBuildingTooltip(): void {
     this.hoveredBuildingInstanceId = undefined;
+    this.hoveredRareResourceKey = undefined;
     this.tooltipProvider?.hide(this);
   }
 
@@ -957,6 +1016,20 @@ export class MapView extends Actor {
       y: this.viewY + localY * this.zoom,
       width: localWidth * this.zoom,
       height: localHeight * this.zoom,
+    };
+  }
+
+  private getTileAnchorRect(
+    tileX: number,
+    tileY: number
+  ): { x: number; y: number; width: number; height: number } {
+    const localX = this.mapBorderPx + tileX * this.tileSize;
+    const localY = this.mapBorderPx + tileY * this.tileSize;
+    return {
+      x: this.viewX + localX * this.zoom,
+      y: this.viewY + localY * this.zoom,
+      width: this.tileSize * this.zoom,
+      height: this.tileSize * this.zoom,
     };
   }
 

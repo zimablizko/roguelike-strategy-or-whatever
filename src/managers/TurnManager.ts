@@ -12,7 +12,12 @@ import type {
 } from '../_common/models/turn.models';
 import { SeededRandom } from '../_common/random';
 import { buildingPassiveIncome } from '../data/buildings';
+import {
+  rareResourceDefinitions,
+  type RareResourceId,
+} from '../data/rareResources';
 import { BuildingManager } from './BuildingManager';
+import { MapManager } from './MapManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -25,6 +30,7 @@ export class TurnManager {
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;
   private buildingManager: BuildingManager;
+  private mapManager?: MapManager;
   private researchManager?: ResearchManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
@@ -36,6 +42,7 @@ export class TurnManager {
     options?: {
       maxFocus?: number;
       rng?: SeededRandom;
+      mapManager?: MapManager;
       researchManager?: ResearchManager;
       initial?: {
         data?: TurnData;
@@ -63,6 +70,7 @@ export class TurnManager {
     this.resourceManager = resourceManager;
     this.rulerManager = rulerManager;
     this.buildingManager = buildingManager;
+    this.mapManager = options?.mapManager;
     this.researchManager = options?.researchManager;
     this.rng = options?.rng ?? new SeededRandom();
     this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
@@ -219,6 +227,34 @@ export class TurnManager {
           'gold',
           TurnManager.HOUSE_TAX_GOLD_PER_TURN
         );
+      }
+
+      // Rare resource bonuses
+      if (this.mapManager) {
+        const rareResources = this.mapManager.getMapRef().rareResources;
+        for (let ty = instance.y; ty < instance.y + instance.height; ty++) {
+          for (let tx = instance.x; tx < instance.x + instance.width; tx++) {
+            const rr = rareResources[`${tx},${ty}`];
+            if (!rr) continue;
+            const def =
+              rareResourceDefinitions[rr.resourceId as RareResourceId];
+            if (!def || def.bonusBuilding !== instance.buildingId) continue;
+            const rawAmount = def.bonus.amount as
+              | number
+              | `random:${number}:${number}`;
+            let bonusAmount: number;
+            if (typeof rawAmount === 'string') {
+              const parts = rawAmount.split(':');
+              bonusAmount = this.rng.randomInt(
+                parseInt(parts[1], 10),
+                parseInt(parts[2], 10)
+              );
+            } else {
+              bonusAmount = rawAmount;
+            }
+            addIncome(centerX, centerY, def.bonus.resourceType, bonusAmount);
+          }
+        }
       }
     }
 

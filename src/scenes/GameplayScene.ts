@@ -147,6 +147,7 @@ export class GameplayScene extends Scene {
       this.gameManager.buildingManager,
       {
         rng: this.gameManager.rng,
+        mapManager: this.gameManager.mapManager,
         researchManager: this.gameManager.researchManager,
         initial: slotSave?.turn
           ? {

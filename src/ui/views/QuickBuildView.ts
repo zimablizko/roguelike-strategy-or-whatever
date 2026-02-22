@@ -426,8 +426,10 @@ export class QuickBuildView extends ScreenElement {
     if (apCurrent < 1) {
       outcomes.push({
         label: 'Focus',
+        icon: Resources.FocusIcon,
         value: 'Not enough',
         color: badColor,
+        inline: true,
       });
     }
 

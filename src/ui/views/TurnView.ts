@@ -6,10 +6,12 @@ import {
   GraphicsGrouping,
   Rectangle,
   ScreenElement,
+  Sprite,
   Text,
   vec,
 } from 'excalibur';
 import type { TurnDisplayOptions } from '../../_common/models/ui.models';
+import { Resources } from '../../_common/resources';
 import { TurnManager } from '../../managers/TurnManager';
 import type { TooltipProvider } from '../tooltip/TooltipProvider';
 
@@ -130,8 +132,19 @@ export class TurnDisplay extends ScreenElement {
     const panelPaddingX = 14;
     const panelPaddingY = 10;
     const borderWidth = 1;
+    const focusIconSize = 14;
+    const focusIconGap = 4;
 
-    const contentWidth = Math.max(this.barWidth, turnText.width, apText.width);
+    const focusIconSprite = Resources.FocusIcon.isLoaded()
+      ? new Sprite({
+          image: Resources.FocusIcon,
+          destSize: { width: focusIconSize, height: focusIconSize },
+        })
+      : undefined;
+    const focusRowWidth =
+      apText.width + (focusIconSprite ? focusIconSize + focusIconGap : 0);
+
+    const contentWidth = Math.max(this.barWidth, turnText.width, focusRowWidth);
     const panelWidth = contentWidth + panelPaddingX * 2;
     const barX = (contentWidth - this.barWidth) / 2;
     const panelHeight =
@@ -202,11 +215,21 @@ export class TurnDisplay extends ScreenElement {
       ),
     });
 
-    // Focus text (centered)
+    // Focus icon + text (centered as a group)
     const apY = panelPaddingY + turnText.height + textGap;
+    const focusRowX = panelPaddingX + (contentWidth - focusRowWidth) / 2;
+    if (focusIconSprite) {
+      members.push({
+        graphic: focusIconSprite,
+        offset: vec(focusRowX, apY + (apText.height - focusIconSize) / 2),
+      });
+    }
     members.push({
       graphic: apText,
-      offset: vec(panelPaddingX + (contentWidth - apText.width) / 2, apY),
+      offset: vec(
+        focusRowX + (focusIconSprite ? focusIconSize + focusIconGap : 0),
+        apY
+      ),
     });
 
     // Bar geometry

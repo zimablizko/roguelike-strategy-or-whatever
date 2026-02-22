@@ -1,3 +1,4 @@
+import type { RareResourceMap } from './rare-resource.models';
 import type { SeededRandom } from '../random';
 
 export type MapTileType =
@@ -26,6 +27,7 @@ export interface MapData {
   zones: (number | null)[][];
   zoneCount: number;
   playerZoneId: number | null;
+  rareResources: RareResourceMap;
 }
 
 export interface MapManagerOptions {

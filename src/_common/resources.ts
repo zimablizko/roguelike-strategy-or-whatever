@@ -5,6 +5,8 @@ export const Resources = {
   MoneyIcon: new ImageSource('./images/money.png'),
   PopulationIcon: new ImageSource('./images/population.png'),
   ResourcesIcon: new ImageSource('./images/resources.png'),
+  GoldenOreIcon: new ImageSource('./images/golden_ore.png'),
+  FocusIcon: new ImageSource('./images/focus.png'),
 };
 
 /**
@@ -15,4 +17,6 @@ export const loader = new Loader([
   Resources.MoneyIcon,
   Resources.PopulationIcon,
   Resources.ResourcesIcon,
+  Resources.GoldenOreIcon,
+  Resources.FocusIcon,
 ]);
