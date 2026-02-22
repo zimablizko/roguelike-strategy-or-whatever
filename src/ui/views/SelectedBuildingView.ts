@@ -302,7 +302,8 @@ export class SelectedBuildingView extends ScreenElement {
       const actionStatus = this.buildingManager.canActivateBuildingAction(
         definition.id,
         action.id,
-        instanceId
+        instanceId,
+        this.resourceManager
       );
       const enabled = hasActionPoint && actionStatus.activatable;
       const usesMax = actionStatus.usesMax ?? 0;
@@ -418,9 +419,19 @@ export class SelectedBuildingView extends ScreenElement {
         },
       ];
     }
+    if (definition.id === 'lumbermill' && action.id === 'plant-trees') {
+      return [
+        {
+          label: '',
+          icon: this.getResourceIcon('gold'),
+          value: '-10',
+          color: Color.fromHex('#e6c97a'),
+        },
+      ];
+    }
     const value = gainByBuilding[definition.id];
     if (value === undefined) {
-      return [{ label: 'Action', value: action.id }];
+      return [];
     }
 
     const resourceByBuilding: Partial<

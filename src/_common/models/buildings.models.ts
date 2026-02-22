@@ -16,6 +16,10 @@ export interface BuildingActionContext {
     ocean: number;
   }>;
   resources: { addResource(type: string, amount: number): void };
+  /** Get the current amount of a specific resource. */
+  getResource: (type: string) => number;
+  /** Check whether a technology has been researched. */
+  isTechnologyUnlocked: (id: string) => boolean;
   buildingCount: number;
   /** All placed instances of the building that triggered the action. */
   buildingInstances: ReadonlyArray<BuildingActionInstanceInfo>;

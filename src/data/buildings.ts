@@ -188,6 +188,81 @@ export const stateBuildingDefinitions = {
           resources.addResource('materials', totalYield);
         },
       },
+      {
+        id: 'plant-trees',
+        name: 'Plant Trees',
+        description:
+          'Convert the nearest Plain or Sand tile within range 3 of this Lumbermill into a Forest tile. Costs 10 Gold.',
+        canRun: ({ buildingInstances, mapGetTile, isTechnologyUnlocked, getResource }) => {
+          if (!isTechnologyUnlocked('eco-forestry')) {
+            return { activatable: false, reason: 'Requires Forestry research.' };
+          }
+          const RANGE = 3;
+          for (const inst of buildingInstances) {
+            const minTx = inst.x - RANGE;
+            const maxTx = inst.x + inst.width - 1 + RANGE;
+            const minTy = inst.y - RANGE;
+            const maxTy = inst.y + inst.height - 1 + RANGE;
+            for (let ty = minTy; ty <= maxTy; ty++) {
+              for (let tx = minTx; tx <= maxTx; tx++) {
+                const tile = mapGetTile(tx, ty);
+                if (tile === 'plains' || tile === 'sand') {
+                  if (getResource('gold') < 10) {
+                    return { activatable: false, reason: 'Requires 10 Gold.' };
+                  }
+                  return { activatable: true };
+                }
+              }
+            }
+          }
+          return {
+            activatable: false,
+            reason: 'No Plains or Sand tiles within range 3 of this Lumbermill.',
+          };
+        },
+        run: ({ buildingInstances, mapGetTile, mapSetTile, resources, getResource }) => {
+          if (getResource('gold') < 10) return;
+
+          const RANGE = 3;
+          const candidates = new Map<
+            number,
+            { x: number; y: number; distSq: number }
+          >();
+
+          for (const inst of buildingInstances) {
+            const cx = inst.x + inst.width / 2;
+            const cy = inst.y + inst.height / 2;
+            const minTx = inst.x - RANGE;
+            const maxTx = inst.x + inst.width - 1 + RANGE;
+            const minTy = inst.y - RANGE;
+            const maxTy = inst.y + inst.height - 1 + RANGE;
+
+            for (let ty = minTy; ty <= maxTy; ty++) {
+              for (let tx = minTx; tx <= maxTx; tx++) {
+                const tile = mapGetTile(tx, ty);
+                if (tile !== 'plains' && tile !== 'sand') continue;
+                const dx = tx + 0.5 - cx;
+                const dy = ty + 0.5 - cy;
+                const distSq = dx * dx + dy * dy;
+                const key = ty * 100000 + tx;
+                const existing = candidates.get(key);
+                if (existing === undefined || existing.distSq > distSq) {
+                  candidates.set(key, { x: tx, y: ty, distSq });
+                }
+              }
+            }
+          }
+
+          if (candidates.size === 0) return;
+
+          const nearest = Array.from(candidates.values()).sort(
+            (a, b) => a.distSq - b.distSq
+          )[0];
+
+          mapSetTile(nearest.x, nearest.y, 'forest');
+          resources.addResource('gold', -10);
+        },
+      },
     ],
   },
   mine: {

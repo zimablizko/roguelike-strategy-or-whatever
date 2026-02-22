@@ -49,11 +49,11 @@ export const researchDefinitions = {
     turns: 2,
     requiredResearches: [],
   },
-  'eco-market-charters': {
-    id: 'eco-market-charters',
+  'eco-forestry': {
+    id: 'eco-forestry',
     tree: 'economics',
-    name: 'Market Charters',
-    description: 'Legal framework that stabilizes city market operations.',
+    name: 'Forestry',
+    description: 'Systematic woodland management techniques. Unlocks Plant Trees action for Lumbermills.',
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },
@@ -71,7 +71,7 @@ export const researchDefinitions = {
     name: 'Coin Minting',
     description: 'Unified coinage system for predictable exchange rates.',
     turns: 4,
-    requiredResearches: ['eco-market-charters'],
+    requiredResearches: ['eco-forestry'],
   },
   'eco-trade-caravans': {
     id: 'eco-trade-caravans',

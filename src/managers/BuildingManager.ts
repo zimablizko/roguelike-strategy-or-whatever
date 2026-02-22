@@ -497,7 +497,8 @@ export class BuildingManager {
     const status = this.canActivateBuildingAction(
       buildingId,
       actionId,
-      instanceId
+      instanceId,
+      resources
     );
     if (!status.activatable) {
       return false;
@@ -544,6 +545,9 @@ export class BuildingManager {
     return {
       state: this.stateBridge.getStateRef(),
       resources,
+      getResource: (type: string) =>
+        resources.getResource(type as ResourceType),
+      isTechnologyUnlocked: (id: string) => this.isTechnologyUnlocked(id),
       buildingCount: this.getBuildingCount(buildingId),
       buildingInstances: instance
         ? [
@@ -577,7 +581,8 @@ export class BuildingManager {
   canActivateBuildingAction(
     buildingId: StateBuildingId,
     actionId: string,
-    instanceId: string
+    instanceId: string,
+    resources?: ResourceManager
   ): StateBuildingActionStatus {
     if (!this.isBuildingBuilt(buildingId)) {
       return {
@@ -622,11 +627,14 @@ export class BuildingManager {
     }
 
     if (action.canRun) {
-      const noopResources = { addResource: () => {} };
+      const effectiveResources: ResourceManager = resources ?? ({
+        addResource: () => {},
+        getResource: () => Infinity,
+      } as unknown as ResourceManager);
       const ctx = this.buildActionContext(
         buildingId,
         instanceId,
-        noopResources as unknown as ResourceManager
+        effectiveResources
       );
       const canRunResult = action.canRun(ctx);
       if (!canRunResult.activatable) {
