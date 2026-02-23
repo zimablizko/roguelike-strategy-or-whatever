@@ -193,9 +193,17 @@ export const stateBuildingDefinitions = {
         name: 'Plant Trees',
         description:
           'Convert the nearest Plain or Sand tile within range 3 of this Lumbermill into a Forest tile. Costs 10 Gold.',
-        canRun: ({ buildingInstances, mapGetTile, isTechnologyUnlocked, getResource }) => {
+        canRun: ({
+          buildingInstances,
+          mapGetTile,
+          isTechnologyUnlocked,
+          getResource,
+        }) => {
           if (!isTechnologyUnlocked('eco-forestry')) {
-            return { activatable: false, reason: 'Requires Forestry research.' };
+            return {
+              activatable: false,
+              reason: 'Requires Forestry research.',
+            };
           }
           const RANGE = 3;
           for (const inst of buildingInstances) {
@@ -217,10 +225,17 @@ export const stateBuildingDefinitions = {
           }
           return {
             activatable: false,
-            reason: 'No Plains or Sand tiles within range 3 of this Lumbermill.',
+            reason:
+              'No Plains or Sand tiles within range 3 of this Lumbermill.',
           };
         },
-        run: ({ buildingInstances, mapGetTile, mapSetTile, resources, getResource }) => {
+        run: ({
+          buildingInstances,
+          mapGetTile,
+          mapSetTile,
+          resources,
+          getResource,
+        }) => {
           if (getResource('gold') < 10) return;
 
           const RANGE = 3;
@@ -312,7 +327,7 @@ export const stateBuildingDefinitions = {
     shortName: 'Frm',
     name: 'Farm',
     description:
-      'Stores and preserves food gathered from fertile plains for future turns. Requires 2 population to operate. Passive income each end turn: +10 Food.',
+      'A farming commune on fertile plains. Earns +10 Food per turn. Each adjacent Field adds +3 Food per turn. Requires 2 population to operate.',
     buildCost: {
       gold: 40,
       materials: 24,
@@ -327,19 +342,50 @@ export const stateBuildingDefinitions = {
     },
     placementDescription: 'Requires 2x2 free Plains area.',
     requiredTechnologies: ['eco-agriculture'],
-    getStats: (state: { tiles: { plains: number } }, count: number) => {
-      const baseYield = Math.max(1, Math.floor(state.tiles.plains / 4));
-      return [
-        `Built: ${count}`,
-        `Plains: ${state.tiles.plains}`,
-        `Action yield: +${baseYield * Math.max(1, count)} Food`,
-      ];
-    },
+    getStats: (_state: unknown, _count: number) => [],
     actions: [
+      {
+        id: 'sow-field',
+        name: 'Sow Field',
+        description:
+          "Cultivate a 2x2 Plains area near the Farm into a Field, increasing this Farm's passive food income by +3/turn.",
+        requiresTilePlacement: true,
+        canRun: ({ buildingInstances, mapGetTile, isInPlayerZone }) => {
+          const RANGE = 2;
+          for (const inst of buildingInstances) {
+            const minTlX = inst.x - RANGE;
+            const maxTlX = inst.x + inst.width + RANGE - 2;
+            const minTlY = inst.y - RANGE;
+            const maxTlY = inst.y + inst.height + RANGE - 2;
+            for (let ty = minTlY; ty <= maxTlY; ty++) {
+              for (let tx = minTlX; tx <= maxTlX; tx++) {
+                if (
+                  mapGetTile(tx, ty) === 'plains' &&
+                  mapGetTile(tx + 1, ty) === 'plains' &&
+                  mapGetTile(tx, ty + 1) === 'plains' &&
+                  mapGetTile(tx + 1, ty + 1) === 'plains' &&
+                  isInPlayerZone(tx, ty) &&
+                  isInPlayerZone(tx + 1, ty) &&
+                  isInPlayerZone(tx, ty + 1) &&
+                  isInPlayerZone(tx + 1, ty + 1)
+                ) {
+                  return { activatable: true };
+                }
+              }
+            }
+          }
+          return {
+            activatable: false,
+            reason: 'No free 2x2 Plains area in vicinity.',
+          };
+        },
+        run: () => {},
+      },
       {
         id: 'gather-harvest',
         name: 'Gather Harvest',
         description: 'Collect and store harvest from plains tiles.',
+        canRun: () => ({ activatable: false, reason: 'Coming soon.' }),
         run: ({ state, resources, buildingCount }: BuildingActionContext) => {
           const gain =
             Math.max(1, Math.floor(state.tiles.plains / 4)) *

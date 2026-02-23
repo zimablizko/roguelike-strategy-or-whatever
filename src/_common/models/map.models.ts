@@ -1,5 +1,5 @@
-import type { RareResourceMap } from './rare-resource.models';
 import type { SeededRandom } from '../random';
+import type { RareResourceMap } from './rare-resource.models';
 
 export type MapTileType =
   | 'plains'
@@ -7,7 +7,8 @@ export type MapTileType =
   | 'rocks'
   | 'sand'
   | 'river'
-  | 'ocean';
+  | 'ocean'
+  | 'field';
 
 export interface MapPlayerStateSummary {
   tiles: {

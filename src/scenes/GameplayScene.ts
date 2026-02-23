@@ -51,6 +51,7 @@ export class GameplayScene extends Scene {
   private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
   private pendingManualBuildBuildingId?: StateBuildingId;
+  private pendingSowField?: { farmInstanceId: string };
   private placementOverlayCache?: {
     key: string;
     overlay: MapBuildPlacementOverlay;
@@ -94,6 +95,7 @@ export class GameplayScene extends Scene {
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
     this.pendingManualBuildBuildingId = undefined;
+    this.pendingSowField = undefined;
     this.placementOverlayCache = undefined;
     this.activeSaveSlot = undefined;
     this.lastSavedSignature = '';
@@ -113,6 +115,7 @@ export class GameplayScene extends Scene {
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
     this.pendingManualBuildBuildingId = undefined;
+    this.pendingSowField = undefined;
     this.placementOverlayCache = undefined;
 
     const launch = SaveManager.consumePendingLaunch();
@@ -191,6 +194,16 @@ export class GameplayScene extends Scene {
         this.gameManager.buildingManager.getBuildingsVersion(),
       onBuildingSelected: (instanceId) => {
         this.selectBuilding(instanceId, false);
+      },
+      onFieldTileSelected: (tileX, tileY) => {
+        const farm =
+          this.gameManager.buildingManager.getFarmInstanceForFieldTile(
+            tileX,
+            tileY
+          );
+        if (farm) {
+          this.selectBuilding(farm.instanceId, true);
+        }
       },
       shouldIgnoreLeftClick: (screenX, screenY) =>
         (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ??
@@ -438,6 +451,14 @@ export class GameplayScene extends Scene {
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
+      onActionPulses: (pulses) => {
+        this.mapIncomeEffectsView?.addIncomePulses(pulses);
+      },
+      onActionPlacementRequest: (_buildingId, actionId, instanceId) => {
+        if (actionId === 'sow-field') {
+          this.startSowFieldPlacement(instanceId);
+        }
+      },
       onActionHover: (buildingId, actionId, instanceId, hovered) => {
         if (
           !hovered ||
@@ -733,14 +754,47 @@ export class GameplayScene extends Scene {
   }
 
   private cancelManualBuildPlacement(): void {
-    if (!this.pendingManualBuildBuildingId) {
+    if (!this.pendingManualBuildBuildingId && !this.pendingSowField) {
       return;
     }
     this.pendingManualBuildBuildingId = undefined;
+    this.pendingSowField = undefined;
+    this.placementOverlayCache = undefined;
+  }
+
+  private startSowFieldPlacement(farmInstanceId: string): void {
+    this.pendingManualBuildBuildingId = undefined;
+    this.pendingSowField = { farmInstanceId };
     this.placementOverlayCache = undefined;
   }
 
   private getPlacementOverlay(): MapBuildPlacementOverlay | undefined {
+    if (this.pendingSowField) {
+      const { farmInstanceId } = this.pendingSowField;
+      const cacheKey = `sow-field:${farmInstanceId}:${this.gameManager.buildingManager.getBuildingsVersion()}`;
+      if (this.placementOverlayCache?.key === cacheKey) {
+        return this.placementOverlayCache.overlay;
+      }
+      const placements =
+        this.gameManager.buildingManager.getAvailableFieldPlacements(
+          farmInstanceId,
+          2
+        );
+      const mapWidth = this.gameManager.mapManager.getMapRef().width;
+      const validTopLeftCells = new Set<number>();
+      for (const p of placements) {
+        validTopLeftCells.add(p.y * mapWidth + p.x);
+      }
+      const overlay: MapBuildPlacementOverlay = {
+        buildingId: 'field',
+        width: 2,
+        height: 2,
+        validTopLeftCells,
+      };
+      this.placementOverlayCache = { key: cacheKey, overlay };
+      return overlay;
+    }
+
     const buildingId = this.pendingManualBuildBuildingId;
     if (!buildingId) {
       return undefined;
@@ -788,6 +842,18 @@ export class GameplayScene extends Scene {
   }
 
   private getPlacementOverlayVersion(): number {
+    if (this.pendingSowField) {
+      const { farmInstanceId } = this.pendingSowField;
+      let idHash = 99;
+      for (let i = 0; i < farmInstanceId.length; i++) {
+        idHash += farmInstanceId.charCodeAt(i);
+      }
+      return (
+        idHash * 1_000_000 +
+        this.gameManager.buildingManager.getBuildingsVersion() * 107
+      );
+    }
+
     const buildingId = this.pendingManualBuildBuildingId;
     if (!buildingId) {
       return 0;
@@ -810,6 +876,20 @@ export class GameplayScene extends Scene {
     tileX: number,
     tileY: number
   ): void {
+    if (this.pendingSowField) {
+      const { farmInstanceId } = this.pendingSowField;
+      const hasAP = this.turnManager.getTurnDataRef().focus.current >= 1;
+      if (!hasAP) return;
+      const valid = this.gameManager.buildingManager
+        .getAvailableFieldPlacements(farmInstanceId, 2)
+        .some((p) => p.x === tileX && p.y === tileY);
+      if (!valid) return;
+      this.gameManager.buildingManager.placeFarmField(tileX, tileY);
+      this.turnManager.spendFocus(1);
+      this.cancelManualBuildPlacement();
+      return;
+    }
+
     const buildingId = this.pendingManualBuildBuildingId;
     if (!buildingId) {
       return;

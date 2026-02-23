@@ -203,6 +203,17 @@ export class TurnManager {
       const centerX = instance.x + (instance.width - 1) / 2;
       const centerY = instance.y + (instance.height - 1) / 2;
 
+      // Farm: emit a single combined pulse of base food + field bonus.
+      if (instance.buildingId === 'farm') {
+        const fieldCount = this.buildingManager.getFarmFieldCount(
+          instance.instanceId,
+          2
+        );
+        const totalFarmFood = 10 + fieldCount * 3;
+        addIncome(centerX, centerY, 'food', totalFarmFood);
+        continue;
+      }
+
       const incomeEntries =
         buildingPassiveIncome[instance.buildingId as StateBuildingId] ?? [];
 

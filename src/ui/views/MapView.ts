@@ -5,10 +5,10 @@ import {
   GraphicsGroup,
   Keys,
   PointerButton,
+  vec,
   type PointerEvent,
   type Subscription,
   type WheelEvent,
-  vec,
 } from 'excalibur';
 import type { MapData, MapTileType } from '../../_common/models/map.models';
 import type {
@@ -55,6 +55,7 @@ export class MapView extends Actor {
   private readonly onBuildingSelected?: (
     instanceId: string | undefined
   ) => void;
+  private readonly onFieldTileSelected?: (tileX: number, tileY: number) => void;
   private readonly shouldIgnoreLeftClick?: (
     screenX: number,
     screenY: number
@@ -81,6 +82,7 @@ export class MapView extends Actor {
   private renderedBuildPlacementVersion = -1;
   private hoveredBuildingInstanceId?: string;
   private hoveredRareResourceKey?: string;
+  private hoveredFieldKey?: string;
   private selectedBuildingInstanceId?: string;
   private buildPlacementPreviewTile?: { x: number; y: number };
   private buildPlacementPreviewValid = false;
@@ -112,6 +114,7 @@ export class MapView extends Actor {
     this.onBuildPlacementConfirm = options.onBuildPlacementConfirm;
     this.onBuildPlacementCancel = options.onBuildPlacementCancel;
     this.onBuildingSelected = options.onBuildingSelected;
+    this.onFieldTileSelected = options.onFieldTileSelected;
     this.shouldIgnoreLeftClick = options.shouldIgnoreLeftClick;
     this.isInputBlocked = options.isInputBlocked;
     this.tooltipProvider = options.tooltipProvider;
@@ -195,6 +198,7 @@ export class MapView extends Actor {
 
     this.drawPlayerStateBorder(ctx);
     this.drawBuildPlacementOverlay(ctx);
+    this.drawFieldLabels(ctx);
     this.drawBuildings(ctx);
   }
 
@@ -332,6 +336,68 @@ export class MapView extends Actor {
     }
 
     ctx.restore();
+  }
+
+  private drawFieldLabels(ctx: CanvasRenderingContext2D): void {
+    const offset = this.mapBorderPx;
+    const labelFontSize = Math.max(22, Math.floor(this.tileSize * 0.9));
+    const minLabelFontSize = Math.max(12, Math.floor(this.tileSize * 0.35));
+    const labelPaddingX = 10;
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const label = 'Fld';
+
+    for (let y = 0; y < this.map.height - 1; y++) {
+      for (let x = 0; x < this.map.width - 1; x++) {
+        // Only label the top-left corner of each 2×2 field block.
+        if (
+          this.map.tiles[y][x] !== 'field' ||
+          this.map.tiles[y][x + 1] !== 'field' ||
+          this.map.tiles[y + 1][x] !== 'field' ||
+          this.map.tiles[y + 1][x + 1] !== 'field'
+        ) {
+          continue;
+        }
+        if (
+          (y > 0 && this.map.tiles[y - 1][x] === 'field') ||
+          (x > 0 && this.map.tiles[y][x - 1] === 'field')
+        ) {
+          continue;
+        }
+
+        const blockLeft = offset + x * this.tileSize;
+        const blockTop = offset + y * this.tileSize;
+        const blockWidth = this.tileSize * 2;
+        const blockHeight = this.tileSize * 2;
+        const centerX = blockLeft + blockWidth / 2;
+        const centerY = blockTop + blockHeight / 2;
+        const maxLabelWidth = blockWidth - labelPaddingX * 2;
+
+        let fittedFontSize = labelFontSize;
+        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        while (
+          fittedFontSize > minLabelFontSize &&
+          ctx.measureText(label).width > maxLabelWidth
+        ) {
+          fittedFontSize -= 1;
+          ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        }
+
+        const labelWidth = ctx.measureText(label).width + labelPaddingX * 2;
+        const labelHeight = fittedFontSize + 14;
+
+        ctx.fillStyle = 'rgba(12, 16, 22, 0.76)';
+        ctx.fillRect(
+          centerX - labelWidth / 2,
+          centerY - labelHeight / 2,
+          labelWidth,
+          labelHeight
+        );
+        ctx.fillStyle = '#f5efe2';
+        ctx.fillText(label, centerX, centerY + 1);
+      }
+    }
   }
 
   private drawBuildings(ctx: CanvasRenderingContext2D): void {
@@ -637,13 +703,21 @@ export class MapView extends Actor {
           );
           if (picked) {
             this.selectBuilding(picked.instanceId);
-          } else if (
-            this.isScreenPointInsidePlayableMap(
+          } else {
+            const tile = this.getTileFromScreenPosition(
               evt.screenPos.x,
               evt.screenPos.y
-            )
-          ) {
-            this.selectBuilding(undefined);
+            );
+            if (tile && this.map.tiles[tile.y]?.[tile.x] === 'field') {
+              this.onFieldTileSelected?.(tile.x, tile.y);
+            } else if (
+              this.isScreenPointInsidePlayableMap(
+                evt.screenPos.x,
+                evt.screenPos.y
+              )
+            ) {
+              this.selectBuilding(undefined);
+            }
           }
           return;
         }
@@ -863,10 +937,28 @@ export class MapView extends Actor {
     const tile = this.getTileFromScreenPosition(pointerPos.x, pointerPos.y);
     if (tile) {
       const key = `${tile.x},${tile.y}`;
+
+      // Field tooltip
+      if (this.map.tiles[tile.y]?.[tile.x] === 'field') {
+        if (this.hoveredFieldKey !== key) {
+          this.hoveredBuildingInstanceId = undefined;
+          this.hoveredRareResourceKey = undefined;
+          this.hoveredFieldKey = key;
+          const tileX = tile.x;
+          const tileY = tile.y;
+          this.tooltipProvider.show({
+            owner: this,
+            getAnchorRect: () => this.getTileAnchorRect(tileX, tileY),
+            description: 'Field\n+3 Food/turn for the nearby Farm.',
+            width: 200,
+          });
+        }
+        return;
+      }
+
       const rr = this.map.rareResources?.[key];
       if (rr?.visible) {
-        const def =
-          rareResourceDefinitions[rr.resourceId as RareResourceId];
+        const def = rareResourceDefinitions[rr.resourceId as RareResourceId];
         if (def) {
           if (this.hoveredRareResourceKey === key) {
             return;
@@ -927,6 +1019,7 @@ export class MapView extends Actor {
   private clearBuildingTooltip(): void {
     this.hoveredBuildingInstanceId = undefined;
     this.hoveredRareResourceKey = undefined;
+    this.hoveredFieldKey = undefined;
     this.tooltipProvider?.hide(this);
   }
 
@@ -1039,6 +1132,7 @@ export class MapView extends Actor {
     if (type === 'rocks') return '#8b8f94';
     if (type === 'sand') return '#e5d178';
     if (type === 'river') return '#89d5ff';
+    if (type === 'field') return '#c8a84b';
     return '#2f6fc9';
   }
 

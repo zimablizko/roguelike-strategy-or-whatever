@@ -232,6 +232,20 @@ export interface SelectedBuildingViewOptions {
     instanceId: string,
     hovered: boolean
   ) => void;
+  /**
+   * Called after a resource-modifying action is successfully activated.
+   * Receives the list of resource pulses to display over the building.
+   */
+  onActionPulses?: (pulses: EndTurnIncomePulse[]) => void;
+  /**
+   * Called when an action with `requiresTilePlacement` is clicked.
+   * The scene is responsible for entering placement mode; focus is NOT spent yet.
+   */
+  onActionPlacementRequest?: (
+    buildingId: string,
+    actionId: string,
+    instanceId: string
+  ) => void;
 }
 
 export interface MapIncomeEffectsViewOptions {
@@ -271,6 +285,7 @@ export interface MapViewOptions {
   onBuildPlacementConfirm?: (tileX: number, tileY: number) => void;
   onBuildPlacementCancel?: () => void;
   onBuildingSelected?: (instanceId: string | undefined) => void;
+  onFieldTileSelected?: (tileX: number, tileY: number) => void;
   shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
   isInputBlocked?: () => boolean;
   tooltipProvider?: TooltipProvider;

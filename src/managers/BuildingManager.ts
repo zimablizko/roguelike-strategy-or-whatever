@@ -21,6 +21,7 @@ import type {
   ResourceCost,
   ResourceType,
 } from '../_common/models/resource.models';
+import type { EndTurnIncomePulse } from '../_common/models/turn.models';
 import {
   createEmptyBuildingRecord,
   stateBuildingDefinitions,
@@ -493,7 +494,7 @@ export class BuildingManager {
     actionId: string,
     instanceId: string,
     resources: ResourceManager
-  ): boolean {
+  ): EndTurnIncomePulse[] | null {
     const status = this.canActivateBuildingAction(
       buildingId,
       actionId,
@@ -501,7 +502,7 @@ export class BuildingManager {
       resources
     );
     if (!status.activatable) {
-      return false;
+      return null;
     }
 
     if (buildingId === 'castle' && actionId === 'expand-border') {
@@ -509,29 +510,49 @@ export class BuildingManager {
       if (expanded) {
         this.incrementActionUsage(instanceId, actionId);
       }
-      return expanded;
+      return expanded ? [] : null;
     }
 
     const definition = this.getBuildingDefinition(buildingId);
     if (!definition) {
-      return false;
+      return null;
     }
 
     const action = definition.actions.find((item) => item.id === actionId);
     if (!action) {
-      return false;
+      return null;
     }
 
     const instance = this.buildingInstances.find(
       (i) => i.instanceId === instanceId
     );
     if (!instance) {
-      return false;
+      return null;
     }
 
-    action.run(this.buildActionContext(buildingId, instanceId, resources));
+    // Intercept addResource calls during action execution to collect pulses.
+    const pulses: EndTurnIncomePulse[] = [];
+    const tileX = instance.x + (instance.width - 1) / 2;
+    const tileY = instance.y + (instance.height - 1) / 2;
+    const trackingResources: ResourceManager = new Proxy(resources, {
+      get(target, prop, receiver) {
+        if (prop === 'addResource') {
+          return (type: ResourceType, amount: number) => {
+            target.addResource(type, amount);
+            if (amount !== 0) {
+              pulses.push({ tileX, tileY, resourceType: type, amount });
+            }
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+
+    action.run(
+      this.buildActionContext(buildingId, instanceId, trackingResources)
+    );
     this.incrementActionUsage(instanceId, actionId);
-    return true;
+    return pulses;
   }
 
   private buildActionContext(
@@ -564,6 +585,11 @@ export class BuildingManager {
         const map = this.mapManager?.getMapRef();
         if (!map) return undefined;
         return map.tiles[Math.floor(y)]?.[Math.floor(x)];
+      },
+      isInPlayerZone: (x: number, y: number) => {
+        const map = this.mapManager?.getMapRef();
+        if (!map || map.playerZoneId === null) return false;
+        return map.zones[Math.floor(y)]?.[Math.floor(x)] === map.playerZoneId;
       },
       mapSetTile: (
         x: number,
@@ -627,10 +653,12 @@ export class BuildingManager {
     }
 
     if (action.canRun) {
-      const effectiveResources: ResourceManager = resources ?? ({
-        addResource: () => {},
-        getResource: () => Infinity,
-      } as unknown as ResourceManager);
+      const effectiveResources: ResourceManager =
+        resources ??
+        ({
+          addResource: () => {},
+          getResource: () => Infinity,
+        } as unknown as ResourceManager);
       const ctx = this.buildActionContext(
         buildingId,
         instanceId,
@@ -767,6 +795,155 @@ export class BuildingManager {
       }
     }
     return highest;
+  }
+
+  /**
+   * Returns valid top-left positions for a 2×2 farm-field placement near the
+   * given farm instance. Positions must be all-plains and not covered by any
+   * existing building, within `range` tiles of the farm's edges.
+   */
+  getAvailableFieldPlacements(
+    farmInstanceId: string,
+    range: number
+  ): Array<{ x: number; y: number }> {
+    if (!this.mapManager) return [];
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === farmInstanceId
+    );
+    if (!instance) return [];
+
+    const map = this.mapManager.getMapRef();
+    const { tiles, width, height } = map;
+
+    // Collect all occupied tiles from ALL building instances.
+    const occupiedTiles = new Set<number>();
+    for (const inst of this.buildingInstances) {
+      for (let dy = 0; dy < inst.height; dy++) {
+        for (let dx = 0; dx < inst.width; dx++) {
+          occupiedTiles.add((inst.y + dy) * width + (inst.x + dx));
+        }
+      }
+    }
+
+    const result: Array<{ x: number; y: number }> = [];
+    const playerZoneId = map.playerZoneId;
+    const minTlX = Math.max(0, instance.x - range);
+    const maxTlX = Math.min(width - 2, instance.x + instance.width + range - 2);
+    const minTlY = Math.max(0, instance.y - range);
+    const maxTlY = Math.min(
+      height - 2,
+      instance.y + instance.height + range - 2
+    );
+
+    for (let ty = minTlY; ty <= maxTlY; ty++) {
+      for (let tx = minTlX; tx <= maxTlX; tx++) {
+        if (
+          occupiedTiles.has(ty * width + tx) ||
+          occupiedTiles.has(ty * width + tx + 1) ||
+          occupiedTiles.has((ty + 1) * width + tx) ||
+          occupiedTiles.has((ty + 1) * width + tx + 1)
+        ) {
+          continue;
+        }
+        if (
+          playerZoneId !== null &&
+          (map.zones[ty][tx] !== playerZoneId ||
+            map.zones[ty][tx + 1] !== playerZoneId ||
+            map.zones[ty + 1][tx] !== playerZoneId ||
+            map.zones[ty + 1][tx + 1] !== playerZoneId)
+        ) {
+          continue;
+        }
+        if (
+          tiles[ty][tx] === 'plains' &&
+          tiles[ty][tx + 1] === 'plains' &&
+          tiles[ty + 1][tx] === 'plains' &&
+          tiles[ty + 1][tx + 1] === 'plains'
+        ) {
+          result.push({ x: tx, y: ty });
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Counts how many 2×2 field blocks are within `range` tiles of the given
+   * farm building instance. Each block of 4 contiguous field tiles counts
+   * as one field → +3 Food/turn.
+   */
+  getFarmFieldCount(farmInstanceId: string, range: number): number {
+    if (!this.mapManager) return 0;
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === farmInstanceId
+    );
+    if (!instance) return 0;
+
+    const map = this.mapManager.getMapRef();
+    const { tiles, width, height } = map;
+
+    // Count individual field tiles in range and divide by 4.
+    const minX = Math.max(0, instance.x - range);
+    const maxX = Math.min(width - 1, instance.x + instance.width - 1 + range);
+    const minY = Math.max(0, instance.y - range);
+    const maxY = Math.min(height - 1, instance.y + instance.height - 1 + range);
+
+    let fieldTileCount = 0;
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        if (tiles[ty][tx] === 'field') fieldTileCount++;
+      }
+    }
+    return Math.floor(fieldTileCount / 4);
+  }
+
+  /**
+   * Finds the farm building instance whose field range (2 tiles from borders)
+   * contains the given tile and is closest to it. Used for field-tile click
+   * selection.
+   */
+  getFarmInstanceForFieldTile(
+    tileX: number,
+    tileY: number
+  ): StateBuildingInstance | undefined {
+    const FIELD_RANGE = 2;
+    let best: StateBuildingInstance | undefined;
+    let bestDistSq = Infinity;
+    for (const inst of this.buildingInstances) {
+      if (inst.buildingId !== 'farm') continue;
+      const minX = inst.x - FIELD_RANGE;
+      const maxX = inst.x + inst.width - 1 + FIELD_RANGE;
+      const minY = inst.y - FIELD_RANGE;
+      const maxY = inst.y + inst.height - 1 + FIELD_RANGE;
+      if (tileX < minX || tileX > maxX || tileY < minY || tileY > maxY) {
+        continue;
+      }
+      const cx = inst.x + inst.width / 2;
+      const cy = inst.y + inst.height / 2;
+      const dx = tileX + 0.5 - cx;
+      const dy = tileY + 0.5 - cy;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        best = inst;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Converts a 2×2 block at (tileX, tileY) to field tiles, syncs state and
+   * bumps the buildings version so the map re-renders.
+   */
+  placeFarmField(tileX: number, tileY: number): void {
+    if (!this.mapManager) return;
+    for (let dy = 0; dy <= 1; dy++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        this.mapManager.setTile(tileX + dx, tileY + dy, 'field');
+      }
+    }
+    this.syncStateWithMapSummary();
+    this.buildingsVersion++;
   }
 
   private syncStateWithMapSummary(): void {

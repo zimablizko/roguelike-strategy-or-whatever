@@ -39,6 +39,14 @@ export class SelectedBuildingView extends ScreenElement {
     instanceId: string,
     hovered: boolean
   ) => void;
+  private readonly onActionPulses?: (
+    pulses: import('../../_common/models/turn.models').EndTurnIncomePulse[]
+  ) => void;
+  private readonly onActionPlacementRequest?: (
+    buildingId: string,
+    actionId: string,
+    instanceId: string
+  ) => void;
   private readonly minPanelWidth: number;
   private readonly maxPanelWidth: number;
   private readonly panelHeight: number;
@@ -60,6 +68,8 @@ export class SelectedBuildingView extends ScreenElement {
     this.turnManager = options.turnManager;
     this.tooltipProvider = options.tooltipProvider;
     this.onActionHover = options.onActionHover;
+    this.onActionPulses = options.onActionPulses;
+    this.onActionPlacementRequest = options.onActionPlacementRequest;
     this.minPanelWidth = 420;
     this.maxPanelWidth = options.width ?? 560;
     this.panelHeight = options.height ?? 118;
@@ -193,14 +203,37 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     const count = this.buildingManager.getBuildingCount(definition.id);
-    const stats = definition.getStats(state, count).slice(0, 2);
-    const areaLine = `Area ${selected.width}x${selected.height}  Count ${count}`;
+
+    // Farm uses a custom info panel — no area/count line, dynamic field stats.
+    const isFarm = definition.id === 'farm';
+    const farmFieldCount = isFarm
+      ? this.buildingManager.getFarmFieldCount(selected.instanceId, 2)
+      : 0;
+    const farmBaseIncome = 10;
+    const farmFieldBonus = farmFieldCount * 3;
+    const farmTotalIncome = farmBaseIncome + farmFieldBonus;
+    const farmStatLines: string[] = isFarm
+      ? [
+          `Each turn: +${farmTotalIncome} Food`,
+          ...(farmFieldCount > 0
+            ? [
+                `(+${farmFieldBonus} from ${farmFieldCount} field${farmFieldCount > 1 ? 's' : ''})`,
+              ]
+            : []),
+        ]
+      : [];
+
+    const stats = isFarm ? [] : definition.getStats(state, count).slice(0, 2);
+    const areaLine = isFarm
+      ? ''
+      : `Area ${selected.width}x${selected.height}  Count ${count}`;
 
     const leftSectionMaxLineWidth = Math.max(
       measureTextWidth('Selected', 12),
       measureTextWidth(definition.name, 20),
-      measureTextWidth(areaLine, 12),
-      ...stats.map((stat) => measureTextWidth(`- ${stat}`, 12))
+      areaLine ? measureTextWidth(areaLine, 12) : 0,
+      ...stats.map((stat) => measureTextWidth(`- ${stat}`, 12)),
+      ...farmStatLines.map((s) => measureTextWidth(s, 12))
     );
     const leftSectionWidth = clamp(
       Math.ceil(leftSectionMaxLineWidth) + 12,
@@ -240,20 +273,19 @@ export class SelectedBuildingView extends ScreenElement {
         Color.fromHex('#f0f4f8'),
         12,
         24
-      ),
-      this.createTextMember(areaLine, 12, Color.fromHex('#cfd9e2'), 12, 46)
+      )
     );
 
-    let statY = statsBaseY;
-    for (const stat of stats) {
+    if (areaLine) {
       members.push(
-        this.createTextMember(
-          `- ${stat}`,
-          12,
-          Color.fromHex('#dce6ef'),
-          12,
-          statY
-        )
+        this.createTextMember(areaLine, 12, Color.fromHex('#cfd9e2'), 12, 46)
+      );
+    }
+
+    let statY = isFarm ? 46 : statsBaseY;
+    for (const stat of isFarm ? farmStatLines : stats) {
+      members.push(
+        this.createTextMember(stat, 12, Color.fromHex('#dce6ef'), 12, statY)
       );
       statY += statsGap;
     }
@@ -334,17 +366,28 @@ export class SelectedBuildingView extends ScreenElement {
         tooltipWidth: 260,
         onClick: enabled
           ? () => {
+              if (action.requiresTilePlacement) {
+                this.onActionPlacementRequest?.(
+                  definition.id,
+                  action.id,
+                  instanceId
+                );
+                return;
+              }
               if (!this.turnManager.spendFocus(1)) {
                 return;
               }
-              const activated = this.buildingManager.activateBuildingAction(
+              const pulses = this.buildingManager.activateBuildingAction(
                 definition.id,
                 action.id,
                 instanceId,
                 this.resourceManager
               );
-              if (!activated) {
+              if (pulses === null) {
                 return;
+              }
+              if (pulses.length > 0) {
+                this.onActionPulses?.(pulses);
               }
               this.lastBuildingsVersion = -1;
             }
@@ -404,11 +447,22 @@ export class SelectedBuildingView extends ScreenElement {
       ];
     }
 
+    // Farm: sow-field shows the per-field income bonus.
+    if (definition.id === 'farm' && action.id === 'sow-field') {
+      return [
+        {
+          label: '',
+          icon: this.getResourceIcon('food'),
+          value: '+3/turn per field',
+          color: Color.fromHex('#9fe6aa'),
+        },
+      ];
+    }
+
     const gainByBuilding: Partial<
       Record<TypedBuildingDefinition['id'], number>
     > = {
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
-      farm: Math.max(1, Math.floor(state.tiles.plains / 4)) * buildingCount,
     };
     if (definition.id === 'castle' && action.id === 'expand-border') {
       return [
@@ -439,7 +493,6 @@ export class SelectedBuildingView extends ScreenElement {
     > = {
       lumbermill: 'materials',
       mine: 'materials',
-      farm: 'food',
     };
     return [
       {

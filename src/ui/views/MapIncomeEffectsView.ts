@@ -9,13 +9,13 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import { Resources } from '../../_common/resources';
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { EndTurnIncomePulse } from '../../_common/models/turn.models';
 import type {
   IncomeVisualPulse,
   MapIncomeEffectsViewOptions,
 } from '../../_common/models/ui.models';
+import { Resources } from '../../_common/resources';
 import { UI_Z } from '../constants/ZLayers';
 import { MapView } from './MapView';
 
@@ -53,9 +53,15 @@ export class MapIncomeEffectsView extends ScreenElement {
       tileSeen.set(key, slotIndex + 1);
       const laneOffsetX = 0;
       const laneOffsetY = -slotIndex * 28 - (totalInTile > 1 ? 8 : 0);
-      const textColor = this.getResourceColor(pulse.resourceType);
+      const rawAmount = pulse.amount;
+      const absAmount = Math.abs(rawAmount);
+      const sign = rawAmount < 0 ? '-' : '+';
+      const textColor =
+        rawAmount < 0
+          ? Color.fromRGB(220, 80, 80)
+          : this.getResourceColor(pulse.resourceType);
       const amountText = new Text({
-        text: `+${pulse.amount}`,
+        text: `${sign}${absAmount}`,
         font: new Font({
           size: 24,
           unit: FontUnit.Px,
@@ -63,7 +69,7 @@ export class MapIncomeEffectsView extends ScreenElement {
         }),
       });
       const amountShadow = new Text({
-        text: `+${pulse.amount}`,
+        text: `${sign}${absAmount}`,
         font: new Font({
           size: 24,
           unit: FontUnit.Px,

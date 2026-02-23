@@ -25,6 +25,7 @@ export interface BuildingActionContext {
   buildingInstances: ReadonlyArray<BuildingActionInstanceInfo>;
   /** Read a map tile by tile coordinates. Returns undefined if out of bounds. */
   mapGetTile: (x: number, y: number) => MapTileType | undefined;
+  isInPlayerZone: (x: number, y: number) => boolean;
   /** Write a map tile. Triggers state re-sync and version bump automatically. */
   mapSetTile: (x: number, y: number, tile: MapTileType) => void;
 }
@@ -49,6 +50,12 @@ export interface StateBuildingActionDefinition {
    * enforced separately). Return a reason string when not activatable.
    */
   canRun?: (context: BuildingActionContext) => BuildingActionCanRunResult;
+  /**
+   * When true, clicking this action in the UI enters a tile-placement mode
+   * instead of executing the action immediately. Focus is only spent after
+   * the player confirms the placement.
+   */
+  requiresTilePlacement?: boolean;
   run: (context: BuildingActionContext) => void;
 }
 
