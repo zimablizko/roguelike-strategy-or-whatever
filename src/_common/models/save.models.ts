@@ -1,6 +1,4 @@
-import type {
-  StateBuildingInstance,
-} from './building-manager.models';
+import type { StateBuildingInstance } from './building-manager.models';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { PlayerData } from './game.models';
 import type { MapData } from './map.models';
@@ -43,6 +41,8 @@ export interface GameSaveData {
   turn: {
     data: TurnData;
     version: number;
+    /** Tracks fallow field tiles awaiting recovery. Key is "x,y", value is turns remaining. */
+    emptyFieldQueue?: Array<{ x: number; y: number; turnsLeft: number }>;
   };
 }
 

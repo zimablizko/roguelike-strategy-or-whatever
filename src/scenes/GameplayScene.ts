@@ -76,6 +76,18 @@ export class GameplayScene extends Scene {
       this.mapView?.focusOnPlayerState();
     }
 
+    if (engine.input.keyboard.wasPressed(Keys.R)) {
+      this.showResearchPopup(engine);
+    }
+
+    if (engine.input.keyboard.wasPressed(Keys.Esc)) {
+      if (this.pendingManualBuildBuildingId || this.pendingSowField) {
+        this.cancelManualBuildPlacement();
+      } else {
+        this.closeTopPopup();
+      }
+    }
+
     this.autoSaveIfDirty();
   }
 
@@ -156,6 +168,7 @@ export class GameplayScene extends Scene {
           ? {
               data: slotSave.turn.data,
               version: slotSave.turn.version,
+              emptyFieldQueue: slotSave.turn.emptyFieldQueue,
             }
           : undefined,
       }
@@ -205,6 +218,8 @@ export class GameplayScene extends Scene {
           this.selectBuilding(farm.instanceId, true);
         }
       },
+      fallowFieldInfo: (tileX, tileY) =>
+        this.turnManager.getEmptyFieldTurnsLeft(tileX, tileY),
       shouldIgnoreLeftClick: (screenX, screenY) =>
         (this.selectedBuildingView?.containsScreenPoint(screenX, screenY) ??
           false) ||
@@ -718,6 +733,28 @@ export class GameplayScene extends Scene {
     );
   }
 
+  private closeTopPopup(): void {
+    if (this.researchPopup && !this.researchPopup.isKilled()) {
+      this.researchPopup.close();
+      this.researchPopup = undefined;
+      return;
+    }
+    if (this.statePopup && !this.statePopup.isKilled()) {
+      this.statePopup.close();
+      this.statePopup = undefined;
+      return;
+    }
+    if (this.rulerPopup && !this.rulerPopup.isKilled()) {
+      this.rulerPopup.close();
+      this.rulerPopup = undefined;
+      return;
+    }
+    if (this.testPopup && !this.testPopup.isKilled()) {
+      this.testPopup.close();
+      this.testPopup = undefined;
+    }
+  }
+
   private getRulerDisplayWidth(): number {
     const width = this.rulerDisplay?.graphics.localBounds.width;
     if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
@@ -884,7 +921,11 @@ export class GameplayScene extends Scene {
         .getAvailableFieldPlacements(farmInstanceId, 2)
         .some((p) => p.x === tileX && p.y === tileY);
       if (!valid) return;
-      this.gameManager.buildingManager.placeFarmField(tileX, tileY);
+      this.gameManager.buildingManager.placeFarmField(
+        tileX,
+        tileY,
+        farmInstanceId
+      );
       this.turnManager.spendFocus(1);
       this.cancelManualBuildPlacement();
       return;

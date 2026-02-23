@@ -286,6 +286,8 @@ export interface MapViewOptions {
   onBuildPlacementCancel?: () => void;
   onBuildingSelected?: (instanceId: string | undefined) => void;
   onFieldTileSelected?: (tileX: number, tileY: number) => void;
+  /** Returns turns remaining until a fallow (field-empty) tile recovers. */
+  fallowFieldInfo?: (tileX: number, tileY: number) => number | undefined;
   shouldIgnoreLeftClick?: (screenX: number, screenY: number) => boolean;
   isInputBlocked?: () => boolean;
   tooltipProvider?: TooltipProvider;
@@ -314,18 +316,6 @@ export interface StatePopupOptions {
   turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
   anchor?: ScreenPopupAnchor;
-  onClose?: () => void;
-}
-
-export interface BuildPopupOptions {
-  x: number;
-  y: number;
-  buildingId: StateBuildingId;
-  buildingManager: BuildingManager;
-  resourceManager: ResourceManager;
-  turnManager: TurnManager;
-  anchor?: ScreenPopupAnchor;
-  onBuilt?: (buildingId: StateBuildingId) => void;
   onClose?: () => void;
 }
 
@@ -364,6 +354,7 @@ export interface TooltipOutcomeRenderItem {
   iconSprite?: Sprite;
   textGraphic: Text;
   width: number;
+  iconAfter?: boolean;
 }
 
 export interface TooltipOutcomeRenderRow {

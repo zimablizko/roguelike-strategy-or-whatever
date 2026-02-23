@@ -8,7 +8,8 @@ export type MapTileType =
   | 'sand'
   | 'river'
   | 'ocean'
-  | 'field';
+  | 'field'
+  | 'field-empty';
 
 export interface MapPlayerStateSummary {
   tiles: {

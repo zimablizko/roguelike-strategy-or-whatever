@@ -28,7 +28,7 @@ export const stateBuildingDefinitions = {
     name: 'Castle',
     shortName: 'Csl',
     description:
-      'Capital fortification that anchors settlement growth. Only one Castle can exist. Provides +10 population. Passive income each end turn: +5 Gold, +5 Food, +5 Materials.',
+      'Capital fortification that anchors settlement growth. Only one Castle can exist.',
     buildCost: {
       gold: 150,
       materials: 120,
@@ -64,7 +64,7 @@ export const stateBuildingDefinitions = {
     name: 'House',
     shortName: 'Hse',
     description:
-      'Residential dwelling that shelters settlers and grows your workforce. Provides +5 population. After researching Tax Collection, each House passively generates +2 Gold per turn.',
+      'Residential dwelling that shelters settlers and grows your workforce. With Tax Collection research: also generates gold each turn.',
     buildCost: {
       gold: 25,
       materials: 15,
@@ -90,8 +90,7 @@ export const stateBuildingDefinitions = {
     id: 'lumbermill',
     shortName: 'Lmb',
     name: 'Lumbermill',
-    description:
-      'Processes nearby forests into construction-grade materials. Requires 2 population to operate. Passive income each end turn: +10 Materials.',
+    description: 'Processes nearby forests into construction-grade materials.',
     buildCost: {
       gold: 35,
       materials: 20,
@@ -285,7 +284,7 @@ export const stateBuildingDefinitions = {
     name: 'Mine',
     shortName: 'Min',
     description:
-      'Extracts ore and stone from rocky terrain, improving material throughput. Requires 3 population to operate. Passive income each end turn: +5 to +20 Materials.',
+      'Extracts ore and stone from rocky terrain, improving material throughput.',
     buildCost: {
       gold: 45,
       materials: 30,
@@ -327,7 +326,7 @@ export const stateBuildingDefinitions = {
     shortName: 'Frm',
     name: 'Farm',
     description:
-      'A farming commune on fertile plains. Earns +10 Food per turn. Each adjacent Field adds +3 Food per turn. Requires 2 population to operate.',
+      'A farming commune on fertile plains. Each adjacent Field adds +3 Food/turn. With Crop Harvesting: manually harvest ready Fields for instant food.',
     buildCost: {
       gold: 40,
       materials: 24,
@@ -384,13 +383,58 @@ export const stateBuildingDefinitions = {
       {
         id: 'gather-harvest',
         name: 'Gather Harvest',
-        description: 'Collect and store harvest from plains tiles.',
-        canRun: () => ({ activatable: false, reason: 'Coming soon.' }),
-        run: ({ state, resources, buildingCount }: BuildingActionContext) => {
-          const gain =
-            Math.max(1, Math.floor(state.tiles.plains / 4)) *
-            Math.max(1, buildingCount);
-          resources.addResource('food', gain);
+        description:
+          'Immediately harvest all ready Fields near this Farm: gain 10 + 10 per ready Field Food. Harvested Fields go fallow for 3 turns before regrowing.',
+        canRun: ({ buildingInstances, mapGetTile, isTechnologyUnlocked }) => {
+          if (!isTechnologyUnlocked('eco-crop-harvesting')) {
+            return {
+              activatable: false,
+              reason: 'Requires Crop Harvesting technology.',
+            };
+          }
+          const RANGE = 2;
+          for (const inst of buildingInstances) {
+            const minX = inst.x - RANGE;
+            const maxX = inst.x + inst.width - 1 + RANGE;
+            const minY = inst.y - RANGE;
+            const maxY = inst.y + inst.height - 1 + RANGE;
+            for (let ty = minY; ty <= maxY; ty++) {
+              for (let tx = minX; tx <= maxX; tx++) {
+                if (mapGetTile(tx, ty) === 'field') {
+                  return { activatable: true };
+                }
+              }
+            }
+          }
+          return {
+            activatable: false,
+            reason: 'No ready Fields nearby.',
+          };
+        },
+        run: ({ buildingInstances, mapGetTile, mapSetTile, resources }) => {
+          const RANGE = 2;
+          const fieldTiles: Array<{ x: number; y: number }> = [];
+          for (const inst of buildingInstances) {
+            const minX = inst.x - RANGE;
+            const maxX = inst.x + inst.width - 1 + RANGE;
+            const minY = inst.y - RANGE;
+            const maxY = inst.y + inst.height - 1 + RANGE;
+            for (let ty = minY; ty <= maxY; ty++) {
+              for (let tx = minX; tx <= maxX; tx++) {
+                if (mapGetTile(tx, ty) === 'field') {
+                  fieldTiles.push({ x: tx, y: ty });
+                }
+              }
+            }
+          }
+          // Each 2×2 block of field tiles counts as one field.
+          const fieldBlockCount = Math.floor(fieldTiles.length / 4);
+          const foodGain = 10 + 10 * fieldBlockCount;
+          resources.addResource('food', foodGain);
+          // Convert harvested fields to fallow.
+          for (const tile of fieldTiles) {
+            mapSetTile(tile.x, tile.y, 'field-empty');
+          }
         },
       },
     ],
@@ -399,8 +443,7 @@ export const stateBuildingDefinitions = {
     id: 'hunters-hut',
     shortName: 'Hnt',
     name: "Hunter's Hut",
-    description:
-      'A small hunting lodge that sends hunters into nearby woods. Requires 1 population to operate. Passive income each end turn: +5 to +10 Food.',
+    description: 'A small hunting lodge that sends hunters into nearby woods.',
     buildCost: {
       gold: 30,
       materials: 18,

@@ -6,6 +6,7 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { BuildPopupOptions } from '../../_common/models/ui.models';
 import { wrapText } from '../../_common/text';
+import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { TurnManager } from '../../managers/TurnManager';
@@ -80,9 +81,7 @@ export class BuildPopup extends ScreenPopup {
     };
 
     if (definition.unique) {
-      line(`Built: ${count}/1`, 14, count > 0 ? okColor : lineColor, 8);
-    } else {
-      line(`Built: ${count}`, 14, lineColor, 8);
+      line(`Built: ${count}/1`, 12, count > 0 ? okColor : lineColor, 10);
     }
 
     for (const descriptionLine of wrapText(
@@ -92,8 +91,37 @@ export class BuildPopup extends ScreenPopup {
     )) {
       line(descriptionLine, 14, lineColor, 4);
     }
+    y += 6;
+
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    if (definition.populationProvided) {
+      line(
+        `Permanent: +${definition.populationProvided} Population`,
+        13,
+        okColor,
+        4
+      );
+    }
+
+    const passiveEntries = buildingPassiveIncome[definition.id] ?? [];
+    if (passiveEntries.length > 0) {
+      const parts = passiveEntries.map((entry) => {
+        if (typeof entry.amount === 'string') {
+          const p = entry.amount.split(':');
+          return `+${p[1]}\u2013${p[2]} ${capitalize(entry.resourceType)}`;
+        }
+        const pos = entry.amount >= 0;
+        return `${pos ? '+' : ''}${entry.amount} ${capitalize(entry.resourceType)}`;
+      });
+      line(`Each turn: ${parts.join(', ')}`, 13, okColor, 4);
+    }
+
     y += 4;
-    line(`Placement: ${definition.placementDescription}`, 13, lineColor, 8);
+    const tileNames = definition.placementRule.allowedTiles
+      .map(capitalize)
+      .join(', ');
+    line(`Placement: ${tileNames}`, 13, lineColor, 8);
 
     y += 8;
     line('Next build cost:', 15, Color.fromHex('#f0f4f8'), 8);
@@ -136,15 +164,6 @@ export class BuildPopup extends ScreenPopup {
         `Population required: ${definition.populationRequired} (free: ${freePop})`,
         14,
         enough ? okColor : warnColor,
-        8
-      );
-    }
-
-    if (definition.populationProvided) {
-      line(
-        `Population provided: +${definition.populationProvided}`,
-        14,
-        okColor,
         8
       );
     }

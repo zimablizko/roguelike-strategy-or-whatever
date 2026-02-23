@@ -34,6 +34,8 @@ export class TurnManager {
   private researchManager?: ResearchManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
+  /** Tracks fallow field tiles awaiting recovery. Key: "x,y", value: turns remaining. */
+  private emptyFieldRecovery = new Map<string, number>();
 
   constructor(
     resourceManager: ResourceManager,
@@ -47,6 +49,7 @@ export class TurnManager {
       initial?: {
         data?: TurnData;
         version?: number;
+        emptyFieldQueue?: Array<{ x: number; y: number; turnsLeft: number }>;
       };
     }
   ) {
@@ -74,10 +77,17 @@ export class TurnManager {
     this.researchManager = options?.researchManager;
     this.rng = options?.rng ?? new SeededRandom();
     this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
+    for (const entry of options?.initial?.emptyFieldQueue ?? []) {
+      this.emptyFieldRecovery.set(
+        `${entry.x},${entry.y}`,
+        Math.max(1, entry.turnsLeft)
+      );
+    }
   }
 
   endTurn(): EndTurnResult {
     const passiveIncome = this.applyPassiveBuildingIncome();
+    this.processFieldRecovery();
 
     this.turnData.turnNumber++;
     this.resetFocus();
@@ -116,6 +126,26 @@ export class TurnManager {
    */
   getTurnDataRef(): Readonly<TurnData> {
     return this.turnData;
+  }
+
+  /**
+   * Returns the number of turns remaining until a fallow field at (x, y)
+   * recovers, or undefined if the tile is not tracked.
+   */
+  getEmptyFieldTurnsLeft(x: number, y: number): number | undefined {
+    return this.emptyFieldRecovery.get(`${x},${y}`);
+  }
+
+  /**
+   * Returns the fallow-field recovery queue for serialization.
+   */
+  getEmptyFieldQueue(): Array<{ x: number; y: number; turnsLeft: number }> {
+    return Array.from(this.emptyFieldRecovery.entries()).map(
+      ([key, turnsLeft]) => {
+        const [x, y] = key.split(',').map(Number);
+        return { x, y, turnsLeft };
+      }
+    );
   }
 
   getTurnVersion(): number {
@@ -165,6 +195,53 @@ export class TurnManager {
   resetFocus(): void {
     this.turnData.focus.current = this.turnData.focus.max;
     this.buildingManager.resetActionUsage();
+  }
+
+  /**
+   * Discovers newly emptied field tiles, advances the recovery countdown, and
+   * restores tiles that have completed their 3-turn fallow period.
+   */
+  private processFieldRecovery(): void {
+    if (!this.mapManager) return;
+    const map = this.mapManager.getMapRef();
+
+    // Register newly discovered field-empty tiles.
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const key = `${x},${y}`;
+        if (
+          map.tiles[y][x] === 'field-empty' &&
+          !this.emptyFieldRecovery.has(key)
+        ) {
+          this.emptyFieldRecovery.set(key, 3);
+        }
+      }
+    }
+
+    // Prune entries whose tiles are no longer field-empty (edge-case cleanup).
+    for (const key of this.emptyFieldRecovery.keys()) {
+      const [x, y] = key.split(',').map(Number);
+      if (map.tiles[y]?.[x] !== 'field-empty') {
+        this.emptyFieldRecovery.delete(key);
+      }
+    }
+
+    // Decrement counters and recover zero-remaining tiles.
+    let anyRecovered = false;
+    for (const [key, turnsLeft] of this.emptyFieldRecovery) {
+      if (turnsLeft <= 1) {
+        const [x, y] = key.split(',').map(Number);
+        this.mapManager.setTile(x, y, 'field');
+        this.emptyFieldRecovery.delete(key);
+        anyRecovered = true;
+      } else {
+        this.emptyFieldRecovery.set(key, turnsLeft - 1);
+      }
+    }
+
+    if (anyRecovered) {
+      this.buildingManager.notifyMapChanged();
+    }
   }
 
   private applyPassiveBuildingIncome(): {

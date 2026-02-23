@@ -15,6 +15,8 @@ export interface TooltipOutcome {
   icon?: ImageSource;
   color?: Color;
   inline?: boolean;
+  /** When true, renders value then icon (e.g. "+10 🍖"). Default is icon then value. */
+  iconAfter?: boolean;
 }
 
 export interface TooltipRequest {

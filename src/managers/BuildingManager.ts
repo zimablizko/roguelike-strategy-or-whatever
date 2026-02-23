@@ -121,6 +121,15 @@ export class BuildingManager {
     return this.buildingsVersion;
   }
 
+  /**
+   * Signals that map tiles have changed externally (e.g. field recovery).
+   * Re-syncs state and bumps the buildings version so views re-render.
+   */
+  notifyMapChanged(): void {
+    this.syncStateWithMapSummary();
+    this.buildingsVersion++;
+  }
+
   // ─── Population helpers ──────────────────────────────────────────
 
   /**
@@ -935,13 +944,14 @@ export class BuildingManager {
    * Converts a 2×2 block at (tileX, tileY) to field tiles, syncs state and
    * bumps the buildings version so the map re-renders.
    */
-  placeFarmField(tileX: number, tileY: number): void {
+  placeFarmField(tileX: number, tileY: number, farmInstanceId: string): void {
     if (!this.mapManager) return;
     for (let dy = 0; dy <= 1; dy++) {
       for (let dx = 0; dx <= 1; dx++) {
         this.mapManager.setTile(tileX + dx, tileY + dy, 'field');
       }
     }
+    this.incrementActionUsage(farmInstanceId, 'sow-field');
     this.syncStateWithMapSummary();
     this.buildingsVersion++;
   }

@@ -49,6 +49,7 @@ export class SaveManager {
     return gameManager.getSnapshot({
       data: turnManager.getTurnData(),
       version: turnManager.getTurnVersion(),
+      emptyFieldQueue: turnManager.getEmptyFieldQueue(),
     });
   }
 

@@ -56,6 +56,10 @@ export class MapView extends Actor {
     instanceId: string | undefined
   ) => void;
   private readonly onFieldTileSelected?: (tileX: number, tileY: number) => void;
+  private readonly fallowFieldInfo?: (
+    tileX: number,
+    tileY: number
+  ) => number | undefined;
   private readonly shouldIgnoreLeftClick?: (
     screenX: number,
     screenY: number
@@ -115,6 +119,7 @@ export class MapView extends Actor {
     this.onBuildPlacementCancel = options.onBuildPlacementCancel;
     this.onBuildingSelected = options.onBuildingSelected;
     this.onFieldTileSelected = options.onFieldTileSelected;
+    this.fallowFieldInfo = options.fallowFieldInfo;
     this.shouldIgnoreLeftClick = options.shouldIgnoreLeftClick;
     this.isInputBlocked = options.isInputBlocked;
     this.tooltipProvider = options.tooltipProvider;
@@ -346,8 +351,9 @@ export class MapView extends Actor {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const label = 'Fld';
 
+    // Draw ready field labels.
+    const readyLabel = 'Fld';
     for (let y = 0; y < this.map.height - 1; y++) {
       for (let x = 0; x < this.map.width - 1; x++) {
         // Only label the top-left corner of each 2×2 field block.
@@ -378,13 +384,14 @@ export class MapView extends Actor {
         ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
         while (
           fittedFontSize > minLabelFontSize &&
-          ctx.measureText(label).width > maxLabelWidth
+          ctx.measureText(readyLabel).width > maxLabelWidth
         ) {
           fittedFontSize -= 1;
           ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
         }
 
-        const labelWidth = ctx.measureText(label).width + labelPaddingX * 2;
+        const labelWidth =
+          ctx.measureText(readyLabel).width + labelPaddingX * 2;
         const labelHeight = fittedFontSize + 14;
 
         ctx.fillStyle = 'rgba(12, 16, 22, 0.76)';
@@ -395,7 +402,61 @@ export class MapView extends Actor {
           labelHeight
         );
         ctx.fillStyle = '#f5efe2';
-        ctx.fillText(label, centerX, centerY + 1);
+        ctx.fillText(readyLabel, centerX, centerY + 1);
+      }
+    }
+
+    // Draw fallow field labels.
+    const fallowLabel = 'Fal';
+    for (let y = 0; y < this.map.height - 1; y++) {
+      for (let x = 0; x < this.map.width - 1; x++) {
+        // Only label the top-left corner of each 2×2 fallow block.
+        if (
+          this.map.tiles[y][x] !== 'field-empty' ||
+          this.map.tiles[y][x + 1] !== 'field-empty' ||
+          this.map.tiles[y + 1][x] !== 'field-empty' ||
+          this.map.tiles[y + 1][x + 1] !== 'field-empty'
+        ) {
+          continue;
+        }
+        if (
+          (y > 0 && this.map.tiles[y - 1][x] === 'field-empty') ||
+          (x > 0 && this.map.tiles[y][x - 1] === 'field-empty')
+        ) {
+          continue;
+        }
+
+        const blockLeft = offset + x * this.tileSize;
+        const blockTop = offset + y * this.tileSize;
+        const blockWidth = this.tileSize * 2;
+        const blockHeight = this.tileSize * 2;
+        const centerX = blockLeft + blockWidth / 2;
+        const centerY = blockTop + blockHeight / 2;
+        const maxLabelWidth = blockWidth - labelPaddingX * 2;
+
+        let fittedFontSize = labelFontSize;
+        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        while (
+          fittedFontSize > minLabelFontSize &&
+          ctx.measureText(fallowLabel).width > maxLabelWidth
+        ) {
+          fittedFontSize -= 1;
+          ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        }
+
+        const labelWidth =
+          ctx.measureText(fallowLabel).width + labelPaddingX * 2;
+        const labelHeight = fittedFontSize + 14;
+
+        ctx.fillStyle = 'rgba(30, 22, 10, 0.65)';
+        ctx.fillRect(
+          centerX - labelWidth / 2,
+          centerY - labelHeight / 2,
+          labelWidth,
+          labelHeight
+        );
+        ctx.fillStyle = '#b09a68';
+        ctx.fillText(fallowLabel, centerX, centerY + 1);
       }
     }
   }
@@ -956,6 +1017,24 @@ export class MapView extends Actor {
         return;
       }
 
+      // Fallow field tooltip
+      if (this.map.tiles[tile.y]?.[tile.x] === 'field-empty') {
+        this.hoveredBuildingInstanceId = undefined;
+        this.hoveredRareResourceKey = undefined;
+        this.hoveredFieldKey = key;
+        const tileX = tile.x;
+        const tileY = tile.y;
+        const turnsLeft = this.fallowFieldInfo?.(tileX, tileY) ?? 3;
+        const recoveryText = `Recovers in ${turnsLeft} ${turnsLeft === 1 ? 'turn' : 'turns'}.`;
+        this.tooltipProvider.show({
+          owner: this,
+          getAnchorRect: () => this.getTileAnchorRect(tileX, tileY),
+          description: `Fallow Field\n${recoveryText}`,
+          width: 200,
+        });
+        return;
+      }
+
       const rr = this.map.rareResources?.[key];
       if (rr?.visible) {
         const def = rareResourceDefinitions[rr.resourceId as RareResourceId];
@@ -1133,6 +1212,7 @@ export class MapView extends Actor {
     if (type === 'sand') return '#e5d178';
     if (type === 'river') return '#89d5ff';
     if (type === 'field') return '#c8a84b';
+    if (type === 'field-empty') return '#8c7a42';
     return '#2f6fc9';
   }
 

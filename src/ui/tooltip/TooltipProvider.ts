@@ -229,7 +229,7 @@ export class TooltipProvider extends ScreenElement {
               y + (row.height - row.labelGraphic.height) / 2
             ),
           });
-          outcomeX += row.labelGraphic.width + 8;
+          outcomeX += row.labelGraphic.width + 4;
         }
 
         // Use a uniform text height across all items so baselines align
@@ -240,7 +240,8 @@ export class TooltipProvider extends ScreenElement {
 
         for (let i = 0; i < row.items.length; i++) {
           const item = row.items[i];
-          if (item.iconSprite) {
+
+          if (!item.iconAfter && item.iconSprite) {
             members.push({
               graphic: item.iconSprite,
               offset: vec(
@@ -256,6 +257,18 @@ export class TooltipProvider extends ScreenElement {
             offset: vec(outcomeX, y + (row.height - uniformTextHeight) / 2),
           });
           outcomeX += item.textGraphic.width;
+
+          if (item.iconAfter && item.iconSprite) {
+            members.push({
+              graphic: item.iconSprite,
+              offset: vec(
+                outcomeX + 3,
+                y + (row.height - this.outcomeIconSize) / 2
+              ),
+            });
+            outcomeX += this.outcomeIconSize + 6;
+          }
+
           if (i < row.items.length - 1) {
             outcomeX += this.outcomeInlineItemGap;
           }
@@ -563,14 +576,14 @@ export class TooltipProvider extends ScreenElement {
       });
       const width =
         (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
-      return { iconSprite, textGraphic, width };
+      return { iconSprite, textGraphic, width, iconAfter: outcome.iconAfter };
     });
 
     const itemsWidth =
       items.reduce((sum, item) => sum + item.width, 0) +
       Math.max(0, items.length - 1) * this.outcomeInlineItemGap;
     const width =
-      (labelGraphic?.width ?? 0) + (labelGraphic ? 8 : 0) + itemsWidth;
+      (labelGraphic?.width ?? 0) + (labelGraphic ? 4 : 0) + itemsWidth;
 
     const maxItemHeight = items.reduce(
       (max, item) =>

@@ -20,12 +20,25 @@ import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
 import { Resources } from '../../_common/resources';
 import { measureTextWidth } from '../../_common/text';
+import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
+
+interface BuildingInfoRowSegment {
+  value: string;
+  resource?: ResourceType;
+  isPositive: boolean;
+}
+
+interface BuildingInfoRow {
+  label: string;
+  segments: BuildingInfoRowSegment[];
+  isDetail?: boolean;
+}
 
 export class SelectedBuildingView extends ScreenElement {
   private readonly stateManager: StateManager;
@@ -149,7 +162,6 @@ export class SelectedBuildingView extends ScreenElement {
     this.lastTurnVersion = tv;
     this.lastSelectedId = selId;
 
-    const state = this.stateManager.getStateRef();
     const selected = selId
       ? this.buildingManager
           .getBuildingMapOverlays()
@@ -202,38 +214,27 @@ export class SelectedBuildingView extends ScreenElement {
       return;
     }
 
-    const count = this.buildingManager.getBuildingCount(definition.id);
-
-    // Farm uses a custom info panel — no area/count line, dynamic field stats.
-    const isFarm = definition.id === 'farm';
-    const farmFieldCount = isFarm
-      ? this.buildingManager.getFarmFieldCount(selected.instanceId, 2)
-      : 0;
-    const farmBaseIncome = 10;
-    const farmFieldBonus = farmFieldCount * 3;
-    const farmTotalIncome = farmBaseIncome + farmFieldBonus;
-    const farmStatLines: string[] = isFarm
-      ? [
-          `Each turn: +${farmTotalIncome} Food`,
-          ...(farmFieldCount > 0
-            ? [
-                `(+${farmFieldBonus} from ${farmFieldCount} field${farmFieldCount > 1 ? 's' : ''})`,
-              ]
-            : []),
-        ]
-      : [];
-
-    const stats = isFarm ? [] : definition.getStats(state, count).slice(0, 2);
-    const areaLine = isFarm
-      ? ''
-      : `Area ${selected.width}x${selected.height}  Count ${count}`;
+    const infoRows = this.getInfoRows(definition, selected.instanceId);
+    const LABEL_INDENT = 76;
 
     const leftSectionMaxLineWidth = Math.max(
       measureTextWidth('Selected', 12),
       measureTextWidth(definition.name, 20),
-      areaLine ? measureTextWidth(areaLine, 12) : 0,
-      ...stats.map((stat) => measureTextWidth(`- ${stat}`, 12)),
-      ...farmStatLines.map((s) => measureTextWidth(s, 12))
+      ...infoRows.map((row) => {
+        const labelPart = row.label
+          ? LABEL_INDENT
+          : row.isDetail
+            ? 8
+            : LABEL_INDENT;
+        const fontSize = row.isDetail ? 11 : 12;
+        let segW = 0;
+        for (const seg of row.segments) {
+          if (segW > 0) segW += 4;
+          segW += measureTextWidth(seg.value, fontSize);
+          if (seg.resource && !row.isDetail) segW += 17;
+        }
+        return labelPart + segW;
+      })
     );
     const leftSectionWidth = clamp(
       Math.ceil(leftSectionMaxLineWidth) + 12,
@@ -261,8 +262,12 @@ export class SelectedBuildingView extends ScreenElement {
       Math.min(this.maxPanelWidth, viewportMaxWidth)
     );
 
-    const statsBaseY = 58;
-    const statsGap = 17;
+    const INFO_ROW_START_Y = 46;
+    const INFO_ROW_GAP = 16;
+    const INFO_ICON_SIZE = 13;
+    const POS_COLOR = Color.fromHex('#78d989');
+    const NEG_COLOR = Color.fromHex('#e6c97a');
+    const DETAIL_COLOR = Color.fromHex('#8b9bab');
     const actionsTitleX = this.currentPanelWidth - actionButtonWidth - 12;
 
     members.push(
@@ -276,18 +281,49 @@ export class SelectedBuildingView extends ScreenElement {
       )
     );
 
-    if (areaLine) {
-      members.push(
-        this.createTextMember(areaLine, 12, Color.fromHex('#cfd9e2'), 12, 46)
-      );
-    }
-
-    let statY = isFarm ? 46 : statsBaseY;
-    for (const stat of isFarm ? farmStatLines : stats) {
-      members.push(
-        this.createTextMember(stat, 12, Color.fromHex('#dce6ef'), 12, statY)
-      );
-      statY += statsGap;
+    let rowY = INFO_ROW_START_Y;
+    for (const row of infoRows) {
+      if (rowY + 14 > this.panelHeight - 4) break;
+      if (row.label) {
+        members.push(
+          this.createTextMember(
+            row.label,
+            12,
+            Color.fromHex('#9fb4c8'),
+            12,
+            rowY
+          )
+        );
+      }
+      const fontSize = row.isDetail ? 11 : 12;
+      const valueX = 12 + (row.label || !row.isDetail ? LABEL_INDENT : 8);
+      let segX = valueX;
+      for (const seg of row.segments) {
+        const valueColor = row.isDetail
+          ? DETAIL_COLOR
+          : seg.isPositive
+            ? POS_COLOR
+            : NEG_COLOR;
+        members.push(
+          this.createTextMember(seg.value, fontSize, valueColor, segX, rowY)
+        );
+        const textW = measureTextWidth(seg.value, fontSize);
+        segX += textW + 3;
+        if (seg.resource && !row.isDetail) {
+          const iconSrc = this.getResourceIcon(seg.resource);
+          if (iconSrc?.isLoaded()) {
+            const sprite = iconSrc.toSprite();
+            sprite.width = INFO_ICON_SIZE;
+            sprite.height = INFO_ICON_SIZE;
+            members.push({
+              graphic: sprite,
+              offset: vec(segX, rowY - 1),
+            });
+            segX += INFO_ICON_SIZE + 4;
+          }
+        }
+      }
+      rowY += INFO_ROW_GAP;
     }
 
     members.push(
@@ -417,6 +453,80 @@ export class SelectedBuildingView extends ScreenElement {
     );
 
     return clamp(Math.ceil(widestTitle) + 26, 188, 300);
+  }
+
+  private getInfoRows(
+    definition: TypedBuildingDefinition,
+    instanceId: string
+  ): BuildingInfoRow[] {
+    const rows: BuildingInfoRow[] = [];
+
+    if (definition.populationProvided) {
+      rows.push({
+        label: 'Permanent:',
+        segments: [
+          {
+            value: `+${definition.populationProvided}`,
+            resource: 'population',
+            isPositive: true,
+          },
+        ],
+      });
+    }
+
+    if (definition.id === 'farm') {
+      const fieldCount = this.buildingManager.getFarmFieldCount(instanceId, 2);
+      const total = 10 + fieldCount * 3;
+      rows.push({
+        label: 'Each turn:',
+        segments: [{ value: `+${total}`, resource: 'food', isPositive: true }],
+      });
+      if (fieldCount > 0) {
+        rows.push({
+          label: '',
+          segments: [
+            {
+              value: `+10 base, +${fieldCount * 3} from ${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`,
+              isPositive: true,
+            },
+          ],
+          isDetail: true,
+        });
+      }
+    } else {
+      const passiveEntries = buildingPassiveIncome[definition.id] ?? [];
+      const segments: BuildingInfoRowSegment[] = [];
+      for (const entry of passiveEntries) {
+        let valueText: string;
+        let isPositive = true;
+        if (typeof entry.amount === 'string') {
+          const parts = entry.amount.split(':');
+          valueText = `+${parts[1]}\u2013${parts[2]}`;
+        } else {
+          isPositive = entry.amount >= 0;
+          valueText = (isPositive ? '+' : '') + String(entry.amount);
+        }
+        segments.push({
+          value: valueText,
+          resource: entry.resourceType,
+          isPositive,
+        });
+      }
+
+      if (definition.id === 'house') {
+        const hasTax =
+          this.buildingManager.isTechnologyUnlocked('eco-tax-collection');
+        if (hasTax) {
+          segments.push({ value: '+2', resource: 'gold', isPositive: true });
+        }
+      }
+
+      if (segments.length > 0) {
+        rows.push({ label: 'Each turn:', segments });
+      }
+    }
+
+    return rows;
   }
 
   private getActionOutcomes(

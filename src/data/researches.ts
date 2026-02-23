@@ -37,7 +37,8 @@ export const researchDefinitions = {
     id: 'eco-agriculture',
     tree: 'economics',
     name: 'Agriculture',
-    description: 'Unlocks Farm construction through organized crop rotation and field management.',
+    description:
+      'Unlocks Farm construction through organized crop rotation and field management.',
     turns: 2,
     requiredResearches: [],
   },
@@ -45,7 +46,8 @@ export const researchDefinitions = {
     id: 'eco-tax-collection',
     tree: 'economics',
     name: 'Tax Collection',
-    description: 'Establishes regular tax registers. Houses passively generate +2 Gold per turn.',
+    description:
+      'Establishes regular tax registers. Houses passively generate +2 Gold per turn.',
     turns: 2,
     requiredResearches: [],
   },
@@ -53,7 +55,8 @@ export const researchDefinitions = {
     id: 'eco-forestry',
     tree: 'economics',
     name: 'Forestry',
-    description: 'Systematic woodland management techniques. Unlocks Plant Trees action for Lumbermills.',
+    description:
+      'Systematic woodland management techniques. Unlocks Plant Trees action for Lumbermills.',
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },
@@ -61,15 +64,17 @@ export const researchDefinitions = {
     id: 'eco-mining',
     tree: 'economics',
     name: 'Mining',
-    description: 'Unlocks Mine construction with systematic ore extraction and quarry methods.',
+    description:
+      'Unlocks Mine construction with systematic ore extraction and quarry methods.',
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },
-  'eco-coin-minting': {
-    id: 'eco-coin-minting',
+  'eco-crop-harvesting': {
+    id: 'eco-crop-harvesting',
     tree: 'economics',
-    name: 'Coin Minting',
-    description: 'Unified coinage system for predictable exchange rates.',
+    name: 'Crop Harvesting',
+    description:
+      'Advanced rotation techniques let Farms gather ready Fields for immediate food. Each harvest yields (Fields + 1) Food; harvested Fields lie fallow for 3 turns before regrowing.',
     turns: 4,
     requiredResearches: ['eco-forestry'],
   },
@@ -79,7 +84,7 @@ export const researchDefinitions = {
     name: 'Trade Caravans',
     description: 'Organized caravan networks connecting distant settlements.',
     turns: 4,
-    requiredResearches: ['eco-coin-minting', 'eco-mining'],
+    requiredResearches: ['eco-crop-harvesting', 'eco-mining'],
   },
   'pol-clan-council': {
     id: 'pol-clan-council',
