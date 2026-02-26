@@ -32,6 +32,11 @@ export interface StateBuildingInstance {
   y: number;
   width: number;
   height: number;
+  /**
+   * Number of turns remaining before this building finishes construction.
+   * undefined (or 0) means the building is fully operational.
+   */
+  turnsRemaining?: number;
 }
 
 export interface StateBuildingMapOverlay extends StateBuildingInstance {

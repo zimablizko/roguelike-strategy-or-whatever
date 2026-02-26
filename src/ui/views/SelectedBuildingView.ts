@@ -513,6 +513,24 @@ export class SelectedBuildingView extends ScreenElement {
         });
       }
 
+      // Rare resource bonuses (e.g. golden ore under a mine)
+      const rareBonuses =
+        this.buildingManager.getRareResourceBonusForInstance(instanceId);
+      for (const bonus of rareBonuses) {
+        let valueText: string;
+        if (typeof bonus.amount === 'string') {
+          const parts = bonus.amount.split(':');
+          valueText = `+${parts[1]}\u2013${parts[2]}`;
+        } else {
+          valueText = `+${bonus.amount}`;
+        }
+        segments.push({
+          value: valueText,
+          resource: bonus.resourceType,
+          isPositive: true,
+        });
+      }
+
       if (definition.id === 'house') {
         const hasTax =
           this.buildingManager.isTechnologyUnlocked('eco-tax-collection');

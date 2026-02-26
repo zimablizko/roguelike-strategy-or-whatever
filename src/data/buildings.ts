@@ -35,6 +35,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.2,
     unique: true,
+    buildingTime: 2,
     populationProvided: 10,
     placementRule: {
       width: 3,
@@ -71,6 +72,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.15,
     unique: false,
+    buildingTime: 2,
     populationProvided: 5,
     placementRule: {
       width: 2,
@@ -97,6 +99,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.2,
     unique: false,
+    buildingTime: 2,
     populationRequired: 2,
     placementRule: {
       width: 2,
@@ -291,6 +294,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.2,
     unique: false,
+    buildingTime: 2,
     populationRequired: 3,
     placementRule: {
       width: 2,
@@ -333,6 +337,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.2,
     unique: false,
+    buildingTime: 2,
     populationRequired: 2,
     placementRule: {
       width: 2,
@@ -450,6 +455,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.2,
     unique: false,
+    buildingTime: 2,
     populationRequired: 1,
     placementRule: {
       width: 2,

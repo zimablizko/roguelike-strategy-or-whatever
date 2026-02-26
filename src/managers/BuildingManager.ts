@@ -26,6 +26,10 @@ import {
   createEmptyBuildingRecord,
   stateBuildingDefinitions,
 } from '../data/buildings';
+import {
+  rareResourceDefinitions,
+  type RareResourceId,
+} from '../data/rareResources';
 import { MapManager } from './MapManager';
 import type { ResourceManager } from './ResourceManager';
 
@@ -122,6 +126,31 @@ export class BuildingManager {
   }
 
   /**
+   * Advances construction progress for all in-progress building instances by one turn.
+   * Buildings whose `turnsRemaining` reaches 0 become fully operational.
+   * Call this once per end-turn cycle.
+   */
+  advanceBuildingConstruction(): void {
+    let changed = false;
+    for (const instance of this.buildingInstances) {
+      if (
+        instance.turnsRemaining !== undefined &&
+        instance.turnsRemaining > 0
+      ) {
+        instance.turnsRemaining--;
+        if (instance.turnsRemaining === 0) {
+          instance.turnsRemaining = undefined;
+        }
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.buildingsVersion++;
+      this.syncStateWithMapSummary();
+    }
+  }
+
+  /**
    * Signals that map tiles have changed externally (e.g. field recovery).
    * Re-syncs state and bumps the buildings version so views re-render.
    */
@@ -134,13 +163,16 @@ export class BuildingManager {
 
   /**
    * Total population provided by all buildings with `populationProvided`.
+   * Only completed (non-in-progress) buildings count.
    */
   getTotalPopulation(): number {
     let total = 0;
-    for (const id of Object.keys(this.buildingCounts) as StateBuildingId[]) {
-      const definition = this.getBuildingDefinition(id);
+    for (const instance of this.buildingInstances) {
+      if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
+        continue;
+      const definition = this.getBuildingDefinition(instance.buildingId);
       if (definition?.populationProvided) {
-        total += definition.populationProvided * this.buildingCounts[id];
+        total += definition.populationProvided;
       }
     }
     return total;
@@ -148,16 +180,70 @@ export class BuildingManager {
 
   /**
    * Population occupied by all buildings with `populationRequired`.
+   * Only completed (non-in-progress) buildings count.
    */
   getOccupiedPopulation(): number {
     let occupied = 0;
-    for (const id of Object.keys(this.buildingCounts) as StateBuildingId[]) {
-      const definition = this.getBuildingDefinition(id);
+    for (const instance of this.buildingInstances) {
+      if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
+        continue;
+      const definition = this.getBuildingDefinition(instance.buildingId);
       if (definition?.populationRequired) {
-        occupied += definition.populationRequired * this.buildingCounts[id];
+        occupied += definition.populationRequired;
       }
     }
     return occupied;
+  }
+
+  /**
+   * Returns the total rare-resource passive income bonus for a specific
+   * building instance, grouped by resource type. Ranges are scaled by the
+   * number of matching tiles (e.g. 2 golden-ore tiles = +10 Gold).
+   */
+  getRareResourceBonusForInstance(
+    instanceId: string
+  ): Array<{ resourceType: ResourceType; amount: number | string }> {
+    if (!this.mapManager) return [];
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance) return [];
+    const rareResources = this.mapManager.getMapRef().rareResources;
+    // Accumulate per (resourceType, rawAmount) → count
+    const counts = new Map<
+      string,
+      { resourceType: ResourceType; rawAmount: number | string; count: number }
+    >();
+    for (let ty = instance.y; ty < instance.y + instance.height; ty++) {
+      for (let tx = instance.x; tx < instance.x + instance.width; tx++) {
+        const rr = rareResources[`${tx},${ty}`];
+        if (!rr) continue;
+        const def = rareResourceDefinitions[rr.resourceId as RareResourceId];
+        if (!def || def.bonusBuilding !== instance.buildingId) continue;
+        const key = `${def.bonus.resourceType}:${def.bonus.amount}`;
+        const existing = counts.get(key);
+        if (existing) {
+          existing.count++;
+        } else {
+          counts.set(key, {
+            resourceType: def.bonus.resourceType as ResourceType,
+            rawAmount: def.bonus.amount,
+            count: 1,
+          });
+        }
+      }
+    }
+    return Array.from(counts.values()).map(
+      ({ resourceType, rawAmount, count }) => {
+        if (typeof rawAmount === 'string') {
+          const parts = rawAmount.split(':');
+          const min = parseInt(parts[1], 10) * count;
+          const max = parseInt(parts[2], 10) * count;
+          return { resourceType, amount: `random:${min}:${max}` };
+        }
+        return { resourceType, amount: rawAmount * count };
+      }
+    );
   }
 
   /**
@@ -626,6 +712,17 @@ export class BuildingManager {
       };
     }
 
+    // Block actions on instances that are still under construction.
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (instance?.turnsRemaining !== undefined && instance.turnsRemaining > 0) {
+      return {
+        activatable: false,
+        reason: `Under construction (${instance.turnsRemaining} turn${instance.turnsRemaining === 1 ? '' : 's'} remaining).`,
+      };
+    }
+
     const definition = this.getBuildingDefinition(buildingId);
     if (!definition) {
       return {
@@ -723,6 +820,11 @@ export class BuildingManager {
           y: clamp(Math.floor(rawInstance.y), 0),
           width,
           height,
+          turnsRemaining:
+            typeof rawInstance.turnsRemaining === 'number' &&
+            rawInstance.turnsRemaining > 0
+              ? rawInstance.turnsRemaining
+              : undefined,
         });
         this.buildingCounts[rawInstance.buildingId] += 1;
       }
@@ -787,7 +889,7 @@ export class BuildingManager {
       }
     }
 
-    this.registerBuildingInstance('castle', placement);
+    this.registerBuildingInstance('castle', placement, true);
   }
 
   private collectHighestBuildingInstanceSerial(): number {
@@ -967,9 +1069,12 @@ export class BuildingManager {
 
   private registerBuildingInstance(
     id: StateBuildingId,
-    placement: PlacementCandidate
+    placement: PlacementCandidate,
+    instant = false
   ): void {
     this.buildingInstanceSerial++;
+    const definition = this.getBuildingDefinition(id);
+    const buildingTime = !instant ? (definition?.buildingTime ?? 0) : 0;
     this.buildingInstances.push({
       instanceId: `${id}-${this.buildingInstanceSerial}`,
       buildingId: id,
@@ -977,6 +1082,7 @@ export class BuildingManager {
       y: placement.y,
       width: placement.width,
       height: placement.height,
+      turnsRemaining: buildingTime > 0 ? buildingTime : undefined,
     });
     this.buildingCounts[id] += 1;
     this.buildingsVersion++;

@@ -88,6 +88,7 @@ export class TurnManager {
   endTurn(): EndTurnResult {
     const passiveIncome = this.applyPassiveBuildingIncome();
     this.processFieldRecovery();
+    this.buildingManager.advanceBuildingConstruction();
 
     this.turnData.turnNumber++;
     this.resetFocus();
@@ -277,6 +278,14 @@ export class TurnManager {
     );
 
     for (const instance of buildingInstances) {
+      // Skip buildings still under construction.
+      if (
+        instance.turnsRemaining !== undefined &&
+        instance.turnsRemaining > 0
+      ) {
+        continue;
+      }
+
       const centerX = instance.x + (instance.width - 1) / 2;
       const centerY = instance.y + (instance.height - 1) / 2;
 

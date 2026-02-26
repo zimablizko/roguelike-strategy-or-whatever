@@ -82,6 +82,7 @@ export class MapView extends Actor {
   private viewY = 0;
   private zoom = 1;
   private renderedBuildingsVersion = -1;
+  private tooltipBuildingsVersion = -1;
   private renderedPlayerZoneTileCount = -1;
   private renderedBuildPlacementVersion = -1;
   private hoveredBuildingInstanceId?: string;
@@ -485,10 +486,18 @@ export class MapView extends Actor {
       const width = overlay.width * this.tileSize;
       const height = overlay.height * this.tileSize;
 
+      const inProgress =
+        overlay.turnsRemaining !== undefined && overlay.turnsRemaining > 0;
       const selected = overlay.instanceId === this.selectedBuildingInstanceId;
-      ctx.strokeStyle = selected
-        ? 'rgba(245, 196, 15, 0.98)'
-        : 'rgba(34, 35, 37, 0.96)';
+
+      // Border: amber for selected, construction-orange for in-progress, otherwise dark.
+      if (inProgress && !selected) {
+        ctx.strokeStyle = 'rgba(210, 140, 30, 0.88)';
+      } else {
+        ctx.strokeStyle = selected
+          ? 'rgba(245, 196, 15, 0.98)'
+          : 'rgba(34, 35, 37, 0.96)';
+      }
       ctx.lineWidth = selected ? borderWidth + 2 : borderWidth;
       ctx.strokeRect(
         left + ctx.lineWidth / 2,
@@ -496,6 +505,12 @@ export class MapView extends Actor {
         Math.max(0, width - ctx.lineWidth),
         Math.max(0, height - ctx.lineWidth)
       );
+
+      // Dimming overlay for in-progress buildings.
+      if (inProgress) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fillRect(left, top, width, height);
+      }
 
       const label = overlay.shortName.trim().slice(0, 3);
       ctx.font = `700 ${labelFontSize}px "Trebuchet MS", sans-serif`;
@@ -529,8 +544,24 @@ export class MapView extends Actor {
         labelHeight
       );
 
-      ctx.fillStyle = '#f5efe2';
+      // Mute label text when building is under construction.
+      ctx.fillStyle = inProgress ? '#888070' : '#f5efe2';
       ctx.fillText(label, centerX, centerY + 1);
+
+      // Turns-remaining badge for in-progress buildings.
+      if (inProgress) {
+        const badgeText = `${overlay.turnsRemaining}t`;
+        const badgeFontSize = Math.max(10, Math.floor(fittedFontSize * 0.55));
+        ctx.font = `700 ${badgeFontSize}px "Trebuchet MS", sans-serif`;
+        const badgeW = ctx.measureText(badgeText).width + 10;
+        const badgeH = badgeFontSize + 8;
+        const badgeX = centerX;
+        const badgeY = centerY + labelHeight / 2 + 4 + badgeH / 2;
+        ctx.fillStyle = 'rgba(180, 100, 20, 0.92)';
+        ctx.fillRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH);
+        ctx.fillStyle = '#ffd580';
+        ctx.fillText(badgeText, badgeX, badgeY + 1);
+      }
     }
   }
 
@@ -968,6 +999,13 @@ export class MapView extends Actor {
       return;
     }
 
+    // If buildings version changed (e.g. construction advanced), force tooltip refresh.
+    const currentVersion = this.buildingsVersionProvider?.() ?? -1;
+    if (currentVersion !== this.tooltipBuildingsVersion) {
+      this.tooltipBuildingsVersion = currentVersion;
+      this.hoveredBuildingInstanceId = undefined;
+    }
+
     const pointerPos = engine.input.pointers.primary.lastScreenPos;
     if (!pointerPos) {
       this.clearBuildingTooltip();
@@ -985,11 +1023,16 @@ export class MapView extends Actor {
 
       this.hoveredBuildingInstanceId = hovered.instanceId;
       this.hoveredRareResourceKey = undefined;
+      const inProgress =
+        hovered.turnsRemaining !== undefined && hovered.turnsRemaining > 0;
+      const description = inProgress
+        ? `${hovered.name}\nUnder construction — ${hovered.turnsRemaining} turn${hovered.turnsRemaining === 1 ? '' : 's'} remaining`
+        : hovered.name;
       this.tooltipProvider.show({
         owner: this,
         getAnchorRect: () => this.getBuildingAnchorRect(hovered),
-        description: hovered.name,
-        width: 180,
+        description,
+        width: 200,
       });
       return;
     }

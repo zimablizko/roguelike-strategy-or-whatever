@@ -319,6 +319,18 @@ export interface StatePopupOptions {
   onClose?: () => void;
 }
 
+export interface BuildPopupOptions {
+  x: number;
+  y: number;
+  buildingId: StateBuildingId;
+  buildingManager: BuildingManager;
+  resourceManager: ResourceManager;
+  turnManager: TurnManager;
+  anchor?: ScreenPopupAnchor;
+  onBuilt?: (buildingId: StateBuildingId) => void;
+  onClose?: () => void;
+}
+
 export interface ResearchPopupOptions {
   x: number;
   y: number;

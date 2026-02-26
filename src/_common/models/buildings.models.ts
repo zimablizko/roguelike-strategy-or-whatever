@@ -67,6 +67,11 @@ export interface StateBuildingDefinition {
   buildCost: ResourceCost;
   costGrowth: number;
   unique: boolean;
+  /**
+   * Number of turns required to finish constructing this building after placement.
+   * 0 or undefined means it completes instantly (same turn). Default: 0.
+   */
+  buildingTime?: number;
   /** Population this building adds to the total cap (e.g. House +5, Castle +10). */
   populationProvided?: number;
   /** Free population required to operate this building (occupied, not consumed). */
