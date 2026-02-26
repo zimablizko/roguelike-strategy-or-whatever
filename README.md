@@ -176,6 +176,10 @@ onPreUpdate(engine: Engine, delta: number): void {
 }
 ```
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the planned features and development milestones.
+
 ## License
 
 ISC
