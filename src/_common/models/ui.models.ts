@@ -8,6 +8,7 @@ import type {
   Text,
 } from 'excalibur';
 import type { BuildingManager } from '../../managers/BuildingManager';
+import type { MilitaryManager } from '../../managers/MilitaryManager';
 import type { ResearchManager } from '../../managers/ResearchManager';
 import type { ResourceManager } from '../../managers/ResourceManager';
 import type { RulerManager } from '../../managers/RulerManager';
@@ -379,4 +380,23 @@ export interface TooltipOutcomeRenderRow {
 export interface BuildingHotkeyConfig {
   key: Keys;
   label: string;
+}
+
+export interface MilitaryPopupOptions {
+  x: number;
+  y: number;
+  militaryManager: MilitaryManager;
+  buildingManager: BuildingManager;
+  resourceManager: ResourceManager;
+  turnManager: TurnManager;
+  tooltipProvider: TooltipProvider;
+  anchor?: ScreenPopupAnchor;
+  onClose?: () => void;
+}
+
+export interface MilitaryStatusViewOptions extends InteractivePanelOptions {
+  militaryManager: MilitaryManager;
+  buildingManager: BuildingManager;
+  width?: number;
+  widthProvider?: () => number;
 }

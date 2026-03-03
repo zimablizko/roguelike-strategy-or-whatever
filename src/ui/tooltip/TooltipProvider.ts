@@ -533,6 +533,10 @@ export class TooltipProvider extends ScreenElement {
       if (current.inline) {
         const inlineGroup: TooltipOutcome[] = [];
         while (i < outcomes.length && outcomes[i].inline) {
+          // A non-empty label on a subsequent inline item starts a new group
+          if (inlineGroup.length > 0 && outcomes[i].label) {
+            break;
+          }
           inlineGroup.push(outcomes[i]);
           i++;
         }

@@ -444,6 +444,35 @@ export const stateBuildingDefinitions = {
       },
     ],
   },
+  barracks: {
+    id: 'barracks',
+    shortName: 'Brk',
+    name: 'Barracks',
+    description:
+      'Military training facility where recruits are drilled into soldiers. Each Barracks provides 4 training slots and garrisons up to 8 units.',
+    buildCost: {
+      gold: 60,
+      materials: 40,
+    },
+    costGrowth: 1.25,
+    unique: false,
+    buildingTime: 3,
+    populationRequired: 3,
+    placementRule: {
+      width: 3,
+      height: 2,
+      allowedTiles: ['plains', 'sand'] as MapTileType[],
+    },
+    placementDescription: 'Requires 3x2 free Plains/Sand area.',
+    requiredTechnologies: ['mil-drill-doctrine'],
+    getStats: (_state: unknown, count: number) => [
+      `Built: ${count}`,
+      `Training capacity: ${count * 4} slots`,
+      `Garrison capacity: ${count * 8} units`,
+      'Occupies 3x2 tiles',
+    ],
+    actions: [],
+  },
   'hunters-hut': {
     id: 'hunters-hut',
     shortName: 'Hnt',

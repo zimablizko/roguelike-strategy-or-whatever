@@ -1,3 +1,4 @@
+import type { MilitaryThreat, ThreatOutcome } from './military.models';
 import type { CompletedResearchSummary } from './research-manager.models';
 import type { ResourceType } from './resource.models';
 
@@ -21,6 +22,10 @@ export interface EndTurnResult {
   passiveIncomePulses: EndTurnIncomePulse[];
   completedResearch?: CompletedResearchSummary;
   upkeepPaid: boolean;
+  /** Threat resolution outcomes from this turn. */
+  threatOutcomes: ThreatOutcome[];
+  /** Newly spawned threats. */
+  newThreats: MilitaryThreat[];
 }
 
 export interface UpkeepBreakdown {

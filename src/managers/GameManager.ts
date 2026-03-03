@@ -1,11 +1,16 @@
-import { SeededRandom } from '../_common/random';
 import type {
   GameManagerOptions,
   PlayerData,
 } from '../_common/models/game.models';
 import type { GameSaveData } from '../_common/models/save.models';
+import { SeededRandom } from '../_common/random';
+import {
+  BARRACKS_GARRISON_PER_INSTANCE,
+  BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
+} from '../data/military';
 import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
+import { MilitaryManager } from './MilitaryManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -33,12 +38,15 @@ export class GameManager {
   buildingManager: BuildingManager;
   mapManager: MapManager;
   researchManager: ResearchManager;
+  militaryManager: MilitaryManager;
   readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
     const saveData = options.saveData;
     this.playerData =
-      saveData?.playerData ?? options.playerData ?? GameManager.DEFAULT_PLAYER_DATA;
+      saveData?.playerData ??
+      options.playerData ??
+      GameManager.DEFAULT_PLAYER_DATA;
     this.rng = new SeededRandom(saveData?.rngState ?? options.seed);
 
     this.resourceManager = new ResourceManager({
@@ -65,7 +73,8 @@ export class GameManager {
         : { ...options.map, rng: this.rng }
     );
 
-    const playerState = saveData?.state ?? this.mapManager.getPlayerStateSummary();
+    const playerState =
+      saveData?.state ?? this.mapManager.getPlayerStateSummary();
     this.stateManager = new StateManager({
       rng: this.rng,
       initial: {
@@ -84,7 +93,8 @@ export class GameManager {
       rng: this.rng,
       stateBridge: {
         getStateRef: () => this.stateManager.getStateRef(),
-        applyMapSummary: (summary) => this.stateManager.applyMapSummary(summary),
+        applyMapSummary: (summary) =>
+          this.stateManager.applyMapSummary(summary),
       },
       initial: saveData?.buildings
         ? {
@@ -104,6 +114,18 @@ export class GameManager {
             researchVersion: saveData.research.researchVersion,
           }
         : undefined,
+    });
+
+    this.militaryManager = new MilitaryManager({
+      getBarracksCapacity: () =>
+        this.buildingManager.getBuildingCount('barracks') *
+        BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
+      getGarrisonCapacity: () =>
+        this.buildingManager.getBuildingCount('barracks') *
+        BARRACKS_GARRISON_PER_INSTANCE,
+      isTechnologyUnlocked: (techId: string) =>
+        this.buildingManager.isTechnologyUnlocked(techId),
+      initial: saveData?.military ?? undefined,
     });
 
     if (saveData) {
@@ -174,6 +196,7 @@ export class GameManager {
         researchVersion: this.researchManager.getResearchVersion(),
       },
       turn: turnData,
+      military: this.militaryManager.getSaveState(),
     };
   }
 }

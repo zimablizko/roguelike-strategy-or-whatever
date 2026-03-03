@@ -130,7 +130,8 @@ export const researchDefinitions = {
     id: 'mil-drill-doctrine',
     tree: 'military',
     name: 'Drill Doctrine',
-    description: 'Standardized battlefield drills for regular troops.',
+    description:
+      'Standardized battlefield drills for regular troops. Unlocks Barracks construction and training of Footmen and Archers.',
     turns: 2,
     requiredResearches: [],
   },
@@ -138,7 +139,8 @@ export const researchDefinitions = {
     id: 'mil-iron-weapons',
     tree: 'military',
     name: 'Iron Weapons',
-    description: 'Improved forging methods for durable iron arms.',
+    description:
+      'Improved forging methods for durable iron arms. Unlocks Spy training. All Footmen gain +1 power.',
     turns: 3,
     requiredResearches: ['mil-drill-doctrine'],
   },
@@ -146,7 +148,8 @@ export const researchDefinitions = {
     id: 'mil-fortification-engineering',
     tree: 'military',
     name: 'Fortification Engineering',
-    description: 'Advanced wall and tower construction techniques.',
+    description:
+      'Advanced wall and tower construction techniques. Unlocks Engineer training. Border defense and anti-raid assignments gain +2 base power.',
     turns: 3,
     requiredResearches: ['mil-drill-doctrine'],
   },
@@ -154,7 +157,8 @@ export const researchDefinitions = {
     id: 'mil-siege-tactics',
     tree: 'military',
     name: 'Siege Tactics',
-    description: 'Coordinated assault planning against defended positions.',
+    description:
+      'Coordinated assault planning against defended positions. Unlocks the Campaign assignment type for offensive operations.',
     turns: 4,
     requiredResearches: ['mil-iron-weapons'],
   },
@@ -162,7 +166,8 @@ export const researchDefinitions = {
     id: 'mil-standing-army',
     tree: 'military',
     name: 'Standing Army',
-    description: 'Permanent trained army with strict command hierarchy.',
+    description:
+      'Permanent trained army with strict command hierarchy. Doubles garrison capacity per Barracks and reduces all unit upkeep by 1 food.',
     turns: 5,
     requiredResearches: ['mil-fortification-engineering', 'mil-siege-tactics'],
   },

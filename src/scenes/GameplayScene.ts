@@ -19,11 +19,13 @@ import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
+import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
+import { MilitaryStatusView } from '../ui/views/MilitaryStatusView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
@@ -46,6 +48,7 @@ export class GameplayScene extends Scene {
   private statePopup?: StatePopup;
   private rulerPopup?: ScreenPopup;
   private researchPopup?: ResearchPopup;
+  private militaryPopup?: MilitaryPopup;
   private rulerDisplay?: RulerDisplay;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
@@ -78,6 +81,10 @@ export class GameplayScene extends Scene {
 
     if (engine.input.keyboard.wasPressed(Keys.R)) {
       this.showResearchPopup(engine);
+    }
+
+    if (engine.input.keyboard.wasPressed(Keys.M) && !quickBuildExpanded) {
+      this.showMilitaryPopup(engine);
     }
 
     if (engine.input.keyboard.wasPressed(Keys.Esc)) {
@@ -164,6 +171,7 @@ export class GameplayScene extends Scene {
         rng: this.gameManager.rng,
         mapManager: this.gameManager.mapManager,
         researchManager: this.gameManager.researchManager,
+        militaryManager: this.gameManager.militaryManager,
         initial: slotSave?.turn
           ? {
               data: slotSave.turn.data,
@@ -185,6 +193,7 @@ export class GameplayScene extends Scene {
     this.addResourceDisplay(engine);
     this.addTurnDisplay(engine);
     this.addResearchStatusDisplay(engine);
+    this.addMilitaryStatusDisplay(engine);
     this.addButtons(engine);
     this.addQuickBuildView();
     this.addSelectedBuildingView();
@@ -395,6 +404,12 @@ export class GameplayScene extends Scene {
         this.saveCurrentGame();
         if (!result.upkeepPaid) {
           engine.goToScene('game-over');
+          return;
+        }
+
+        // Auto-open military popup when threats resolve or new threats appear
+        if (result.threatOutcomes.length > 0 || result.newThreats.length > 0) {
+          this.showMilitaryPopup(engine);
         }
       },
     });
@@ -435,6 +450,42 @@ export class GameplayScene extends Scene {
         onClick: () => this.showResearchPopup(engine),
       })
     );
+  }
+
+  private addMilitaryStatusDisplay(engine: Engine): void {
+    this.addHudElement(
+      new MilitaryStatusView({
+        x: 20,
+        y: this.getRulerDisplayBottomY() + 70,
+        militaryManager: this.gameManager.militaryManager,
+        buildingManager: this.gameManager.buildingManager,
+        widthProvider: () => this.getRulerDisplayWidth(),
+        onClick: () => this.showMilitaryPopup(engine),
+      })
+    );
+  }
+
+  private showMilitaryPopup(engine: Engine): void {
+    if (this.militaryPopup) {
+      this.militaryPopup.close();
+      this.militaryPopup = undefined;
+    }
+
+    const popup = new MilitaryPopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      militaryManager: this.gameManager.militaryManager,
+      buildingManager: this.gameManager.buildingManager,
+      resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
+      tooltipProvider: this.tooltipProvider,
+      onClose: () => {
+        this.militaryPopup = undefined;
+      },
+    });
+
+    this.militaryPopup = popup;
+    this.add(popup);
   }
 
   private showResearchPopup(engine: Engine): void {
@@ -729,11 +780,17 @@ export class GameplayScene extends Scene {
       (this.testPopup !== undefined && !this.testPopup.isKilled()) ||
       (this.statePopup !== undefined && !this.statePopup.isKilled()) ||
       (this.rulerPopup !== undefined && !this.rulerPopup.isKilled()) ||
-      (this.researchPopup !== undefined && !this.researchPopup.isKilled())
+      (this.researchPopup !== undefined && !this.researchPopup.isKilled()) ||
+      (this.militaryPopup !== undefined && !this.militaryPopup.isKilled())
     );
   }
 
   private closeTopPopup(): void {
+    if (this.militaryPopup && !this.militaryPopup.isKilled()) {
+      this.militaryPopup.close();
+      this.militaryPopup = undefined;
+      return;
+    }
     if (this.researchPopup && !this.researchPopup.isKilled()) {
       this.researchPopup.close();
       this.researchPopup = undefined;
