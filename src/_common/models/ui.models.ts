@@ -9,6 +9,7 @@ import type {
 } from 'excalibur';
 import type { BuildingManager } from '../../managers/BuildingManager';
 import type { MilitaryManager } from '../../managers/MilitaryManager';
+import type { PoliticsManager } from '../../managers/PoliticsManager';
 import type { ResearchManager } from '../../managers/ResearchManager';
 import type { ResourceManager } from '../../managers/ResourceManager';
 import type { RulerManager } from '../../managers/RulerManager';
@@ -315,6 +316,7 @@ export interface StatePopupOptions {
   buildingManager: BuildingManager;
   resourceManager: ResourceManager;
   turnManager: TurnManager;
+  politicsManager: PoliticsManager;
   tooltipProvider: TooltipProvider;
   anchor?: ScreenPopupAnchor;
   onClose?: () => void;

@@ -11,6 +11,7 @@ import {
 import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
+import { PoliticsManager } from './PoliticsManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -39,6 +40,7 @@ export class GameManager {
   mapManager: MapManager;
   researchManager: ResearchManager;
   militaryManager: MilitaryManager;
+  politicsManager: PoliticsManager;
   readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
@@ -128,6 +130,22 @@ export class GameManager {
       initial: saveData?.military ?? undefined,
     });
 
+    this.politicsManager = new PoliticsManager({
+      isTechUnlocked: (techId: string) =>
+        this.buildingManager.isTechnologyUnlocked(techId),
+      getResource: (type: string) =>
+        this.resourceManager.getResource(
+          type as 'gold' | 'materials' | 'food' | 'population'
+        ),
+      getBuildingCount: (buildingId: string) =>
+        this.buildingManager.getBuildingCount(
+          buildingId as Parameters<
+            typeof this.buildingManager.getBuildingCount
+          >[0]
+        ),
+      initial: saveData?.politics ?? undefined,
+    });
+
     if (saveData) {
       this.rng.setState(saveData.rngState);
     }
@@ -197,6 +215,7 @@ export class GameManager {
       },
       turn: turnData,
       military: this.militaryManager.getSaveState(),
+      politics: this.politicsManager.getSaveState(),
     };
   }
 }

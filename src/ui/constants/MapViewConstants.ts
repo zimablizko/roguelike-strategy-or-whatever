@@ -7,6 +7,6 @@ export const MAP_VIEW_DEFAULTS = {
   initialPlayerStateCoverage: 2 / 3,
   minPlayerStateCoverage: 0.2,
   maxPlayerStateCoverage: 0.95,
-  mapBorderCells: 2,
+  mapBorderCells: 15,
   playerStatePaddingTiles: 1,
 } as const;

@@ -95,6 +95,14 @@ export class GameplayScene extends Scene {
       }
     }
 
+    if (
+      engine.input.keyboard.wasPressed(Keys.Space) &&
+      !this.hasOpenPopup() &&
+      !quickBuildExpanded
+    ) {
+      this.performEndTurn(engine);
+    }
+
     this.autoSaveIfDirty();
   }
 
@@ -172,6 +180,7 @@ export class GameplayScene extends Scene {
         mapManager: this.gameManager.mapManager,
         researchManager: this.gameManager.researchManager,
         militaryManager: this.gameManager.militaryManager,
+        politicsManager: this.gameManager.politicsManager,
         initial: slotSave?.turn
           ? {
               data: slotSave.turn.data,
@@ -290,6 +299,7 @@ export class GameplayScene extends Scene {
       buildingManager: this.gameManager.buildingManager,
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
+      politicsManager: this.gameManager.politicsManager,
       tooltipProvider: this.tooltipProvider,
       onClose: () => {
         this.statePopup = undefined;
@@ -327,6 +337,8 @@ export class GameplayScene extends Scene {
       width: 520,
       height: 300,
       title: `Ruler: ${ruler.name}`,
+      backplateStyle: 'gray',
+      closeOnBackplateClick: true,
       onClose: () => {
         this.rulerPopup = undefined;
       },
@@ -399,18 +411,7 @@ export class GameplayScene extends Scene {
       height: 40,
       title: 'End Turn',
       onClick: () => {
-        const result = this.turnManager.endTurn();
-        this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
-        this.saveCurrentGame();
-        if (!result.upkeepPaid) {
-          engine.goToScene('game-over');
-          return;
-        }
-
-        // Auto-open military popup when threats resolve or new threats appear
-        if (result.threatOutcomes.length > 0 || result.newThreats.length > 0) {
-          this.showMilitaryPopup(engine);
-        }
+        this.performEndTurn(engine);
       },
     });
 
@@ -437,6 +438,22 @@ export class GameplayScene extends Scene {
     });
 
     this.addHudElement(endTurnButton);
+  }
+
+  /** Execute end-of-turn logic (shared by button click and Space hotkey). */
+  private performEndTurn(engine: Engine): void {
+    const result = this.turnManager.endTurn();
+    this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
+    this.saveCurrentGame();
+    if (!result.upkeepPaid) {
+      engine.goToScene('game-over');
+      return;
+    }
+
+    // Auto-open military popup when threats resolve or new threats appear
+    if (result.threatOutcomes.length > 0 || result.newThreats.length > 0) {
+      this.showMilitaryPopup(engine);
+    }
   }
 
   private addResearchStatusDisplay(engine: Engine): void {
@@ -702,6 +719,8 @@ export class GameplayScene extends Scene {
       width: 520,
       height: 300,
       title: 'Debug Menu',
+      backplateStyle: 'gray',
+      closeOnBackplateClick: true,
       content: debugButtons,
       onClose: () => {
         this.testPopup = undefined;

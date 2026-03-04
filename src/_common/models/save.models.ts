@@ -3,6 +3,7 @@ import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { PlayerData } from './game.models';
 import type { MapData } from './map.models';
 import type { MilitarySaveState } from './military.models';
+import type { PoliticsSaveState } from './politics.models';
 import type {
   ActiveResearchState,
   CompletedResearchSummary,
@@ -46,6 +47,7 @@ export interface GameSaveData {
     emptyFieldQueue?: Array<{ x: number; y: number; turnsLeft: number }>;
   };
   military?: MilitarySaveState;
+  politics?: PoliticsSaveState;
 }
 
 export interface SaveSlotSummary {

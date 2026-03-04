@@ -19,6 +19,7 @@ import {
 import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
+import { PoliticsManager } from './PoliticsManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -34,6 +35,7 @@ export class TurnManager {
   private mapManager?: MapManager;
   private researchManager?: ResearchManager;
   private militaryManager?: MilitaryManager;
+  private politicsManager?: PoliticsManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
   /** Tracks fallow field tiles awaiting recovery. Key: "x,y", value: turns remaining. */
@@ -49,6 +51,7 @@ export class TurnManager {
       mapManager?: MapManager;
       researchManager?: ResearchManager;
       militaryManager?: MilitaryManager;
+      politicsManager?: PoliticsManager;
       initial?: {
         data?: TurnData;
         version?: number;
@@ -79,6 +82,7 @@ export class TurnManager {
     this.mapManager = options?.mapManager;
     this.researchManager = options?.researchManager;
     this.militaryManager = options?.militaryManager;
+    this.politicsManager = options?.politicsManager;
     this.rng = options?.rng ?? new SeededRandom();
     this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
     for (const entry of options?.initial?.emptyFieldQueue ?? []) {
@@ -139,6 +143,13 @@ export class TurnManager {
     }
 
     console.log(`Turn ${this.turnData.turnNumber} ended.`);
+
+    // Generate political requests for the new turn.
+    this.politicsManager?.generateTurnRequests(
+      this.turnData.turnNumber,
+      this.rng
+    );
+
     const upkeepCost = this.getUpkeepCost();
     const upkeepPaid = this.resourceManager.spendResources(upkeepCost);
 
