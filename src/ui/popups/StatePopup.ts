@@ -27,7 +27,7 @@ import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenPopup } from '../elements/ScreenPopup';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
-type TabId = 'town-hall' | 'statistics';
+type TabId = 'town-hall' | 'storage' | 'statistics';
 
 /**
  * Dedicated popup for state details.
@@ -78,8 +78,8 @@ export class StatePopup extends ScreenPopup {
   onPreUpdate(): void {
     super.onPreUpdate();
 
-    // Dirty-check for Town Hall tab live updates
-    if (this.activeTab === 'town-hall') {
+    // Dirty-check for Town Hall / Storage tab live updates
+    if (this.activeTab === 'town-hall' || this.activeTab === 'storage') {
       const polVer = this.politicsManager.getVersion();
       const resVer = this.resourceManager.getResourcesVersion();
       if (
@@ -102,6 +102,7 @@ export class StatePopup extends ScreenPopup {
     const L = STATE_POPUP_LAYOUT;
     const tabs: { id: TabId; label: string }[] = [
       { id: 'town-hall', label: 'Town Hall' },
+      { id: 'storage', label: 'Storage' },
       { id: 'statistics', label: 'Statistics' },
     ];
 
@@ -171,6 +172,8 @@ export class StatePopup extends ScreenPopup {
 
     if (this.activeTab === 'town-hall') {
       this.populateTownHall(body);
+    } else if (this.activeTab === 'storage') {
+      this.populateStorage(body);
     } else {
       this.populateStatistics(body);
     }
@@ -424,6 +427,50 @@ export class StatePopup extends ScreenPopup {
     this.requestButtons.push(denyBtn);
   }
 
+  // ─── Storage Tab ─────────────────────────────────────────────────
+
+  private populateStorage(root: ScreenElement): void {
+    const resources = this.resourceManager.getAllResources();
+    const titleColor = Color.fromHex('#f0f4f8');
+    const labelColor = Color.fromHex('#b0bcc8');
+
+    const resourceEntries: {
+      label: string;
+      key: ResourceType;
+      color: string;
+    }[] = [
+      { label: 'Gold', key: 'gold', color: '#f5dd90' },
+      { label: 'Wood', key: 'wood', color: '#c8a86e' },
+      { label: 'Stone', key: 'stone', color: '#d2d5db' },
+      { label: 'Wheat', key: 'wheat', color: '#e8d44d' },
+      { label: 'Meat', key: 'meat', color: '#e87461' },
+      { label: 'Bread', key: 'bread', color: '#d4a358' },
+      { label: 'Population', key: 'population', color: '#e0c6f5' },
+    ];
+
+    let y = 0;
+    root.addChild(StatePopup.createLine(0, y, 'Resource Storage', 18, titleColor));
+    y += 30;
+
+    for (const entry of resourceEntries) {
+      // Label
+      root.addChild(
+        StatePopup.createLine(10, y, entry.label, 14, labelColor)
+      );
+      // Value (right-aligned via fixed x)
+      root.addChild(
+        StatePopup.createLine(
+          160,
+          y,
+          `${resources[entry.key]}`,
+          14,
+          Color.fromHex(entry.color)
+        )
+      );
+      y += 22;
+    }
+  }
+
   // ─── Statistics Tab ──────────────────────────────────────────────
 
   private populateStatistics(root: ScreenElement): void {
@@ -466,19 +513,26 @@ export class StatePopup extends ScreenPopup {
     const upkeep = this.turnManager.getUpkeepBreakdown();
     addLine('Upkeep (per turn)', 16, titleColor, 8);
     addLine(
-      `Gold: ${upkeep.totalGold} (base: ${upkeep.baseGold})`,
+      `Gold: ${upkeep.totalGold}`,
       14,
       costColor
     );
     addLine(
-      `Food: ${upkeep.totalFood} (base: ${upkeep.baseFood} + population: ${upkeep.populationFood})`,
+      `Food need: ${upkeep.populationFood} (1 per 2 people), split across food types:`,
       14,
       costColor
     );
+    addLine(`  Bread: ${upkeep.totalBread}`, 14, costColor);
+    addLine(`  Meat: ${upkeep.totalMeat}`, 14, costColor);
 
-    const currentFood = this.resourceManager.getResource('food');
+    const currentBread = this.resourceManager.getResource('bread');
+    const currentMeat = this.resourceManager.getResource('meat');
     const currentGold = this.resourceManager.getResource('gold');
-    if (currentFood < upkeep.totalFood || currentGold < upkeep.totalGold) {
+    if (
+      currentBread < upkeep.totalBread ||
+      currentMeat < upkeep.totalMeat ||
+      currentGold < upkeep.totalGold
+    ) {
       addLine(
         'Warning: insufficient resources for next upkeep!',
         13,

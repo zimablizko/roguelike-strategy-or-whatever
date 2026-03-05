@@ -14,7 +14,7 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { MilitaryPopupOptions } from '../../_common/models/ui.models';
-import { Resources } from '../../_common/resources';
+import { getResourceIcon as getResourceIconFn } from '../../_common/resources';
 import {
   BARRACKS_GARRISON_PER_INSTANCE,
   BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
@@ -554,8 +554,11 @@ export class MilitaryPopup extends ScreenPopup {
     // Upkeep (with resource icons)
     const upkeepKeys: ResourceType[] = [
       'gold',
-      'materials',
-      'food',
+      'wood',
+      'stone',
+      'wheat',
+      'meat',
+      'bread',
       'population',
     ];
     const upkeepOutcomes: TooltipOutcome[] = [];
@@ -578,7 +581,15 @@ export class MilitaryPopup extends ScreenPopup {
 
     // Costs (with resource icons, inline group)
     const costOutcomes: TooltipOutcome[] = [];
-    const keys: ResourceType[] = ['gold', 'materials', 'food', 'population'];
+    const keys: ResourceType[] = [
+      'gold',
+      'wood',
+      'stone',
+      'wheat',
+      'meat',
+      'bread',
+      'population',
+    ];
     if (cost) {
       for (const key of keys) {
         const amount = cost[key];
@@ -623,11 +634,7 @@ export class MilitaryPopup extends ScreenPopup {
   private static getResourceIcon(
     resourceType: ResourceType
   ): ImageSource | undefined {
-    if (resourceType === 'gold') return Resources.MoneyIcon;
-    if (resourceType === 'food') return Resources.FoodIcon;
-    if (resourceType === 'materials') return Resources.ResourcesIcon;
-    if (resourceType === 'population') return Resources.PopulationIcon;
-    return undefined;
+    return getResourceIconFn(resourceType);
   }
 
   private static formatTaskType(type: string): string {

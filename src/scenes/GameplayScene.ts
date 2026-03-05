@@ -160,8 +160,11 @@ export class GameplayScene extends Scene {
             race: 'human',
             resources: {
               gold: 100,
-              materials: 50,
-              food: 75,
+              wood: 30,
+              stone: 20,
+              wheat: 20,
+              meat: 15,
+              bread: 15,
               population: 10,
             },
           },
@@ -619,9 +622,11 @@ export class GameplayScene extends Scene {
         onClick: () => {
           this.resourceManager.addResources({
             gold: 50,
-            materials: 25,
-            food: 40,
-            population: 5,
+            wood: 15,
+            stone: 15,
+            wheat: 20,
+            meat: 10,
+            bread: 10,
           });
         },
       }),
@@ -637,9 +642,10 @@ export class GameplayScene extends Scene {
           if (!this.turnManager.spendFocus(1)) return;
           this.resourceManager.spendResources({
             gold: 30,
-            materials: 10,
-            food: 20,
-            population: 2,
+            wood: 5,
+            stone: 5,
+            bread: 5,
+            meat: 5,
           });
         },
       }),
@@ -662,13 +668,13 @@ export class GameplayScene extends Scene {
         height: 44,
         title: 'Harvest Forest',
         description:
-          'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants materials.',
+          'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants Wood.',
         icon: Resources.ResourcesIcon,
         outcomes: [
           { label: 'Focus', value: '-1' },
           {
             label: '',
-            value: '+12',
+            value: '+4',
             icon: Resources.ResourcesIcon,
             color: Color.fromHex('#9fe6aa'),
           },
@@ -676,7 +682,7 @@ export class GameplayScene extends Scene {
         tooltipProvider: this.tooltipProvider,
         onClick: () => {
           if (!this.turnManager.spendFocus(1)) return;
-          this.resourceManager.addResource('materials', 12);
+          this.resourceManager.addResource('wood', 4);
         },
       }),
 
@@ -687,13 +693,13 @@ export class GameplayScene extends Scene {
         height: 44,
         title: 'Fishing Boats',
         description:
-          'Launch small boats on water tiles to secure food supplies for the next turn.',
+          'Launch small boats on water tiles to secure meat supplies for the next turn.',
         icon: Resources.FoodIcon,
         outcomes: [
           { label: 'Focus', value: '-1' },
           {
             label: '',
-            value: '+15',
+            value: '+5',
             icon: Resources.FoodIcon,
             color: Color.fromHex('#9fe6aa'),
           },
@@ -701,7 +707,7 @@ export class GameplayScene extends Scene {
         tooltipProvider: this.tooltipProvider,
         onClick: () => {
           if (!this.turnManager.spendFocus(1)) return;
-          this.resourceManager.addResource('food', 15);
+          this.resourceManager.addResource('meat', 5);
         },
       })
     );

@@ -12,15 +12,15 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       entityId: 'common-folk',
       title: 'Food Distribution',
       description:
-        'The common folk ask you to distribute food rations to ease hunger in the streets. Costs 15 Food.',
+        'The common folk ask you to distribute food rations to ease hunger in the streets. Costs 10 Bread.',
       weight: 10,
       cooldownTurns: 4,
       condition: (ctx) =>
         ctx.isTechUnlocked('pol-public-hearings') &&
-        ctx.getResource('food') >= 15,
+        ctx.getResource('bread') >= 10,
       approveRepChanges: { 'common-folk': 5 },
       denyRepChanges: { 'common-folk': -3 },
-      approveResourceEffects: { food: -15 },
+      approveResourceEffects: { bread: -10 },
       expireTurns: 3,
     },
     {
@@ -44,16 +44,17 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       entityId: 'common-folk',
       title: 'Public Festival',
       description:
-        'The people wish to hold a festival. Costs 10 Gold and 10 Food but greatly improves morale.',
+        'The people wish to hold a festival. Costs 10 Gold, 5 Bread and 5 Meat but greatly improves morale.',
       weight: 6,
       cooldownTurns: 8,
       condition: (ctx) =>
         ctx.isTechUnlocked('pol-public-hearings') &&
         ctx.getResource('gold') >= 10 &&
-        ctx.getResource('food') >= 10,
+        ctx.getResource('bread') >= 5 &&
+        ctx.getResource('meat') >= 5,
       approveRepChanges: { 'common-folk': 8, 'politics-advisor': 2 },
       denyRepChanges: { 'common-folk': -4 },
-      approveResourceEffects: { gold: -10, food: -10 },
+      approveResourceEffects: { gold: -10, bread: -5, meat: -5 },
       expireTurns: 2,
     },
 
@@ -110,32 +111,30 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       entityId: 'military-advisor',
       title: 'Increase Border Patrols',
       description:
-        'The military advisor urges increased border patrols. Costs 10 Gold and 5 Food.',
+        'The military advisor urges increased border patrols. Costs 10 Gold and 3 Meat.',
       weight: 9,
       cooldownTurns: 5,
       condition: (ctx) =>
         ctx.isTechUnlocked('pol-civil-code') &&
         ctx.getResource('gold') >= 10 &&
-        ctx.getResource('food') >= 5,
+        ctx.getResource('meat') >= 3,
       approveRepChanges: { 'military-advisor': 5 },
       denyRepChanges: { 'military-advisor': -3 },
-      approveResourceEffects: { gold: -10, food: -5 },
+      approveResourceEffects: { gold: -10, meat: -3 },
       expireTurns: 3,
     },
     {
       id: 'mil-weapon-stockpile',
       entityId: 'military-advisor',
       title: 'Weapon Stockpile',
-      description:
-        'Stockpile weapons for future conflicts. Costs 15 Materials.',
+      description: 'Stockpile weapons for future conflicts. Costs 10 Stone.',
       weight: 7,
       cooldownTurns: 6,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') &&
-        ctx.getResource('materials') >= 15,
+        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('stone') >= 10,
       approveRepChanges: { 'military-advisor': 4 },
       denyRepChanges: { 'military-advisor': -2, 'common-folk': 1 },
-      approveResourceEffects: { materials: -15 },
+      approveResourceEffects: { stone: -10 },
       expireTurns: 4,
     },
 

@@ -12,8 +12,10 @@ import {
   vec,
 } from 'excalibur';
 import type { ResourceStock } from '../../_common/models/resource.models';
+import { FOOD_RESOURCE_TYPES } from '../../_common/models/resource.models';
 import type {
   ResourceConfig,
+  ResourceDisplayKey,
   ResourceDisplayOptions,
 } from '../../_common/models/ui.models';
 import { Resources } from '../../_common/resources';
@@ -43,20 +45,19 @@ export class ResourceDisplay extends ScreenElement {
     >
   > = {};
   private hoveredResource: ResourceConfig['key'] | undefined;
-  private readonly resourceTooltipText: Record<ResourceConfig['key'], string> =
-    {
-      gold: 'Gold: universal currency for trade, upkeep, and events.',
-      materials:
-        'Materials: wood and stone used for construction and crafting.',
-      food: 'Food: consumed each turn to sustain your population.',
-      population:
-        'Population: occupied / total workforce. Build Houses to grow.',
-    };
+  private readonly resourceTooltipText: Record<ResourceDisplayKey, string> = {
+    gold: 'Gold: universal currency for trade, upkeep, and events.',
+    wood: 'Wood: harvested from forests, used for construction.',
+    stone: 'Stone: quarried from rocks, used for advanced construction.',
+    wheat: 'Wheat: grown on fields, used by Bakeries to produce Bread.',
+    meat: 'Meat: hunted from wildlife, consumed as food.',
+    bread: 'Bread: baked from Wheat, consumed as food.',
+    food: 'Food: total edible supplies (Meat + Bread). Consumed each turn.',
+    population: 'Population: occupied / total workforce. Build Houses to grow.',
+  };
   private iconSprites: Partial<Record<ResourceConfig['key'], Sprite>> = {};
 
-  private lastRendered:
-    | Pick<ResourceStock, 'gold' | 'materials' | 'food' | 'population'>
-    | undefined;
+  private lastRendered: ResourceStock | undefined;
   private lastBuildingsVersion = -1;
 
   constructor(options: ResourceDisplayOptions) {
@@ -75,7 +76,8 @@ export class ResourceDisplay extends ScreenElement {
     // Map resource types to their icons
     this.resourceConfigs = [
       { key: 'gold', icon: Resources.MoneyIcon, label: 'Gold' },
-      { key: 'materials', icon: Resources.ResourcesIcon, label: 'Materials' },
+      { key: 'wood', icon: Resources.LumberIcon, label: 'Wood' },
+      { key: 'stone', icon: Resources.StoneIcon, label: 'Stone' },
       { key: 'food', icon: Resources.FoodIcon, label: 'Food' },
       {
         key: 'population',
@@ -109,8 +111,11 @@ export class ResourceDisplay extends ScreenElement {
   private sameResources(a: ResourceStock, b: ResourceStock): boolean {
     return (
       a.gold === b.gold &&
-      a.materials === b.materials &&
-      a.food === b.food &&
+      a.wood === b.wood &&
+      a.stone === b.stone &&
+      a.wheat === b.wheat &&
+      a.meat === b.meat &&
+      a.bread === b.bread &&
       a.population === b.population
     );
   }
@@ -130,12 +135,7 @@ export class ResourceDisplay extends ScreenElement {
     ) {
       return;
     }
-    this.lastRendered = {
-      gold: resources.gold,
-      materials: resources.materials,
-      food: resources.food,
-      population: resources.population,
-    };
+    this.lastRendered = { ...resources };
     this.lastBuildingsVersion = buildingsVersion;
 
     const padding = 8;
@@ -178,6 +178,13 @@ export class ResourceDisplay extends ScreenElement {
         const occupied = this.buildingManager.getOccupiedPopulation();
         const total = this.buildingManager.getTotalPopulation();
         displayText = `${occupied}/${total}`;
+      } else if (config.key === 'food') {
+        // Virtual aggregate: sum of all food-type resources
+        let foodTotal = 0;
+        for (const ft of FOOD_RESOURCE_TYPES) {
+          foodTotal += resources[ft];
+        }
+        displayText = this.formatValue(foodTotal);
       } else {
         displayText = this.formatValue(resources[config.key]);
       }

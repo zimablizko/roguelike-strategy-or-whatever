@@ -109,7 +109,7 @@ export class TurnDisplay extends ScreenElement {
     this.lastRendered = next;
 
     const turnText = new Text({
-      text: `Turn: ${turnData.turnNumber}`,
+      text: this.turnManager.getDateLabel(),
       font: new Font({
         size: 18,
         unit: FontUnit.Px,

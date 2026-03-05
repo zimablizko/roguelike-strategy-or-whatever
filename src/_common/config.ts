@@ -12,8 +12,6 @@ export const CONFIG = {
     QUICK_RESEARCH: true,
   },
   /** Resources deducted at the end of each turn. */
-  UPKEEP_COST: {
-    food: 10,
-  } satisfies ResourceCost,
+  UPKEEP_COST: {} satisfies ResourceCost,
 } as const;
 export type Config = typeof CONFIG;

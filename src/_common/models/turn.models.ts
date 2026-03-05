@@ -29,10 +29,13 @@ export interface EndTurnResult {
 }
 
 export interface UpkeepBreakdown {
-  baseFood: number;
   baseGold: number;
+  /** Total food need from population (1 per 2 people). */
   populationFood: number;
-  totalFood: number;
+  /** Per food-type share (populationFood split across food types). */
+  foodPerType: number;
   totalGold: number;
+  totalBread: number;
+  totalMeat: number;
   totalPopulation: number;
 }

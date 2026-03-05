@@ -190,8 +190,10 @@ export interface ResourceDisplayOptions {
   textColor?: Color;
 }
 
+export type ResourceDisplayKey = ResourceType | 'food';
+
 export interface ResourceConfig {
-  key: ResourceType;
+  key: ResourceDisplayKey;
   icon: ImageSource;
   label: string;
 }

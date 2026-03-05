@@ -301,7 +301,7 @@ export class MilitaryManager {
 
   /**
    * Calculate total upkeep cost for all non-training units.
-   * Standing Army reduces food upkeep by 1 per unit (min 0).
+   * Standing Army reduces meat upkeep by 1 per unit (min 0).
    */
   getTotalUpkeep(): ResourceCost {
     const total: Record<string, number> = {};
@@ -312,7 +312,7 @@ export class MilitaryManager {
       if (!def) continue;
       for (const [res, amount] of Object.entries(def.upkeep)) {
         let perUnit = amount as number;
-        if (hasStandingArmy && res === 'food') {
+        if (hasStandingArmy && res === 'meat') {
           perUnit = Math.max(0, perUnit - 1);
         }
         total[res] = (total[res] ?? 0) + perUnit * stack.count;
@@ -599,11 +599,11 @@ export class MilitaryManager {
         if (!victory) {
           if (threat.type === 'raid') {
             resourceLosses.gold = rng.randomInt(5, 20);
-            resourceLosses.food = rng.randomInt(5, 15);
+            resourceLosses.meat = rng.randomInt(3, 10);
           } else if (threat.type === 'revolt') {
             resourceLosses.gold = rng.randomInt(10, 30);
           } else if (threat.type === 'border-pressure') {
-            resourceLosses.materials = rng.randomInt(5, 15);
+            resourceLosses.stone = rng.randomInt(3, 10);
           }
         }
 
@@ -623,11 +623,11 @@ export class MilitaryManager {
         const resourceLosses: Partial<Record<string, number>> = {};
         if (threat.type === 'raid') {
           resourceLosses.gold = rng.randomInt(10, 30);
-          resourceLosses.food = rng.randomInt(10, 25);
+          resourceLosses.meat = rng.randomInt(5, 15);
         } else if (threat.type === 'revolt') {
           resourceLosses.gold = rng.randomInt(15, 40);
         } else if (threat.type === 'border-pressure') {
-          resourceLosses.materials = rng.randomInt(10, 25);
+          resourceLosses.stone = rng.randomInt(5, 15);
           resourceLosses.gold = rng.randomInt(5, 15);
         }
 

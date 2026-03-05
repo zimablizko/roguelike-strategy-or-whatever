@@ -26,8 +26,11 @@ export class GameManager {
     race: 'human',
     resources: {
       gold: 100,
-      materials: 50,
-      food: 75,
+      wood: 30,
+      stone: 20,
+      wheat: 20,
+      meat: 15,
+      bread: 15,
       population: 10,
     },
   };
@@ -135,7 +138,14 @@ export class GameManager {
         this.buildingManager.isTechnologyUnlocked(techId),
       getResource: (type: string) =>
         this.resourceManager.getResource(
-          type as 'gold' | 'materials' | 'food' | 'population'
+          type as
+            | 'gold'
+            | 'wood'
+            | 'stone'
+            | 'wheat'
+            | 'meat'
+            | 'bread'
+            | 'population'
         ),
       getBuildingCount: (buildingId: string) =>
         this.buildingManager.getBuildingCount(

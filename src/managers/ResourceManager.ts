@@ -142,8 +142,11 @@ export class ResourceManager {
   resetResources(): void {
     this.resources = {
       gold: 0,
-      materials: 0,
-      food: 0,
+      wood: 0,
+      stone: 0,
+      wheat: 0,
+      meat: 0,
+      bread: 0,
       population: 0,
     };
     this.resourcesVersion++;

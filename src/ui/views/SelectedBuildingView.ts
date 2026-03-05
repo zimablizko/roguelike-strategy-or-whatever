@@ -18,7 +18,7 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
-import { Resources } from '../../_common/resources';
+import { getResourceIcon } from '../../_common/resources';
 import { measureTextWidth } from '../../_common/text';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
@@ -310,7 +310,7 @@ export class SelectedBuildingView extends ScreenElement {
         const textW = measureTextWidth(seg.value, fontSize);
         segX += textW + 3;
         if (seg.resource && !row.isDetail) {
-          const iconSrc = this.getResourceIcon(seg.resource);
+          const iconSrc = this.getResourceIconLocal(seg.resource);
           if (iconSrc?.isLoaded()) {
             const sprite = iconSrc.toSprite();
             sprite.width = INFO_ICON_SIZE;
@@ -476,23 +476,26 @@ export class SelectedBuildingView extends ScreenElement {
 
     if (definition.id === 'farm') {
       const fieldCount = this.buildingManager.getFarmFieldCount(instanceId, 2);
-      const total = 10 + fieldCount * 3;
-      rows.push({
-        label: 'Each turn:',
-        segments: [{ value: `+${total}`, resource: 'food', isPositive: true }],
-      });
       if (fieldCount > 0) {
         rows.push({
-          label: '',
+          label: 'Harvest yield:',
           segments: [
             {
-              value: `+10 base, +${fieldCount * 3} from ${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`,
+              value: `${fieldCount * 3} Wheat (${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'})`,
+              resource: 'wheat',
               isPositive: true,
             },
           ],
-          isDetail: true,
         });
       }
+    } else if (definition.id === 'bakery') {
+      rows.push({
+        label: 'Each turn:',
+        segments: [
+          { value: '-2', resource: 'wheat', isPositive: false },
+          { value: '+3', resource: 'bread', isPositive: true },
+        ],
+      });
     } else {
       const passiveEntries = buildingPassiveIncome[definition.id] ?? [];
       const segments: BuildingInfoRowSegment[] = [];
@@ -568,20 +571,20 @@ export class SelectedBuildingView extends ScreenElement {
       return [
         {
           label: '',
-          icon: this.getResourceIcon('materials'),
+          icon: this.getResourceIconLocal('wood'),
           value: `+${estimatedYield}`,
           color: Color.fromHex('#9fe6aa'),
         },
       ];
     }
 
-    // Farm: sow-field shows the per-field income bonus.
+    // Farm: sow-field shows the per-field harvest bonus.
     if (definition.id === 'farm' && action.id === 'sow-field') {
       return [
         {
           label: '',
-          icon: this.getResourceIcon('food'),
-          value: '+3/turn per field',
+          icon: this.getResourceIconLocal('wheat'),
+          value: '+3 Wheat per field (harvest)',
           color: Color.fromHex('#9fe6aa'),
         },
       ];
@@ -605,7 +608,7 @@ export class SelectedBuildingView extends ScreenElement {
       return [
         {
           label: '',
-          icon: this.getResourceIcon('gold'),
+          icon: this.getResourceIconLocal('gold'),
           value: '-10',
           color: Color.fromHex('#e6c97a'),
         },
@@ -619,33 +622,22 @@ export class SelectedBuildingView extends ScreenElement {
     const resourceByBuilding: Partial<
       Record<TypedBuildingDefinition['id'], ResourceType>
     > = {
-      lumbermill: 'materials',
-      mine: 'materials',
+      lumbermill: 'wood',
+      mine: 'stone',
     };
     return [
       {
         label: '',
-        icon: this.getResourceIcon(resourceByBuilding[definition.id]),
+        icon: getResourceIcon(resourceByBuilding[definition.id]!),
         value: `+${value}`,
         color: Color.fromHex('#9fe6aa'),
       },
     ];
   }
 
-  private getResourceIcon(resourceType: ResourceType | undefined) {
-    if (resourceType === 'gold') {
-      return Resources.MoneyIcon;
-    }
-    if (resourceType === 'food') {
-      return Resources.FoodIcon;
-    }
-    if (resourceType === 'materials') {
-      return Resources.ResourcesIcon;
-    }
-    if (resourceType === 'population') {
-      return Resources.PopulationIcon;
-    }
-    return undefined;
+  private getResourceIconLocal(resourceType: ResourceType | undefined) {
+    if (!resourceType) return undefined;
+    return getResourceIcon(resourceType);
   }
 
   private clearActionRows(): void {

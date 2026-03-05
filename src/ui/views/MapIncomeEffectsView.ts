@@ -15,7 +15,7 @@ import type {
   IncomeVisualPulse,
   MapIncomeEffectsViewOptions,
 } from '../../_common/models/ui.models';
-import { Resources } from '../../_common/resources';
+import { getResourceIcon as getResourceIconFn } from '../../_common/resources';
 import { UI_Z } from '../constants/ZLayers';
 import { MapView } from './MapView';
 
@@ -175,7 +175,7 @@ export class MapIncomeEffectsView extends ScreenElement {
 
   private createResourceIcon(resourceType: ResourceType): Sprite | undefined {
     const source = this.getResourceIcon(resourceType);
-    if (!source.isLoaded()) {
+    if (!source || !source.isLoaded()) {
       return undefined;
     }
 
@@ -186,16 +186,7 @@ export class MapIncomeEffectsView extends ScreenElement {
   }
 
   private getResourceIcon(resourceType: ResourceType) {
-    if (resourceType === 'gold') {
-      return Resources.MoneyIcon;
-    }
-    if (resourceType === 'food') {
-      return Resources.FoodIcon;
-    }
-    if (resourceType === 'materials') {
-      return Resources.ResourcesIcon;
-    }
-    return Resources.PopulationIcon;
+    return getResourceIconFn(resourceType);
   }
 
   private getResourceColor(_resourceType: ResourceType): Color {

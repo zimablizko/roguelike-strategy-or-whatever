@@ -223,8 +223,11 @@ export class SaveManager {
     if (
       !this.isRecord(value.resources) ||
       typeof value.resources.gold !== 'number' ||
-      typeof value.resources.materials !== 'number' ||
-      typeof value.resources.food !== 'number' ||
+      typeof value.resources.wood !== 'number' ||
+      typeof value.resources.stone !== 'number' ||
+      typeof value.resources.wheat !== 'number' ||
+      typeof value.resources.meat !== 'number' ||
+      typeof value.resources.bread !== 'number' ||
       typeof value.resources.population !== 'number'
     ) {
       return false;

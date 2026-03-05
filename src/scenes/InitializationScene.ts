@@ -4,6 +4,7 @@ import type {
   SaveSlotSummary,
 } from '../_common/models/save.models';
 import { SaveManager } from '../managers/SaveManager';
+import { TurnManager } from '../managers/TurnManager';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 
 export class InitializationScene extends Scene {
@@ -164,7 +165,8 @@ export class InitializationScene extends Scene {
       return `Slot ${summary.slot} - Empty`;
     }
 
-    const base = `Slot ${summary.slot} - Turn ${summary.turnNumber ?? 1}`;
+    const { month, year } = TurnManager.turnToDate(summary.turnNumber ?? 1);
+    const base = `Slot ${summary.slot} - ${month}, ${year}`;
 
     const details: string[] = [];
     if (summary.stateName) {

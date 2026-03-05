@@ -1,4 +1,5 @@
 import { ImageSource, Loader } from 'excalibur';
+import type { ResourceType } from './models/resource.models';
 
 export const Resources = {
   FoodIcon: new ImageSource('./images/food.png'),
@@ -7,6 +8,8 @@ export const Resources = {
   ResourcesIcon: new ImageSource('./images/resources.png'),
   GoldenOreIcon: new ImageSource('./images/golden_ore.png'),
   FocusIcon: new ImageSource('./images/focus.png'),
+  LumberIcon: new ImageSource('./images/lumber.png'),
+  StoneIcon: new ImageSource('./images/stone.png'),
 };
 
 /**
@@ -19,4 +22,33 @@ export const loader = new Loader([
   Resources.ResourcesIcon,
   Resources.GoldenOreIcon,
   Resources.FocusIcon,
+  Resources.LumberIcon,
+  Resources.StoneIcon,
 ]);
+
+/**
+ * Centralized icon lookup for resource types.
+ * New resource types without dedicated art fall back to a placeholder icon.
+ */
+export function getResourceIcon(
+  resourceType: ResourceType
+): ImageSource | undefined {
+  switch (resourceType) {
+    case 'gold':
+      return Resources.MoneyIcon;
+    case 'wood':
+      return Resources.LumberIcon;
+    case 'stone':
+      return Resources.StoneIcon;
+    case 'wheat':
+      return Resources.FoodIcon; // placeholder
+    case 'meat':
+      return Resources.FoodIcon; // placeholder
+    case 'bread':
+      return Resources.FoodIcon; // placeholder
+    case 'population':
+      return Resources.PopulationIcon;
+    default:
+      return undefined;
+  }
+}

@@ -4,6 +4,7 @@ import type {
   ResourceCost,
   ResourceType,
 } from '../_common/models/resource.models';
+import { FOOD_RESOURCE_TYPES } from '../_common/models/resource.models';
 import type {
   EndTurnIncomePulse,
   EndTurnResult,
@@ -27,6 +28,43 @@ import { RulerManager } from './RulerManager';
 export class TurnManager {
   private static readonly HOUSE_TAX_TECHNOLOGY_ID = 'eco-tax-collection';
   private static readonly HOUSE_TAX_GOLD_PER_TURN = 2;
+
+  /** Calendar start year. Turn 1 = January of this year. */
+  static readonly START_YEAR = 1000;
+
+  /** Month names used for date display. */
+  private static readonly MONTH_NAMES = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ] as const;
+
+  /**
+   * Convert a 1-based turn number to { month, year }.
+   * Turn 1 = January START_YEAR, Turn 13 = January (START_YEAR + 1), etc.
+   */
+  static turnToDate(turnNumber: number): { month: string; year: number } {
+    const idx = (turnNumber - 1) % 12;
+    const year = TurnManager.START_YEAR + Math.floor((turnNumber - 1) / 12);
+    return { month: TurnManager.MONTH_NAMES[idx], year };
+  }
+
+  /**
+   * Returns a formatted date label for the current turn, e.g. "January, 1000".
+   */
+  getDateLabel(): string {
+    const { month, year } = TurnManager.turnToDate(this.turnData.turnNumber);
+    return `${month}, ${year}`;
+  }
 
   private turnData: TurnData;
   private resourceManager: ResourceManager;
@@ -102,8 +140,10 @@ export class TurnManager {
     this.resetFocus();
     this.turnVersion++;
 
-    // Requirement: age increments on end of turn.
-    this.rulerManager.incrementAge();
+    // Age increments once per year (every 12 months, when January starts).
+    if ((this.turnData.turnNumber - 1) % 12 === 0) {
+      this.rulerManager.incrementAge();
+    }
 
     const researchUpdate = this.researchManager?.advanceTurn(
       this.turnData.turnNumber
@@ -205,13 +245,19 @@ export class TurnManager {
 
   /**
    * Calculate the dynamic upkeep cost for the current turn.
-   * Base cost from CONFIG + population-scaled food.
+   * Food upkeep = ceil(population / 2), split evenly across food-type resources.
    */
   getUpkeepCost(): ResourceCost {
     const base = { ...CONFIG.UPKEEP_COST } as ResourceCost;
     const totalPop = this.buildingManager.getTotalPopulation();
-    const foodFromPop = Math.ceil(totalPop / 2);
-    base.food = (base.food ?? 0) + foodFromPop;
+    const totalFood = Math.ceil(totalPop / 2);
+    const foodTypes = FOOD_RESOURCE_TYPES.length;
+    const perType = Math.floor(totalFood / foodTypes);
+    const remainder = totalFood - perType * foodTypes;
+    for (let i = 0; i < foodTypes; i++) {
+      const key = FOOD_RESOURCE_TYPES[i];
+      base[key] = (base[key] ?? 0) + perType + (i < remainder ? 1 : 0);
+    }
     return base;
   }
 
@@ -221,15 +267,21 @@ export class TurnManager {
   getUpkeepBreakdown(): UpkeepBreakdown {
     const totalPop = this.buildingManager.getTotalPopulation();
     const baseCost = CONFIG.UPKEEP_COST as ResourceCost;
-    const baseFood = baseCost.food ?? 0;
     const baseGold = baseCost.gold ?? 0;
-    const populationFood = Math.ceil(totalPop / 2);
+    const totalFood = Math.ceil(totalPop / 2);
+    const foodTypes = FOOD_RESOURCE_TYPES.length;
+    const perType = Math.floor(totalFood / foodTypes);
+    const remainder = totalFood - perType * foodTypes;
+    // First food type gets any remainder
+    const breadIdx = FOOD_RESOURCE_TYPES.indexOf('bread');
+    const meatIdx = FOOD_RESOURCE_TYPES.indexOf('meat');
     return {
-      baseFood,
       baseGold,
-      populationFood,
-      totalFood: baseFood + populationFood,
+      populationFood: totalFood,
+      foodPerType: perType,
       totalGold: baseGold,
+      totalBread: perType + (breadIdx < remainder ? 1 : 0),
+      totalMeat: perType + (meatIdx < remainder ? 1 : 0),
       totalPopulation: totalPop,
     };
   }
@@ -339,14 +391,15 @@ export class TurnManager {
       const centerX = instance.x + (instance.width - 1) / 2;
       const centerY = instance.y + (instance.height - 1) / 2;
 
-      // Farm: emit a single combined pulse of base food + field bonus.
-      if (instance.buildingId === 'farm') {
-        const fieldCount = this.buildingManager.getFarmFieldCount(
-          instance.instanceId,
-          2
-        );
-        const totalFarmFood = 10 + fieldCount * 3;
-        addIncome(centerX, centerY, 'food', totalFarmFood);
+      // Bakery: passively converts Wheat into Bread.
+      if (instance.buildingId === 'bakery') {
+        const wheatAvailable = this.resourceManager.getResource('wheat');
+        const wheatCost = 2;
+        const breadProduced = 3;
+        if (wheatAvailable >= wheatCost) {
+          this.resourceManager.addResource('wheat', -wheatCost);
+          addIncome(centerX, centerY, 'bread', breadProduced);
+        }
         continue;
       }
 

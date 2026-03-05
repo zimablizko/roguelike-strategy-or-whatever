@@ -11,13 +11,12 @@ import type { MapTileType } from '../_common/models/map.models';
 export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
   castle: [
     { resourceType: 'gold', amount: 5 },
-    { resourceType: 'food', amount: 5 },
-    { resourceType: 'materials', amount: 5 },
+    { resourceType: 'wheat', amount: 2 },
+    { resourceType: 'wood', amount: 2 },
   ],
-  lumbermill: [{ resourceType: 'materials', amount: 10 }],
-  mine: [{ resourceType: 'materials', amount: 'random:5:20' }],
-  farm: [{ resourceType: 'food', amount: 10 }],
-  'hunters-hut': [{ resourceType: 'food', amount: 'random:5:10' }],
+  lumbermill: [{ resourceType: 'wood', amount: 1 }],
+  mine: [{ resourceType: 'stone', amount: 'random:1:3' }],
+  'hunters-hut': [{ resourceType: 'meat', amount: 'random:1:2' }],
 };
 
 // ─── Building definitions ────────────────────────────────────────────
@@ -31,7 +30,8 @@ export const stateBuildingDefinitions = {
       'Capital fortification that anchors settlement growth. Only one Castle can exist.',
     buildCost: {
       gold: 150,
-      materials: 120,
+      wood: 60,
+      stone: 60,
     },
     costGrowth: 1.2,
     unique: true,
@@ -68,7 +68,7 @@ export const stateBuildingDefinitions = {
       'Residential dwelling that shelters settlers and grows your workforce. With Tax Collection research: also generates gold each turn.',
     buildCost: {
       gold: 25,
-      materials: 15,
+      wood: 15,
     },
     costGrowth: 1.15,
     unique: false,
@@ -92,10 +92,10 @@ export const stateBuildingDefinitions = {
     id: 'lumbermill',
     shortName: 'Lmb',
     name: 'Lumbermill',
-    description: 'Processes nearby forests into construction-grade materials.',
+    description: 'Processes nearby forests into construction-grade lumber.',
     buildCost: {
       gold: 35,
-      materials: 20,
+      wood: 20,
     },
     costGrowth: 1.2,
     unique: false,
@@ -117,7 +117,7 @@ export const stateBuildingDefinitions = {
         id: 'harvest-timber',
         name: 'Harvest Timber',
         description:
-          'Fell the nearest Forest tile within range 3 of this Lumbermill, converting it to Plains. Yields 3 Materials per Forest tile in range (with slight diminishing returns).',
+          'Fell the nearest Forest tile within range 3 of this Lumbermill, converting it to Plains. Yields Wood based on forest density.',
         canRun: ({ buildingInstances, mapGetTile }) => {
           const RANGE = 3;
           for (const inst of buildingInstances) {
@@ -187,7 +187,7 @@ export const stateBuildingDefinitions = {
           for (let i = 0; i < N; i++) {
             totalYield += Math.max(1, Math.round(3 * Math.pow(0.9, i)));
           }
-          resources.addResource('materials', totalYield);
+          resources.addResource('wood', totalYield);
         },
       },
       {
@@ -287,10 +287,10 @@ export const stateBuildingDefinitions = {
     name: 'Mine',
     shortName: 'Min',
     description:
-      'Extracts ore and stone from rocky terrain, improving material throughput.',
+      'Extracts ore and stone from rocky terrain, improving stone throughput.',
     buildCost: {
       gold: 45,
-      materials: 30,
+      stone: 30,
     },
     costGrowth: 1.2,
     unique: false,
@@ -308,19 +308,19 @@ export const stateBuildingDefinitions = {
       return [
         `Built: ${count}`,
         `Stone tiles: ${state.tiles.stone}`,
-        `Action yield: +${baseYield * Math.max(1, count)} Materials`,
+        `Action yield: +${baseYield * Math.max(1, count)} Stone`,
       ];
     },
     actions: [
       {
         id: 'extract-ore',
         name: 'Extract Ore',
-        description: 'Mine stone deposits and add materials to your stockpile.',
+        description: 'Mine stone deposits and add stone to your stockpile.',
         run: ({ state, resources, buildingCount }: BuildingActionContext) => {
           const gain =
             Math.max(1, Math.floor(state.tiles.stone / 4)) *
             Math.max(1, buildingCount);
-          resources.addResource('materials', gain);
+          resources.addResource('stone', gain);
         },
       },
     ],
@@ -330,10 +330,10 @@ export const stateBuildingDefinitions = {
     shortName: 'Frm',
     name: 'Farm',
     description:
-      'A farming commune on fertile plains. Each adjacent Field adds +3 Food/turn. With Crop Harvesting: manually harvest ready Fields for instant food.',
+      'A farming commune on fertile plains. With Crop Harvesting research: manually harvest ready Fields for +3 Wheat per field.',
     buildCost: {
       gold: 40,
-      materials: 24,
+      wood: 24,
     },
     costGrowth: 1.2,
     unique: false,
@@ -352,7 +352,7 @@ export const stateBuildingDefinitions = {
         id: 'sow-field',
         name: 'Sow Field',
         description:
-          "Cultivate a 2x2 Plains area near the Farm into a Field, increasing this Farm's passive food income by +3/turn.",
+          "Cultivate a 2x2 Plains area near the Farm into a Field, boosting this Farm's Wheat yield when harvested.",
         requiresTilePlacement: true,
         canRun: ({ buildingInstances, mapGetTile, isInPlayerZone }) => {
           const RANGE = 2;
@@ -389,7 +389,7 @@ export const stateBuildingDefinitions = {
         id: 'gather-harvest',
         name: 'Gather Harvest',
         description:
-          'Immediately harvest all ready Fields near this Farm: gain 10 + 10 per ready Field Food. Harvested Fields go fallow for 3 turns before regrowing.',
+          'Immediately harvest all ready Fields near this Farm: gain 3 Wheat per field. Harvested Fields go fallow for 3 turns before regrowing.',
         canRun: ({ buildingInstances, mapGetTile, isTechnologyUnlocked }) => {
           if (!isTechnologyUnlocked('eco-crop-harvesting')) {
             return {
@@ -434,8 +434,8 @@ export const stateBuildingDefinitions = {
           }
           // Each 2×2 block of field tiles counts as one field.
           const fieldBlockCount = Math.floor(fieldTiles.length / 4);
-          const foodGain = 10 + 10 * fieldBlockCount;
-          resources.addResource('food', foodGain);
+          const wheatGain = 3 * fieldBlockCount;
+          resources.addResource('wheat', wheatGain);
           // Convert harvested fields to fallow.
           for (const tile of fieldTiles) {
             mapSetTile(tile.x, tile.y, 'field-empty');
@@ -452,7 +452,8 @@ export const stateBuildingDefinitions = {
       'Military training facility where recruits are drilled into soldiers. Each Barracks provides 4 training slots and garrisons up to 8 units.',
     buildCost: {
       gold: 60,
-      materials: 40,
+      wood: 20,
+      stone: 20,
     },
     costGrowth: 1.25,
     unique: false,
@@ -480,7 +481,7 @@ export const stateBuildingDefinitions = {
     description: 'A small hunting lodge that sends hunters into nearby woods.',
     buildCost: {
       gold: 30,
-      materials: 18,
+      wood: 18,
     },
     costGrowth: 1.2,
     unique: false,
@@ -495,8 +496,36 @@ export const stateBuildingDefinitions = {
     requiredTechnologies: [],
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
-      "Passive income: +5 to +10 Food/turn per Hunter's Hut",
+      "Passive income: +1 to +2 Meat/turn per Hunter's Hut",
       'Occupies 2x2 forest tiles',
+    ],
+    actions: [],
+  },
+  bakery: {
+    id: 'bakery',
+    shortName: 'Bkr',
+    name: 'Bakery',
+    description:
+      'Converts Wheat into Bread each turn. Consumes 2 Wheat and produces 3 Bread passively.',
+    buildCost: {
+      gold: 30,
+      wood: 16,
+    },
+    costGrowth: 1.2,
+    unique: false,
+    buildingTime: 2,
+    populationRequired: 1,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['plains', 'sand'] as MapTileType[],
+    },
+    placementDescription: 'Requires 2x2 free Plains/Sand area.',
+    requiredTechnologies: ['eco-agriculture'],
+    getStats: (_state: unknown, count: number) => [
+      `Built: ${count}`,
+      'Converts 2 Wheat → 3 Bread per turn',
+      'Occupies 2x2 tiles',
     ],
     actions: [],
   },

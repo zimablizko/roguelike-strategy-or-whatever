@@ -74,7 +74,7 @@ export const researchDefinitions = {
     tree: 'economics',
     name: 'Crop Harvesting',
     description:
-      'Advanced rotation techniques let Farms gather ready Fields for immediate food. Each harvest yields (Fields + 1) Food; harvested Fields lie fallow for 3 turns before regrowing.',
+      'Advanced rotation techniques let Farms gather ready Fields for Wheat. Each harvest yields 3 Wheat per field; harvested Fields lie fallow for 3 turns before regrowing.',
     turns: 4,
     requiredResearches: ['eco-forestry'],
   },
@@ -188,7 +188,7 @@ export const researchDefinitions = {
     tree: 'military',
     name: 'Standing Army',
     description:
-      'Permanent trained army with strict command hierarchy. Doubles garrison capacity per Barracks and reduces all unit upkeep by 1 food.',
+      'Permanent trained army with strict command hierarchy. Doubles garrison capacity per Barracks and reduces all unit upkeep by 1 meat.',
     turns: 5,
     requiredResearches: ['mil-fortification-engineering', 'mil-siege-tactics'],
   },

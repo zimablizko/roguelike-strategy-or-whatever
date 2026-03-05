@@ -981,7 +981,7 @@ export class BuildingManager {
   /**
    * Counts how many 2×2 field blocks are within `range` tiles of the given
    * farm building instance. Each block of 4 contiguous field tiles counts
-   * as one field → +3 Food/turn.
+   * as one field → +3 Wheat on harvest.
    */
   getFarmFieldCount(farmInstanceId: string, range: number): number {
     if (!this.mapManager) return 0;

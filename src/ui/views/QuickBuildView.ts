@@ -22,7 +22,7 @@ import type {
   BuildRow,
   QuickBuildViewOptions,
 } from '../../_common/models/ui.models';
-import { Resources } from '../../_common/resources';
+import { getResourceIcon } from '../../_common/resources';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { getResearchDefinition, isResearchId } from '../../data/researches';
 import { BuildingManager } from '../../managers/BuildingManager';
@@ -368,7 +368,15 @@ export class QuickBuildView extends ScreenElement {
 
   private buildTooltipOutcomes(row: BuildRow): TooltipOutcome[] {
     const outcomes: TooltipOutcome[] = [];
-    const keys: ResourceType[] = ['gold', 'materials', 'food', 'population'];
+    const keys: ResourceType[] = [
+      'gold',
+      'wood',
+      'stone',
+      'wheat',
+      'meat',
+      'bread',
+      'population',
+    ];
     const okColor = QUICK_BUILD_COLORS.costOk;
     const badColor = QUICK_BUILD_COLORS.costBad;
     const neutralColor = QUICK_BUILD_COLORS.neutral;
@@ -378,7 +386,7 @@ export class QuickBuildView extends ScreenElement {
     if (row.definition.populationProvided) {
       outcomes.push({
         label: 'Permanent',
-        icon: this.getResourceIcon('population'),
+        icon: this.getResourceIconLocal('population'),
         value: `+${row.definition.populationProvided}`,
         color: okColor,
         inline: true,
@@ -400,7 +408,7 @@ export class QuickBuildView extends ScreenElement {
           }
           return {
             label: i === 0 ? 'Each turn' : '',
-            icon: this.getResourceIcon(entry.resourceType),
+            icon: this.getResourceIconLocal(entry.resourceType),
             value: valueText,
             color: okColor,
             inline: true,
@@ -432,7 +440,7 @@ export class QuickBuildView extends ScreenElement {
       const missing = Math.max(0, amount - have);
       costOutcomes.push({
         label: '',
-        icon: this.getResourceIcon(key),
+        icon: this.getResourceIconLocal(key),
         value: missing > 0 ? `${amount} (-${missing})` : `${amount}`,
         color: missing > 0 ? badColor : okColor,
         inline: true,
@@ -444,7 +452,7 @@ export class QuickBuildView extends ScreenElement {
       const enough = freePop >= row.definition.populationRequired;
       costOutcomes.push({
         label: '',
-        icon: this.getResourceIcon('population'),
+        icon: this.getResourceIconLocal('population'),
         value: `${row.definition.populationRequired} (free: ${freePop})`,
         color: enough ? okColor : badColor,
         inline: true,
@@ -482,20 +490,8 @@ export class QuickBuildView extends ScreenElement {
     return technologyId;
   }
 
-  private getResourceIcon(resourceType: ResourceType) {
-    if (resourceType === 'gold') {
-      return Resources.MoneyIcon;
-    }
-    if (resourceType === 'food') {
-      return Resources.FoodIcon;
-    }
-    if (resourceType === 'materials') {
-      return Resources.ResourcesIcon;
-    }
-    if (resourceType === 'population') {
-      return Resources.PopulationIcon;
-    }
-    return undefined;
+  private getResourceIconLocal(resourceType: ResourceType) {
+    return getResourceIcon(resourceType);
   }
 
   private getRowTitle(definition: TypedBuildingDefinition): string {

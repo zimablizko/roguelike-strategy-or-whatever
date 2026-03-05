@@ -1053,7 +1053,7 @@ export class MapView extends Actor {
           this.tooltipProvider.show({
             owner: this,
             getAnchorRect: () => this.getTileAnchorRect(tileX, tileY),
-            description: 'Field\n+3 Food/turn for the nearby Farm.',
+            description: 'Field\n+3 Wheat on harvest for the nearby Farm.',
             width: 200,
           });
         }

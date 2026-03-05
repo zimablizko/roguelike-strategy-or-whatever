@@ -1,4 +1,17 @@
-export type ResourceType = 'gold' | 'materials' | 'food' | 'population';
+export type ResourceType =
+  | 'gold'
+  | 'wood'
+  | 'stone'
+  | 'wheat'
+  | 'meat'
+  | 'bread'
+  | 'population';
+
+/** Resource types that count as edible food for aggregate display. */
+export const FOOD_RESOURCE_TYPES: readonly ResourceType[] = [
+  'meat',
+  'bread',
+] as const;
 
 export type ResourceStock = Record<ResourceType, number>;
 
