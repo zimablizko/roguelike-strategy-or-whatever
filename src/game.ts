@@ -22,6 +22,15 @@ export class Game {
       backgroundColor: Color.Black,
       canvasElementId: 'game',
       antialiasing: true,
+      handleContextLost: (e) => {
+        e.preventDefault();
+        this.engine.clock.stop();
+        console.warn('WebGL context lost — stopped clock, awaiting restore');
+      },
+      handleContextRestored: () => {
+        console.log('WebGL context restored — reloading page');
+        location.reload();
+      },
     });
   }
 

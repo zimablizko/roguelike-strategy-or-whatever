@@ -23,6 +23,7 @@ export class MapIncomeEffectsView extends ScreenElement {
   private readonly mapView: MapView;
   private pulses: IncomeVisualPulse[] = [];
   private readonly emptyGraphics = new GraphicsGroup({ members: [] });
+  private activeGraphicsGroup?: GraphicsGroup;
   private graphicsCleared = true;
 
   constructor(options: MapIncomeEffectsViewOptions) {
@@ -161,7 +162,12 @@ export class MapIncomeEffectsView extends ScreenElement {
       return;
     }
 
-    this.graphics.use(new GraphicsGroup({ members }));
+    if (!this.activeGraphicsGroup) {
+      this.activeGraphicsGroup = new GraphicsGroup({ members });
+    } else {
+      this.activeGraphicsGroup.members = members;
+    }
+    this.graphics.use(this.activeGraphicsGroup);
     this.graphicsCleared = false;
   }
 

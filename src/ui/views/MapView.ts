@@ -93,6 +93,9 @@ export class MapView extends Actor {
   private buildPlacementPreviewValid = false;
   /** Tile keys (y * map.width + x) to highlight as an action range overlay. */
   private actionRangeHighlightCells: Set<number> = new Set();
+  private staticLayerCanvas?: Canvas;
+  private previewLayerCanvas?: Canvas;
+  private mapGraphicsGroup?: GraphicsGroup;
 
   constructor(options: MapViewOptions) {
     super({ x: 0, y: 0 });
@@ -718,30 +721,34 @@ export class MapView extends Actor {
   }
 
   private rebuildCachedMapCanvas(): void {
-    const staticLayer = new Canvas({
-      width: this.contentWidth,
-      height: this.contentHeight,
-      cache: true,
-      draw: (ctx) => this.drawMap(ctx),
-    });
-    const previewLayer = new Canvas({
-      width: this.contentWidth,
-      height: this.contentHeight,
-      cache: false,
-      draw: (ctx) => {
-        this.drawActionRangeHighlight(ctx);
-        this.drawBuildPlacementPreview(ctx);
-      },
-    });
-
-    this.graphics.use(
-      new GraphicsGroup({
+    if (!this.staticLayerCanvas) {
+      this.staticLayerCanvas = new Canvas({
+        width: this.contentWidth,
+        height: this.contentHeight,
+        cache: true,
+        draw: (ctx) => this.drawMap(ctx),
+      });
+      this.previewLayerCanvas = new Canvas({
+        width: this.contentWidth,
+        height: this.contentHeight,
+        cache: false,
+        draw: (ctx) => {
+          this.drawActionRangeHighlight(ctx);
+          this.drawBuildPlacementPreview(ctx);
+        },
+      });
+      this.mapGraphicsGroup = new GraphicsGroup({
         members: [
-          { graphic: staticLayer, offset: vec(0, 0) },
-          { graphic: previewLayer, offset: vec(0, 0) },
+          { graphic: this.staticLayerCanvas, offset: vec(0, 0) },
+          { graphic: this.previewLayerCanvas, offset: vec(0, 0) },
         ],
-      })
-    );
+      });
+      this.graphics.use(this.mapGraphicsGroup);
+    } else {
+      this.staticLayerCanvas.flagDirty();
+      this.previewLayerCanvas!.flagDirty();
+    }
+
     this.renderedBuildingsVersion = this.buildingsVersionProvider?.() ?? 0;
     this.renderedPlayerZoneTileCount = this.countPlayerZoneTiles();
     this.renderedBuildPlacementVersion =
