@@ -1,6 +1,10 @@
 import { CONFIG } from '../_common/config';
 import type { StateBuildingId } from '../_common/models/buildings.models';
 import type {
+  MilitaryThreat,
+  ThreatOutcome,
+} from '../_common/models/military.models';
+import type {
   ResourceCost,
   ResourceType,
 } from '../_common/models/resource.models';
@@ -159,27 +163,31 @@ export class TurnManager {
     }
 
     // Resolve military threats and generate new ones.
-    const threatOutcomes = this.militaryManager?.resolveThreats(this.rng) ?? [];
-    for (const outcome of threatOutcomes) {
-      // Apply resource losses from defeats
-      if (!outcome.victory) {
-        for (const [res, amount] of Object.entries(outcome.resourceLosses)) {
-          if (amount && amount > 0) {
-            this.resourceManager.addResource(res as ResourceType, -amount);
+    let threatOutcomes: ThreatOutcome[] = [];
+    let newThreats: MilitaryThreat[] = [];
+    if (CONFIG.MILITARY_THREATS_ENABLED) {
+      threatOutcomes = this.militaryManager?.resolveThreats(this.rng) ?? [];
+      for (const outcome of threatOutcomes) {
+        // Apply resource losses from defeats
+        if (!outcome.victory) {
+          for (const [res, amount] of Object.entries(outcome.resourceLosses)) {
+            if (amount && amount > 0) {
+              this.resourceManager.addResource(res as ResourceType, -amount);
+            }
           }
         }
       }
-    }
-    const newThreats =
-      this.militaryManager?.generateThreats(
-        this.turnData.turnNumber,
-        this.rng
-      ) ?? [];
-    if (newThreats.length > 0) {
-      console.log(
-        'New threats:',
-        newThreats.map((t) => `${t.name} (power ${t.enemyPower})`).join(', ')
-      );
+      newThreats =
+        this.militaryManager?.generateThreats(
+          this.turnData.turnNumber,
+          this.rng
+        ) ?? [];
+      if (newThreats.length > 0) {
+        console.log(
+          'New threats:',
+          newThreats.map((t) => `${t.name} (power ${t.enemyPower})`).join(', ')
+        );
+      }
     }
 
     console.log(`Turn ${this.turnData.turnNumber} ended.`);

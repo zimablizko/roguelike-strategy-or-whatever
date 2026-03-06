@@ -68,7 +68,7 @@ export const stateBuildingDefinitions = {
       'Residential dwelling that shelters settlers and grows your workforce. With Tax Collection research: also generates gold each turn.',
     buildCost: {
       gold: 25,
-      wood: 15,
+      wood: 10,
     },
     costGrowth: 1.15,
     unique: false,
@@ -94,8 +94,8 @@ export const stateBuildingDefinitions = {
     name: 'Lumbermill',
     description: 'Processes nearby forests into construction-grade lumber.',
     buildCost: {
-      gold: 35,
-      wood: 20,
+      gold: 10,
+      wood: 10,
     },
     costGrowth: 1.2,
     unique: false,
@@ -289,8 +289,8 @@ export const stateBuildingDefinitions = {
     description:
       'Extracts ore and stone from rocky terrain, improving stone throughput.',
     buildCost: {
-      gold: 45,
-      stone: 30,
+      gold: 30,
+      wood: 15,
     },
     costGrowth: 1.2,
     unique: false,
@@ -332,8 +332,8 @@ export const stateBuildingDefinitions = {
     description:
       'A farming commune on fertile plains. With Crop Harvesting research: manually harvest ready Fields for +3 Wheat per field.',
     buildCost: {
-      gold: 40,
-      wood: 24,
+      gold: 20,
+      wood: 20,
     },
     costGrowth: 1.2,
     unique: false,

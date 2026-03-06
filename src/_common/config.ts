@@ -11,6 +11,8 @@ export const CONFIG = {
     START_SCENE: 'gameplay',
     QUICK_RESEARCH: true,
   },
+  /** Whether military threats spawn and resolve each turn. */
+  MILITARY_THREATS_ENABLED: false,
   /** Resources deducted at the end of each turn. */
   UPKEEP_COST: {} satisfies ResourceCost,
 } as const;

@@ -26,11 +26,11 @@ export class GameManager {
     race: 'human',
     resources: {
       gold: 100,
-      wood: 30,
-      stone: 20,
-      wheat: 20,
-      meat: 15,
-      bread: 15,
+      wood: 50,
+      stone: 50,
+      wheat: 0,
+      meat: 50,
+      bread: 50,
       population: 10,
     },
   };
