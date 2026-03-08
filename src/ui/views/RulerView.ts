@@ -4,37 +4,32 @@ import {
   FontUnit,
   GraphicsGroup,
   GraphicsGrouping,
-  ImageSource,
   Rectangle,
-  Sprite,
   Text,
   vec,
 } from 'excalibur';
 import type { RulerData } from '../../_common/models/ruler.models';
-import { RulerManager } from '../../managers/RulerManager';
 import type { RulerDisplayOptions } from '../../_common/models/ui.models';
-import {
-  InteractivePanelElement,
-} from '../elements/InteractivePanelElement';
+import { RulerManager } from '../../managers/RulerManager';
+import { InteractivePanelElement } from '../elements/InteractivePanelElement';
 
 /**
- * UI component that displays the current ruler (top-left portrait + text).
+ * UI component that displays the current ruler's name and stats.
  */
 export class RulerDisplay extends InteractivePanelElement {
   private rulerManager: RulerManager;
-  private portraitSize: number;
   private textColor: Color;
-  private cachedPortrait?: { source: ImageSource; sprite: Sprite };
+  private xProvider?: () => number;
 
   private lastRendered:
-    | Pick<RulerData, 'name' | 'age' | 'popularity' | 'portrait'>
+    | Pick<RulerData, 'name' | 'age' | 'popularity'>
     | undefined;
 
   constructor(options: RulerDisplayOptions) {
     super(options);
     this.rulerManager = options.rulerManager;
-    this.portraitSize = options.portraitSize ?? 64;
     this.textColor = options.textColor ?? Color.White;
+    this.xProvider = options.xProvider;
   }
 
   private formatPopularity(value: number): string {
@@ -52,26 +47,28 @@ export class RulerDisplay extends InteractivePanelElement {
       name: ruler.name,
       age: ruler.age,
       popularity: ruler.popularity,
-      portrait: ruler.portrait,
     };
+
+    // Always update position from xProvider (stateDisplay width may change)
+    const dynamicX = this.xProvider?.() ?? this.anchorX;
+    this.pos = vec(dynamicX, this.anchorY);
 
     if (
       !force &&
       this.lastRendered &&
       this.lastRendered.name === next.name &&
       this.lastRendered.age === next.age &&
-      this.lastRendered.popularity === next.popularity &&
-      this.lastRendered.portrait === next.portrait
+      this.lastRendered.popularity === next.popularity
     ) {
       return;
     }
     this.lastRendered = next;
 
-    const padding = 8;
-    const gap = 10;
+    const padding = 10;
+    const lineGap = 4;
 
     const nameText = new Text({
-      text: ruler.name,
+      text: `Ruler: ${ruler.name}`,
       font: new Font({
         size: 18,
         unit: FontUnit.Px,
@@ -80,9 +77,7 @@ export class RulerDisplay extends InteractivePanelElement {
     });
 
     const statsText = new Text({
-      text: `Age: ${ruler.age}  Popularity: ${this.formatPopularity(
-        ruler.popularity
-      )}`,
+      text: `Age: ${ruler.age}  ${this.formatPopularity(ruler.popularity)}`,
       font: new Font({
         size: 14,
         unit: FontUnit.Px,
@@ -90,66 +85,32 @@ export class RulerDisplay extends InteractivePanelElement {
       }),
     });
 
-    const textBlockW = Math.max(nameText.width, statsText.width);
-    const contentW = padding * 2 + this.portraitSize + gap + textBlockW;
-    const textBlockH = nameText.height + 4 + statsText.height;
-    const contentH = padding * 2 + Math.max(this.portraitSize, textBlockH);
+    const contentW = padding * 2 + Math.max(nameText.width, statsText.width);
+    const contentH = padding * 2 + 18 + lineGap + 14;
     const pressOffset = this.getPressOffset();
 
-    // Treat x/y as an anchor point (top-left).
-    this.pos = vec(this.anchorX, this.anchorY);
-
-    const members: GraphicsGrouping[] = [];
-
-    // Background
-    members.push({
-      graphic: new Rectangle({
-        width: contentW,
-        height: contentH,
-        color: this.getPanelBackgroundColor(),
-      }),
-      offset: vec(pressOffset, pressOffset),
-    });
-
-    // Portrait
-    const portraitX = padding;
-    const portraitY = padding;
-
-    if (ruler.portrait.isLoaded()) {
-      const sprite = this.getPortraitSprite(ruler.portrait);
-      if (sprite) {
-        members.push({
-          graphic: sprite,
-          offset: vec(portraitX + pressOffset, portraitY + pressOffset),
-        });
-      }
-    } else {
-      members.push({
+    const members: GraphicsGrouping[] = [
+      {
         graphic: new Rectangle({
-          width: this.portraitSize,
-          height: this.portraitSize,
-          color: Color.fromHex('#233241'),
+          width: contentW,
+          height: contentH,
+          color: this.getPanelBackgroundColor(),
         }),
-        offset: vec(portraitX + pressOffset, portraitY + pressOffset),
-      });
-    }
-
-    // Text block (to the right of portrait)
-    const textX = portraitX + this.portraitSize + gap;
-    const topY = padding;
-    members.push(
+        offset: vec(pressOffset, pressOffset),
+      },
       {
         graphic: nameText,
-        offset: vec(textX + pressOffset, topY + pressOffset),
+        offset: vec(padding + pressOffset, padding + pressOffset),
       },
       {
         graphic: statsText,
         offset: vec(
-          textX + pressOffset,
-          topY + nameText.height + 4 + pressOffset
+          padding + pressOffset,
+          padding + 18 + lineGap + pressOffset
         ),
-      }
-    );
+      },
+    ];
+
     this.addHoverBorder(members, contentW, contentH);
 
     this.graphics.use(
@@ -157,21 +118,5 @@ export class RulerDisplay extends InteractivePanelElement {
         members,
       })
     );
-  }
-
-  private getPortraitSprite(source: ImageSource): Sprite | undefined {
-    if (this.cachedPortrait && this.cachedPortrait.source === source) {
-      return this.cachedPortrait.sprite;
-    }
-
-    if (!source.isLoaded()) {
-      return undefined;
-    }
-
-    const sprite = source.toSprite();
-    sprite.width = this.portraitSize;
-    sprite.height = this.portraitSize;
-    this.cachedPortrait = { source, sprite };
-    return sprite;
   }
 }

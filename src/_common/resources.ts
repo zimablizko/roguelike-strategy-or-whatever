@@ -10,6 +10,7 @@ export const Resources = {
   FocusIcon: new ImageSource('./images/focus.png'),
   LumberIcon: new ImageSource('./images/lumber.png'),
   StoneIcon: new ImageSource('./images/stone.png'),
+  DummyIcon: new ImageSource('./images/dummy.png'),
 };
 
 /**
@@ -24,6 +25,7 @@ export const loader = new Loader([
   Resources.FocusIcon,
   Resources.LumberIcon,
   Resources.StoneIcon,
+  Resources.DummyIcon,
 ]);
 
 /**
@@ -41,14 +43,14 @@ export function getResourceIcon(
     case 'stone':
       return Resources.StoneIcon;
     case 'wheat':
-      return Resources.FoodIcon; // placeholder
+      return Resources.DummyIcon; // placeholder
     case 'meat':
       return Resources.FoodIcon; // placeholder
     case 'bread':
-      return Resources.FoodIcon; // placeholder
+      return Resources.DummyIcon; // placeholder
     case 'population':
       return Resources.PopulationIcon;
     default:
-      return undefined;
+      return Resources.DummyIcon;
   }
 }

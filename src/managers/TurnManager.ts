@@ -201,7 +201,10 @@ export class TurnManager {
     const upkeepCost = this.getUpkeepCost();
     const upkeepPaid = this.resourceManager.spendResources(upkeepCost);
 
-    if (!upkeepPaid) {
+    // Pay food upkeep from the fungible food pool (any food type can cover it).
+    const foodUpkeepPaid = upkeepPaid ? this.payFoodUpkeep() : false;
+
+    if (!upkeepPaid || !foodUpkeepPaid) {
       console.warn('Game Over: Not enough resources to continue!');
     }
 
@@ -209,7 +212,7 @@ export class TurnManager {
       passiveIncome: passiveIncome.byResource,
       passiveIncomePulses: passiveIncome.pulses,
       completedResearch: researchUpdate?.completedResearch,
-      upkeepPaid,
+      upkeepPaid: upkeepPaid && foodUpkeepPaid,
       threatOutcomes,
       newThreats,
     };
@@ -253,20 +256,49 @@ export class TurnManager {
 
   /**
    * Calculate the dynamic upkeep cost for the current turn.
-   * Food upkeep = ceil(population / 2), split evenly across food-type resources.
+   * Returns only non-food costs; food is handled separately via {@link payFoodUpkeep}.
    */
   getUpkeepCost(): ResourceCost {
     const base = { ...CONFIG.UPKEEP_COST } as ResourceCost;
-    const totalPop = this.buildingManager.getTotalPopulation();
-    const totalFood = Math.ceil(totalPop / 2);
-    const foodTypes = FOOD_RESOURCE_TYPES.length;
-    const perType = Math.floor(totalFood / foodTypes);
-    const remainder = totalFood - perType * foodTypes;
-    for (let i = 0; i < foodTypes; i++) {
-      const key = FOOD_RESOURCE_TYPES[i];
-      base[key] = (base[key] ?? 0) + perType + (i < remainder ? 1 : 0);
+    // Strip food keys — food upkeep is paid from the fungible food pool.
+    for (const key of FOOD_RESOURCE_TYPES) {
+      delete base[key];
     }
     return base;
+  }
+
+  /** Total food required this turn (ceil(population / 2)). */
+  getFoodUpkeepTotal(): number {
+    return Math.ceil(this.buildingManager.getTotalPopulation() / 2);
+  }
+
+  /**
+   * Pay the food upkeep by drawing from any available food-type resource.
+   * Deducts greedily in {@link FOOD_RESOURCE_TYPES} order.
+   * @returns true if the full food cost was covered.
+   */
+  private payFoodUpkeep(): boolean {
+    let remaining = this.getFoodUpkeepTotal();
+    if (remaining <= 0) return true;
+
+    // Check total food supply across all types first.
+    let totalAvailable = 0;
+    for (const type of FOOD_RESOURCE_TYPES) {
+      totalAvailable += this.resourceManager.getResource(type);
+    }
+    if (totalAvailable < remaining) return false;
+
+    // Deduct from each food type in order.
+    for (const type of FOOD_RESOURCE_TYPES) {
+      const available = this.resourceManager.getResource(type);
+      const deduct = Math.min(available, remaining);
+      if (deduct > 0) {
+        this.resourceManager.spendResource(type, deduct);
+        remaining -= deduct;
+      }
+      if (remaining <= 0) break;
+    }
+    return true;
   }
 
   /**
@@ -276,20 +308,18 @@ export class TurnManager {
     const totalPop = this.buildingManager.getTotalPopulation();
     const baseCost = CONFIG.UPKEEP_COST as ResourceCost;
     const baseGold = baseCost.gold ?? 0;
-    const totalFood = Math.ceil(totalPop / 2);
-    const foodTypes = FOOD_RESOURCE_TYPES.length;
-    const perType = Math.floor(totalFood / foodTypes);
-    const remainder = totalFood - perType * foodTypes;
-    // First food type gets any remainder
-    const breadIdx = FOOD_RESOURCE_TYPES.indexOf('bread');
-    const meatIdx = FOOD_RESOURCE_TYPES.indexOf('meat');
+    const totalFood = this.getFoodUpkeepTotal();
+
+    let totalFoodAvailable = 0;
+    for (const type of FOOD_RESOURCE_TYPES) {
+      totalFoodAvailable += this.resourceManager.getResource(type);
+    }
+
     return {
       baseGold,
       populationFood: totalFood,
-      foodPerType: perType,
       totalGold: baseGold,
-      totalBread: perType + (breadIdx < remainder ? 1 : 0),
-      totalMeat: perType + (meatIdx < remainder ? 1 : 0),
+      totalFoodAvailable,
       totalPopulation: totalPop,
     };
   }

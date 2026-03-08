@@ -49,6 +49,7 @@ export class GameplayScene extends Scene {
   private rulerPopup?: ScreenPopup;
   private researchPopup?: ResearchPopup;
   private militaryPopup?: MilitaryPopup;
+  private stateDisplay?: StateDisplay;
   private rulerDisplay?: RulerDisplay;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
@@ -118,6 +119,7 @@ export class GameplayScene extends Scene {
     this.rulerPopup = undefined;
     this.researchPopup = undefined;
     this.rulerDisplay = undefined;
+    this.stateDisplay = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
@@ -136,6 +138,7 @@ export class GameplayScene extends Scene {
     this.rulerPopup = undefined;
     this.researchPopup = undefined;
     this.rulerDisplay = undefined;
+    this.stateDisplay = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
     this.selectedBuildingView = undefined;
@@ -277,16 +280,16 @@ export class GameplayScene extends Scene {
   }
 
   private addStateDisplay(_engine: Engine) {
-    this.addHudElement(
-      new StateDisplay({
-        x: 20,
-        y: 20,
-        stateManager: this.gameManager.stateManager,
-        onClick: () => {
-          this.showStatePopup(_engine);
-        },
-      })
-    );
+    const view = new StateDisplay({
+      x: 20,
+      y: 20,
+      stateManager: this.gameManager.stateManager,
+      onClick: () => {
+        this.showStatePopup(_engine);
+      },
+    });
+    this.stateDisplay = view;
+    this.addHudElement(view);
   }
 
   private showStatePopup(engine: Engine): void {
@@ -314,10 +317,22 @@ export class GameplayScene extends Scene {
   }
 
   private addRulerDisplay(_engine: Engine) {
+    const gap = 8;
     const view = new RulerDisplay({
       x: 20,
-      y: 100,
+      y: 20,
       rulerManager: this.gameManager.rulerManager,
+      xProvider: () => {
+        const stateW = this.stateDisplay?.graphics.localBounds.width;
+        if (
+          typeof stateW === 'number' &&
+          Number.isFinite(stateW) &&
+          stateW > 0
+        ) {
+          return 20 + stateW + gap;
+        }
+        return 20 + 180 + gap;
+      },
       onClick: () => {
         this.showRulerPopup(_engine);
       },
@@ -463,7 +478,7 @@ export class GameplayScene extends Scene {
     this.addHudElement(
       new ResearchStatusView({
         x: 20,
-        y: this.getRulerDisplayBottomY() + 16,
+        y: this.getRulerDisplayBottomY() + 8,
         researchManager: this.gameManager.researchManager,
         turnManager: this.turnManager,
         widthProvider: () => this.getRulerDisplayWidth(),
@@ -473,10 +488,11 @@ export class GameplayScene extends Scene {
   }
 
   private addMilitaryStatusDisplay(engine: Engine): void {
+    const researchPanelHeight = 10 * 2 + 15 + 4 + 12;
     this.addHudElement(
       new MilitaryStatusView({
         x: 20,
-        y: this.getRulerDisplayBottomY() + 70,
+        y: this.getRulerDisplayBottomY() + 8 + researchPanelHeight + 8,
         militaryManager: this.gameManager.militaryManager,
         buildingManager: this.gameManager.buildingManager,
         widthProvider: () => this.getRulerDisplayWidth(),
@@ -838,20 +854,25 @@ export class GameplayScene extends Scene {
   }
 
   private getRulerDisplayWidth(): number {
-    const width = this.rulerDisplay?.graphics.localBounds.width;
-    if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
-      return width;
+    const rulerBounds = this.rulerDisplay?.graphics.localBounds;
+    if (
+      rulerBounds &&
+      Number.isFinite(rulerBounds.width) &&
+      rulerBounds.width > 0
+    ) {
+      const rulerRight = (this.rulerDisplay?.pos.x ?? 0) + rulerBounds.width;
+      return rulerRight - 20;
     }
     return 360;
   }
 
   private getRulerDisplayBottomY(): number {
-    const rulerTop = 100;
-    const height = this.rulerDisplay?.graphics.localBounds.height;
+    const topY = 20;
+    const height = this.stateDisplay?.graphics.localBounds.height;
     if (typeof height === 'number' && Number.isFinite(height) && height > 0) {
-      return rulerTop + height;
+      return topY + height;
     }
-    return rulerTop + 80;
+    return topY + 56;
   }
 
   private startManualBuildPlacement(buildingId: StateBuildingId): void {

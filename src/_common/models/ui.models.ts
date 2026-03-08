@@ -173,8 +173,8 @@ export interface StateDisplayOptions extends InteractivePanelOptions {
 
 export interface RulerDisplayOptions extends InteractivePanelOptions {
   rulerManager: RulerManager;
-  portraitSize?: number;
   textColor?: Color;
+  xProvider?: () => number;
 }
 
 export interface ResourceDisplayOptions {

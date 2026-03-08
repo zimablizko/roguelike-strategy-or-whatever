@@ -8,13 +8,11 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import type { ResearchStatusViewOptions } from '../../_common/models/ui.models';
 import { researchTreeInfo } from '../../data/researches';
 import { ResearchManager } from '../../managers/ResearchManager';
 import { TurnManager } from '../../managers/TurnManager';
-import type { ResearchStatusViewOptions } from '../../_common/models/ui.models';
-import {
-  InteractivePanelElement,
-} from '../elements/InteractivePanelElement';
+import { InteractivePanelElement } from '../elements/InteractivePanelElement';
 
 export class ResearchStatusView extends InteractivePanelElement {
   private readonly researchManager: ResearchManager;
@@ -64,73 +62,41 @@ export class ResearchStatusView extends InteractivePanelElement {
     const completed = this.researchManager.getCompletedCount();
     const total = this.researchManager.getTotalCount();
 
-    const lines: { text: string; color: Color; size: number }[] = [];
+    let headerText: string;
+    let headerColor: Color;
+    let subText: string;
+    let subColor: Color;
+
     if (active) {
       const tree = researchTreeInfo[active.tree];
-      lines.push({
-        text: `Research: ${active.name}`,
-        color: Color.fromHex(tree.colorHex),
-        size: 15,
-      });
-      lines.push({
-        text: `${active.remainingTurns} turns left`,
-        color: Color.fromHex('#dce6ef'),
-        size: 12,
-      });
+      headerText = `Research: ${active.name}`;
+      headerColor = Color.fromHex(tree.colorHex);
+      subText = `${active.remainingTurns} turns left`;
+      subColor = Color.fromHex('#dce6ef');
     } else if (completed === total) {
-      lines.push({
-        text: 'Research complete',
-        color: Color.fromHex('#9fe6aa'),
-        size: 15,
-      });
-      lines.push({
-        text: `All projects finished (${completed}/${total})`,
-        color: Color.fromHex('#dce6ef'),
-        size: 12,
-      });
-    } else if (this.researchManager.hasAnyStartableResearch()) {
-      lines.push({
-        text: 'Research idle',
-        color: Color.fromHex('#f5c179'),
-        size: 15,
-      });
-      lines.push({
-        text: 'Reminder: open Research and start a project',
-        color: Color.fromHex('#dce6ef'),
-        size: 12,
-      });
+      headerText = 'Research complete';
+      headerColor = Color.fromHex('#9fe6aa');
+      subText = `All projects finished (${completed}/${total})`;
+      subColor = Color.fromHex('#dce6ef');
     } else {
-      lines.push({
-        text: 'Research locked',
-        color: Color.fromHex('#f5c179'),
-        size: 15,
-      });
-      lines.push({
-        text: 'No available project right now',
-        color: Color.fromHex('#dce6ef'),
-        size: 12,
-      });
+      headerText = this.researchManager.hasAnyStartableResearch()
+        ? 'Research idle'
+        : 'Research locked';
+      headerColor = Color.fromHex('#f5c179');
+      subText = latest
+        ? `Last: ${latest.name} (Turn ${latest.completedOnTurn})`
+        : ' ';
+      subColor = Color.fromHex('#9fe6aa');
     }
 
-    if (latest && !active) {
-      lines.push({
-        text: `Last completed: ${latest.name} (Turn ${latest.completedOnTurn})`,
-        color: Color.fromHex('#9fe6aa'),
-        size: 11,
-      });
-    }
-
-    const paddingX = 12;
-    const paddingY = 8;
+    const padding = 10;
     const lineGap = 4;
-    const panelHeight =
-      paddingY * 2 +
-      lines.reduce((sum, line, index) => {
-        return sum + line.size + (index < lines.length - 1 ? lineGap : 0);
-      }, 0);
+    const headerSize = 15;
+    const subSize = 12;
+    const panelHeight = padding * 2 + headerSize + lineGap + subSize;
+    const pressOffset = this.getPressOffset();
 
     this.pos = vec(this.anchorX, this.anchorY);
-    const pressOffset = this.getPressOffset();
 
     const members: GraphicsGrouping[] = [
       {
@@ -141,23 +107,32 @@ export class ResearchStatusView extends InteractivePanelElement {
         }),
         offset: vec(pressOffset, pressOffset),
       },
-    ];
-
-    let y = paddingY;
-    for (const line of lines) {
-      members.push({
+      {
         graphic: new Text({
-          text: line.text,
+          text: headerText,
           font: new Font({
-            size: line.size,
+            size: headerSize,
             unit: FontUnit.Px,
-            color: line.color,
+            color: headerColor,
           }),
         }),
-        offset: vec(paddingX + pressOffset, y + pressOffset),
-      });
-      y += line.size + lineGap;
-    }
+        offset: vec(padding + pressOffset, padding + pressOffset),
+      },
+      {
+        graphic: new Text({
+          text: subText,
+          font: new Font({
+            size: subSize,
+            unit: FontUnit.Px,
+            color: subColor,
+          }),
+        }),
+        offset: vec(
+          padding + pressOffset,
+          padding + headerSize + lineGap + pressOffset
+        ),
+      },
+    ];
 
     this.addHoverBorder(members, panelWidth, panelHeight);
 

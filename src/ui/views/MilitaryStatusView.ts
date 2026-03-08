@@ -60,28 +60,22 @@ export class MilitaryStatusView extends InteractivePanelElement {
     const totalUnits =
       snapshot.availableCount + snapshot.assignedCount + snapshot.trainingCount;
 
-    const lines: { text: string; color: Color; size: number }[] = [];
+    let headerText: string;
+    let headerColor: Color;
+    let subText: string;
+    let subColor: Color;
 
     if (
       totalUnits === 0 &&
       this.buildingManager.getBuildingCount('barracks') === 0
     ) {
-      lines.push({
-        text: 'Military: —',
-        color: Color.fromHex('#8a96a3'),
-        size: 14,
-      });
-      lines.push({
-        text: 'No barracks built',
-        color: Color.fromHex('#8a96a3'),
-        size: 11,
-      });
+      headerText = 'Military: —';
+      headerColor = Color.fromHex('#8a96a3');
+      subText = 'No barracks built';
+      subColor = Color.fromHex('#8a96a3');
     } else {
-      lines.push({
-        text: `Military Power: ${snapshot.totalPower}`,
-        color: Color.fromHex('#cf5d5d'),
-        size: 15,
-      });
+      headerText = `Military Power: ${snapshot.totalPower}`;
+      headerColor = Color.fromHex('#cf5d5d');
       const parts: string[] = [];
       if (snapshot.availableCount > 0)
         parts.push(`${snapshot.availableCount} avail`);
@@ -89,50 +83,56 @@ export class MilitaryStatusView extends InteractivePanelElement {
         parts.push(`${snapshot.assignedCount} assigned`);
       if (snapshot.trainingCount > 0)
         parts.push(`${snapshot.trainingCount} training`);
-      lines.push({
-        text: parts.length > 0 ? parts.join('  |  ') : 'No units',
-        color: Color.fromHex('#dce6ef'),
-        size: 12,
-      });
+      subText = parts.length > 0 ? parts.join('  |  ') : 'No units';
+      subColor = Color.fromHex('#dce6ef');
     }
 
-    // Build composite graphic
-    const lineHeight = 4;
-    let totalHeight = 0;
-    for (const l of lines) {
-      totalHeight += l.size + lineHeight;
-    }
-    totalHeight = Math.max(totalHeight, 20);
+    const padding = 10;
+    const lineGap = 4;
+    const headerSize = 15;
+    const subSize = 12;
+    const panelHeight = padding * 2 + headerSize + lineGap + subSize;
+    const pressOffset = this.getPressOffset();
 
-    const padX = 10;
-    const padY = 6;
-    const bgColor = this.getPanelBackgroundColor();
+    this.pos = vec(this.anchorX, this.anchorY);
 
-    const members: GraphicsGrouping[] = [];
-    members.push({
-      graphic: new Rectangle({
-        width: panelWidth,
-        height: totalHeight + padY * 2,
-        color: bgColor,
-      }),
-      offset: vec(0, 0),
-    });
-
-    let yOff = padY;
-    for (const l of lines) {
-      members.push({
+    const members: GraphicsGrouping[] = [
+      {
+        graphic: new Rectangle({
+          width: panelWidth,
+          height: panelHeight,
+          color: this.getPanelBackgroundColor(),
+        }),
+        offset: vec(pressOffset, pressOffset),
+      },
+      {
         graphic: new Text({
-          text: l.text,
+          text: headerText,
           font: new Font({
-            size: l.size,
+            size: headerSize,
             unit: FontUnit.Px,
-            color: l.color,
+            color: headerColor,
           }),
         }),
-        offset: vec(padX, yOff),
-      });
-      yOff += l.size + lineHeight;
-    }
+        offset: vec(padding + pressOffset, padding + pressOffset),
+      },
+      {
+        graphic: new Text({
+          text: subText,
+          font: new Font({
+            size: subSize,
+            unit: FontUnit.Px,
+            color: subColor,
+          }),
+        }),
+        offset: vec(
+          padding + pressOffset,
+          padding + headerSize + lineGap + pressOffset
+        ),
+      },
+    ];
+
+    this.addHoverBorder(members, panelWidth, panelHeight);
 
     this.graphics.use(new GraphicsGroup({ members }));
   }

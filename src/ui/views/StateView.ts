@@ -9,11 +9,9 @@ import {
   vec,
 } from 'excalibur';
 import type { StateData } from '../../_common/models/state.models';
-import { StateManager } from '../../managers/StateManager';
 import type { StateDisplayOptions } from '../../_common/models/ui.models';
-import {
-  InteractivePanelElement,
-} from '../elements/InteractivePanelElement';
+import { StateManager } from '../../managers/StateManager';
+import { InteractivePanelElement } from '../elements/InteractivePanelElement';
 
 /**
  * UI component that displays current state data (name + size).
@@ -66,7 +64,7 @@ export class StateDisplay extends InteractivePanelElement {
     });
 
     const contentW = padding * 2 + Math.max(titleText.width, sizeText.width);
-    const contentH = padding * 2 + titleText.height + lineGap + sizeText.height;
+    const contentH = padding * 2 + 18 + lineGap + 14;
     const backgroundColor = this.getPanelBackgroundColor();
     const pressOffset = this.getPressOffset();
 
@@ -89,7 +87,7 @@ export class StateDisplay extends InteractivePanelElement {
         graphic: sizeText,
         offset: vec(
           padding + pressOffset,
-          padding + titleText.height + lineGap + pressOffset
+          padding + 18 + lineGap + pressOffset
         ),
       },
     ];

@@ -449,14 +449,14 @@ export class StatePopup extends ScreenPopup {
     ];
 
     let y = 0;
-    root.addChild(StatePopup.createLine(0, y, 'Resource Storage', 18, titleColor));
+    root.addChild(
+      StatePopup.createLine(0, y, 'Resource Storage', 18, titleColor)
+    );
     y += 30;
 
     for (const entry of resourceEntries) {
       // Label
-      root.addChild(
-        StatePopup.createLine(10, y, entry.label, 14, labelColor)
-      );
+      root.addChild(StatePopup.createLine(10, y, entry.label, 14, labelColor));
       // Value (right-aligned via fixed x)
       root.addChild(
         StatePopup.createLine(
@@ -512,25 +512,23 @@ export class StatePopup extends ScreenPopup {
 
     const upkeep = this.turnManager.getUpkeepBreakdown();
     addLine('Upkeep (per turn)', 16, titleColor, 8);
+    if (upkeep.totalGold > 0) {
+      addLine(`Gold: ${upkeep.totalGold}`, 14, costColor);
+    }
     addLine(
-      `Gold: ${upkeep.totalGold}`,
+      `Food: ${upkeep.populationFood} (1 per 2 pop) — any food type`,
       14,
       costColor
     );
     addLine(
-      `Food need: ${upkeep.populationFood} (1 per 2 people), split across food types:`,
+      `Food available: ${upkeep.totalFoodAvailable}`,
       14,
-      costColor
+      upkeep.totalFoodAvailable >= upkeep.populationFood ? okColor : warnColor
     );
-    addLine(`  Bread: ${upkeep.totalBread}`, 14, costColor);
-    addLine(`  Meat: ${upkeep.totalMeat}`, 14, costColor);
 
-    const currentBread = this.resourceManager.getResource('bread');
-    const currentMeat = this.resourceManager.getResource('meat');
     const currentGold = this.resourceManager.getResource('gold');
     if (
-      currentBread < upkeep.totalBread ||
-      currentMeat < upkeep.totalMeat ||
+      upkeep.totalFoodAvailable < upkeep.populationFood ||
       currentGold < upkeep.totalGold
     ) {
       addLine(
