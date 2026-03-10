@@ -66,9 +66,7 @@ export class StateDisplay extends InteractivePanelElement {
     });
 
     const naturalW = padding * 2 + Math.max(titleText.width, sizeText.width);
-    const contentW = this.widthProvider
-      ? this.widthProvider()
-      : naturalW;
+    const contentW = this.widthProvider ? this.widthProvider() : naturalW;
     const contentH = padding * 2 + 18 + lineGap + 14;
     const backgroundColor = this.getPanelBackgroundColor();
     const pressOffset = this.getPressOffset();

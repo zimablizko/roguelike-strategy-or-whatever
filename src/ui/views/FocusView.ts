@@ -34,9 +34,7 @@ export class FocusDisplay extends ScreenElement {
   private lastPanelWidth = 0;
   private lastPanelHeight = 0;
 
-  private lastRendered:
-    | { apCurrent: number; apMax: number }
-    | undefined;
+  private lastRendered: { apCurrent: number; apMax: number } | undefined;
 
   constructor(options: FocusDisplayOptions) {
     super({ x: options.x, y: options.y });
@@ -44,8 +42,7 @@ export class FocusDisplay extends ScreenElement {
     this.anchorX = options.x;
     this.anchorY = options.y;
     this.textColor = options.textColor ?? Color.White;
-    this.panelBgColor =
-      options.panelBgColor ?? Color.fromRGB(12, 20, 28, 0.72);
+    this.panelBgColor = options.panelBgColor ?? Color.fromRGB(12, 20, 28, 0.72);
     this.panelBorderColor =
       options.panelBorderColor ?? Color.fromRGB(170, 196, 220, 0.55);
     this.separatorColor = options.separatorColor ?? Color.fromHex('#233241');
@@ -137,8 +134,7 @@ export class FocusDisplay extends ScreenElement {
     const contentWidth = Math.max(this.barWidth, focusRowWidth);
     const panelWidth = contentWidth + panelPaddingX * 2;
     const barX = (contentWidth - this.barWidth) / 2;
-    const panelHeight =
-      panelPaddingY * 2 + apText.height + barGap + barHeight;
+    const panelHeight = panelPaddingY * 2 + apText.height + barGap + barHeight;
 
     // Treat x/y as an anchor point (top-center).
     this.pos = vec(this.anchorX - panelWidth / 2, this.anchorY);

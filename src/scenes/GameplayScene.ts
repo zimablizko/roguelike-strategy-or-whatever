@@ -6,8 +6,8 @@ import {
   Rectangle,
   Scene,
   ScreenElement,
-  type SceneActivationContext,
   vec,
+  type SceneActivationContext,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
 import type { StateBuildingId } from '../_common/models/buildings.models';
@@ -18,8 +18,8 @@ import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
-import { UI_Z } from '../ui/constants/ZLayers';
 import { LAYOUT } from '../ui/constants/LayoutConstants';
+import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
@@ -28,6 +28,7 @@ import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
+import { FocusDisplay } from '../ui/views/FocusView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
 import { MilitaryStatusView } from '../ui/views/MilitaryStatusView';
@@ -37,7 +38,6 @@ import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
 import { StateDisplay } from '../ui/views/StateView';
-import { FocusDisplay } from '../ui/views/FocusView';
 import { TurnDisplay } from '../ui/views/TurnView';
 
 /**
@@ -339,7 +339,10 @@ export class GameplayScene extends Scene {
     this.add(topbar);
 
     // Topbar bottom border
-    const topbarBorder = new ScreenElement({ x: 0, y: LAYOUT.TOPBAR_HEIGHT - 1 });
+    const topbarBorder = new ScreenElement({
+      x: 0,
+      y: LAYOUT.TOPBAR_HEIGHT - 1,
+    });
     topbarBorder.anchor = vec(0, 0);
     topbarBorder.graphics.use(
       new Rectangle({
@@ -357,8 +360,7 @@ export class GameplayScene extends Scene {
       x: LAYOUT.SIDEBAR_PADDING,
       y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
       stateManager: this.gameManager.stateManager,
-      widthProvider: () =>
-        LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+      widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
       onClick: () => {
         this.showStatePopup(_engine);
       },
@@ -396,8 +398,7 @@ export class GameplayScene extends Scene {
       x: LAYOUT.SIDEBAR_PADDING,
       y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
       rulerManager: this.gameManager.rulerManager,
-      widthProvider: () =>
-        LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+      widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
       // Stack below stateDisplay dynamically
       yProvider: () => this.getSidebarPanelY(1),
       onClick: () => {
@@ -463,8 +464,7 @@ export class GameplayScene extends Scene {
   private addFocusDisplay() {
     // Focus bar centered on the map viewport.
     const mapCenterX =
-      LAYOUT.SIDEBAR_WIDTH +
-      (CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH) / 2;
+      LAYOUT.SIDEBAR_WIDTH + (CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH) / 2;
     this.addHudElement(
       new FocusDisplay({
         x: mapCenterX,
@@ -563,8 +563,7 @@ export class GameplayScene extends Scene {
         y: this.getSidebarPanelY(2),
         researchManager: this.gameManager.researchManager,
         turnManager: this.turnManager,
-        widthProvider: () =>
-          LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+        widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
         onClick: () => this.showResearchPopup(engine),
       })
     );
@@ -577,8 +576,7 @@ export class GameplayScene extends Scene {
         y: this.getSidebarPanelY(3),
         militaryManager: this.gameManager.militaryManager,
         buildingManager: this.gameManager.buildingManager,
-        widthProvider: () =>
-          LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+        widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
         onClick: () => this.showMilitaryPopup(engine),
       })
     );

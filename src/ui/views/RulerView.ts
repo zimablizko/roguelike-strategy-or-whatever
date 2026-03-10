@@ -91,9 +91,7 @@ export class RulerDisplay extends InteractivePanelElement {
     });
 
     const naturalW = padding * 2 + Math.max(nameText.width, statsText.width);
-    const contentW = this.widthProvider
-      ? this.widthProvider()
-      : naturalW;
+    const contentW = this.widthProvider ? this.widthProvider() : naturalW;
     const contentH = padding * 2 + 18 + lineGap + 14;
     const pressOffset = this.getPressOffset();
 
