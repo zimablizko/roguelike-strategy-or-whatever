@@ -38,10 +38,9 @@ export class MilitaryStatusView extends InteractivePanelElement {
 
   protected redraw(force: boolean): void {
     const milVer = this.militaryManager.getMilitaryVersion();
-    const panelWidth = Math.max(
-      220,
-      Math.floor(this.widthProvider?.() ?? this.fallbackWidth)
-    );
+    const panelWidth = this.widthProvider
+      ? Math.floor(this.widthProvider())
+      : Math.max(220, this.fallbackWidth);
     if (
       !force &&
       milVer === this.lastMilitaryVersion &&

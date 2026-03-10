@@ -156,6 +156,15 @@ export interface TurnDisplayOptions {
   x: number;
   y: number;
   turnManager: TurnManager;
+  textColor?: Color;
+  panelBgColor?: Color;
+  panelBorderColor?: Color;
+}
+
+export interface FocusDisplayOptions {
+  x: number;
+  y: number;
+  turnManager: TurnManager;
   tooltipProvider?: TooltipProvider;
   textColor?: Color;
   panelBgColor?: Color;
@@ -169,12 +178,15 @@ export interface TurnDisplayOptions {
 export interface StateDisplayOptions extends InteractivePanelOptions {
   stateManager: StateManager;
   textColor?: Color;
+  widthProvider?: () => number;
 }
 
 export interface RulerDisplayOptions extends InteractivePanelOptions {
   rulerManager: RulerManager;
   textColor?: Color;
   xProvider?: () => number;
+  yProvider?: () => number;
+  widthProvider?: () => number;
 }
 
 export interface ResourceDisplayOptions {
@@ -226,6 +238,10 @@ export interface SelectedBuildingViewOptions {
   width?: number;
   height?: number;
   bottomMargin?: number;
+  /** Left edge of the map viewport area (for centering). Defaults to 0. */
+  mapViewportLeft?: number;
+  /** Width of the map viewport area (for centering). Defaults to engine.drawWidth. */
+  mapViewportWidth?: number;
   /**
    * Notifies the caller when an action button is hovered or un-hovered.
    * Useful for driving map overlays (e.g. range highlights).
@@ -302,6 +318,14 @@ export interface MapViewOptions {
   zoomStep?: number;
   showGrid?: boolean;
   initialPlayerStateCoverage?: number;
+  /** Left edge of the map viewport area (pixels). Defaults to 0. */
+  viewportLeft?: number;
+  /** Top edge of the map viewport area (pixels). Defaults to 0. */
+  viewportTop?: number;
+  /** Width of the map viewport area (pixels). Defaults to engine.drawWidth. */
+  viewportWidth?: number;
+  /** Height of the map viewport area (pixels). Defaults to engine.drawHeight. */
+  viewportHeight?: number;
 }
 
 export interface ResearchStatusViewOptions extends InteractivePanelOptions {

@@ -19,6 +19,7 @@ import { InteractivePanelElement } from '../elements/InteractivePanelElement';
 export class StateDisplay extends InteractivePanelElement {
   private stateManager: StateManager;
   private textColor: Color;
+  private widthProvider?: () => number;
 
   private lastRendered: Pick<StateData, 'name' | 'size'> | undefined;
 
@@ -26,6 +27,7 @@ export class StateDisplay extends InteractivePanelElement {
     super(options);
     this.stateManager = options.stateManager;
     this.textColor = options.textColor ?? Color.White;
+    this.widthProvider = options.widthProvider;
   }
 
   protected redraw(force: boolean): void {
@@ -63,7 +65,10 @@ export class StateDisplay extends InteractivePanelElement {
       }),
     });
 
-    const contentW = padding * 2 + Math.max(titleText.width, sizeText.width);
+    const naturalW = padding * 2 + Math.max(titleText.width, sizeText.width);
+    const contentW = this.widthProvider
+      ? this.widthProvider()
+      : naturalW;
     const contentH = padding * 2 + 18 + lineGap + 14;
     const backgroundColor = this.getPanelBackgroundColor();
     const pressOffset = this.getPressOffset();

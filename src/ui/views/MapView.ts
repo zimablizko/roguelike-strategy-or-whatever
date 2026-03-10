@@ -73,6 +73,12 @@ export class MapView extends Actor {
   private readonly contentWidth: number;
   private readonly contentHeight: number;
 
+  /** Viewport rectangle that the map should render within. */
+  private vpLeft: number;
+  private vpTop: number;
+  private vpWidth: number;
+  private vpHeight: number;
+
   private dragging = false;
   private dragStartScreen = vec(0, 0);
   private dragStartView = vec(0, 0);
@@ -133,9 +139,19 @@ export class MapView extends Actor {
     this.mapBorderPx = this.tileSize * this.mapBorderCells;
     this.contentWidth = this.mapWidthPx + this.mapBorderPx * 2;
     this.contentHeight = this.mapHeightPx + this.mapBorderPx * 2;
+
+    // Viewport defaults — resolved in onInitialize when engine is available.
+    this.vpLeft = options.viewportLeft ?? 0;
+    this.vpTop = options.viewportTop ?? 0;
+    this.vpWidth = options.viewportWidth ?? 0;
+    this.vpHeight = options.viewportHeight ?? 0;
   }
 
   onInitialize(engine: Engine): void {
+    // Resolve viewport defaults when engine dimensions are available.
+    if (this.vpWidth === 0) this.vpWidth = engine.drawWidth;
+    if (this.vpHeight === 0) this.vpHeight = engine.drawHeight;
+
     // Important: keep map out of object hit-testing so HUD/UI remains clickable.
     this.pointer.useGraphicsBounds = false;
     this.pointer.useColliderShape = false;
@@ -659,8 +675,10 @@ export class MapView extends Actor {
       this.viewY = playerStateView.viewY;
     } else {
       this.zoom = this.clamp(fitZoom * 0.96, minZoom, this.maxZoom);
-      this.viewX = (engine.drawWidth - this.contentWidth * this.zoom) / 2;
-      this.viewY = (engine.drawHeight - this.contentHeight * this.zoom) / 2;
+      this.viewX =
+        this.vpLeft + (this.vpWidth - this.contentWidth * this.zoom) / 2;
+      this.viewY =
+        this.vpTop + (this.vpHeight - this.contentHeight * this.zoom) / 2;
     }
 
     this.clampView(engine);
@@ -937,25 +955,33 @@ export class MapView extends Actor {
     this.viewY -= (dy / length) * speed;
   }
 
-  private clampView(engine: Engine): void {
+  private clampView(_engine: Engine): void {
     const scaledW = this.contentWidth * this.zoom;
     const scaledH = this.contentHeight * this.zoom;
 
-    if (scaledW <= engine.drawWidth) {
+    if (scaledW <= this.vpWidth) {
       // Map fits horizontally: keep it draggable within viewport bounds.
-      this.viewX = this.clamp(this.viewX, 0, engine.drawWidth - scaledW);
+      this.viewX = this.clamp(
+        this.viewX,
+        this.vpLeft,
+        this.vpLeft + this.vpWidth - scaledW
+      );
     } else {
-      const minX = engine.drawWidth - scaledW;
-      const maxX = 0;
+      const minX = this.vpLeft + this.vpWidth - scaledW;
+      const maxX = this.vpLeft;
       this.viewX = this.clamp(this.viewX, minX, maxX);
     }
 
-    if (scaledH <= engine.drawHeight) {
+    if (scaledH <= this.vpHeight) {
       // Map fits vertically: keep it draggable within viewport bounds.
-      this.viewY = this.clamp(this.viewY, 0, engine.drawHeight - scaledH);
+      this.viewY = this.clamp(
+        this.viewY,
+        this.vpTop,
+        this.vpTop + this.vpHeight - scaledH
+      );
     } else {
-      const minY = engine.drawHeight - scaledH;
-      const maxY = 0;
+      const minY = this.vpTop + this.vpHeight - scaledH;
+      const maxY = this.vpTop;
       this.viewY = this.clamp(this.viewY, minY, maxY);
     }
   }
@@ -1287,15 +1313,15 @@ export class MapView extends Actor {
     return count;
   }
 
-  private getFitZoom(engine: Engine): number {
+  private getFitZoom(_engine: Engine): number {
     return Math.min(
-      engine.drawWidth / this.contentWidth,
-      engine.drawHeight / this.contentHeight
+      this.vpWidth / this.contentWidth,
+      this.vpHeight / this.contentHeight
     );
   }
 
   private getPlayerStateView(
-    engine: Engine,
+    _engine: Engine,
     targetCoverage: number,
     fitZoom: number
   ): { zoom: number; viewX: number; viewY: number } | undefined {
@@ -1316,8 +1342,8 @@ export class MapView extends Actor {
       return undefined;
     }
 
-    const zoomByWidth = (engine.drawWidth * targetCoverage) / boxWidthPx;
-    const zoomByHeight = (engine.drawHeight * targetCoverage) / boxHeightPx;
+    const zoomByWidth = (this.vpWidth * targetCoverage) / boxWidthPx;
+    const zoomByHeight = (this.vpHeight * targetCoverage) / boxHeightPx;
     if (!Number.isFinite(zoomByWidth) || !Number.isFinite(zoomByHeight)) {
       return undefined;
     }
@@ -1330,8 +1356,8 @@ export class MapView extends Actor {
     const centerLocalY = boxTop + boxHeightPx / 2;
     return {
       zoom,
-      viewX: engine.drawWidth / 2 - centerLocalX * zoom,
-      viewY: engine.drawHeight / 2 - centerLocalY * zoom,
+      viewX: this.vpLeft + this.vpWidth / 2 - centerLocalX * zoom,
+      viewY: this.vpTop + this.vpHeight / 2 - centerLocalY * zoom,
     };
   }
 

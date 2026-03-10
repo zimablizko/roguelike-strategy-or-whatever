@@ -64,6 +64,8 @@ export class SelectedBuildingView extends ScreenElement {
   private readonly maxPanelWidth: number;
   private readonly panelHeight: number;
   private readonly bottomMargin: number;
+  private readonly mapViewportLeft: number;
+  private readonly mapViewportWidth: number;
 
   private currentPanelWidth: number;
   private selectedBuildingInstanceId?: string;
@@ -87,6 +89,8 @@ export class SelectedBuildingView extends ScreenElement {
     this.maxPanelWidth = options.width ?? 560;
     this.panelHeight = options.height ?? 118;
     this.bottomMargin = options.bottomMargin ?? 8;
+    this.mapViewportLeft = options.mapViewportLeft ?? 0;
+    this.mapViewportWidth = options.mapViewportWidth ?? 0;
     this.currentPanelWidth = this.minPanelWidth;
   }
 
@@ -135,8 +139,12 @@ export class SelectedBuildingView extends ScreenElement {
       return;
     }
 
+    const vpLeft = this.mapViewportLeft;
+    const vpWidth =
+      this.mapViewportWidth > 0 ? this.mapViewportWidth : engine.drawWidth;
+
     this.pos = vec(
-      (engine.drawWidth - this.currentPanelWidth) / 2,
+      vpLeft + (vpWidth - this.currentPanelWidth) / 2,
       engine.drawHeight - this.panelHeight - this.bottomMargin
     );
   }

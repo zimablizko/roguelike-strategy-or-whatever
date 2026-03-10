@@ -3,8 +3,11 @@ import {
   Color,
   Engine,
   Keys,
+  Rectangle,
   Scene,
+  ScreenElement,
   type SceneActivationContext,
+  vec,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
 import type { StateBuildingId } from '../_common/models/buildings.models';
@@ -16,9 +19,11 @@ import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
 import { UI_Z } from '../ui/constants/ZLayers';
+import { LAYOUT } from '../ui/constants/LayoutConstants';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
+import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
@@ -32,6 +37,7 @@ import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
 import { StateDisplay } from '../ui/views/StateView';
+import { FocusDisplay } from '../ui/views/FocusView';
 import { TurnDisplay } from '../ui/views/TurnView';
 
 /**
@@ -45,12 +51,12 @@ export class GameplayScene extends Scene {
   private mapView?: MapView;
   private mapIncomeEffectsView?: MapIncomeEffectsView;
   private testPopup?: ScreenPopup;
+  private gameMenuPopup?: GameMenuPopup;
   private statePopup?: StatePopup;
   private rulerPopup?: ScreenPopup;
   private researchPopup?: ResearchPopup;
   private militaryPopup?: MilitaryPopup;
   private stateDisplay?: StateDisplay;
-  private rulerDisplay?: RulerDisplay;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
@@ -115,10 +121,10 @@ export class GameplayScene extends Scene {
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
     this.testPopup = undefined;
+    this.gameMenuPopup = undefined;
     this.statePopup = undefined;
     this.rulerPopup = undefined;
     this.researchPopup = undefined;
-    this.rulerDisplay = undefined;
     this.stateDisplay = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
@@ -134,10 +140,10 @@ export class GameplayScene extends Scene {
     // Remove all actors/entities/timers from the previous run
     this.clear();
     this.testPopup = undefined;
+    this.gameMenuPopup = undefined;
     this.statePopup = undefined;
     this.rulerPopup = undefined;
     this.researchPopup = undefined;
-    this.rulerDisplay = undefined;
     this.stateDisplay = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
@@ -203,6 +209,7 @@ export class GameplayScene extends Scene {
     this.addTooltipProvider();
     this.addMapView();
     this.addMapIncomeEffectsView();
+    this.addLayoutBackgrounds(engine);
     this.addStateDisplay(engine);
     this.addRulerDisplay(engine);
     this.addResourceDisplay(engine);
@@ -210,6 +217,7 @@ export class GameplayScene extends Scene {
     this.addResearchStatusDisplay(engine);
     this.addMilitaryStatusDisplay(engine);
     this.addButtons(engine);
+    this.addFocusDisplay();
     this.addQuickBuildView();
     this.addSelectedBuildingView();
 
@@ -261,6 +269,10 @@ export class GameplayScene extends Scene {
       tileSize: 56,
       showGrid: CONFIG.MAP_SHOW_GRID,
       initialPlayerStateCoverage: CONFIG.MAP_INITIAL_STATE_COVERAGE,
+      viewportLeft: LAYOUT.SIDEBAR_WIDTH,
+      viewportTop: LAYOUT.TOPBAR_HEIGHT,
+      viewportWidth: CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH,
+      viewportHeight: CONFIG.GAME_HEIGHT - LAYOUT.TOPBAR_HEIGHT,
     });
 
     this.mapView = mapView;
@@ -279,11 +291,74 @@ export class GameplayScene extends Scene {
     this.add(effects);
   }
 
+  /** Draw sidebar and topbar background panels that sit above the map. */
+  private addLayoutBackgrounds(engine: Engine): void {
+    const bgColor = Color.fromHex('#0c141c');
+    const borderColor = Color.fromRGB(170, 196, 220, 0.35);
+
+    // Sidebar background
+    const sidebar = new ScreenElement({ x: 0, y: LAYOUT.TOPBAR_HEIGHT });
+    sidebar.anchor = vec(0, 0);
+    sidebar.graphics.use(
+      new Rectangle({
+        width: LAYOUT.SIDEBAR_WIDTH,
+        height: engine.drawHeight - LAYOUT.TOPBAR_HEIGHT,
+        color: bgColor,
+      })
+    );
+    sidebar.z = UI_Z.hud - 1;
+    this.add(sidebar);
+
+    // Sidebar right border
+    const sidebarBorder = new ScreenElement({
+      x: LAYOUT.SIDEBAR_WIDTH - 1,
+      y: LAYOUT.TOPBAR_HEIGHT,
+    });
+    sidebarBorder.anchor = vec(0, 0);
+    sidebarBorder.graphics.use(
+      new Rectangle({
+        width: 1,
+        height: engine.drawHeight - LAYOUT.TOPBAR_HEIGHT,
+        color: borderColor,
+      })
+    );
+    sidebarBorder.z = UI_Z.hud - 1;
+    this.add(sidebarBorder);
+
+    // Topbar background
+    const topbar = new ScreenElement({ x: 0, y: 0 });
+    topbar.anchor = vec(0, 0);
+    topbar.graphics.use(
+      new Rectangle({
+        width: engine.drawWidth,
+        height: LAYOUT.TOPBAR_HEIGHT,
+        color: bgColor,
+      })
+    );
+    topbar.z = UI_Z.hud - 1;
+    this.add(topbar);
+
+    // Topbar bottom border
+    const topbarBorder = new ScreenElement({ x: 0, y: LAYOUT.TOPBAR_HEIGHT - 1 });
+    topbarBorder.anchor = vec(0, 0);
+    topbarBorder.graphics.use(
+      new Rectangle({
+        width: engine.drawWidth,
+        height: 1,
+        color: borderColor,
+      })
+    );
+    topbarBorder.z = UI_Z.hud - 1;
+    this.add(topbarBorder);
+  }
+
   private addStateDisplay(_engine: Engine) {
     const view = new StateDisplay({
-      x: 20,
-      y: 20,
+      x: LAYOUT.SIDEBAR_PADDING,
+      y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
       stateManager: this.gameManager.stateManager,
+      widthProvider: () =>
+        LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
       onClick: () => {
         this.showStatePopup(_engine);
       },
@@ -317,27 +392,18 @@ export class GameplayScene extends Scene {
   }
 
   private addRulerDisplay(_engine: Engine) {
-    const gap = 8;
     const view = new RulerDisplay({
-      x: 20,
-      y: 20,
+      x: LAYOUT.SIDEBAR_PADDING,
+      y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
       rulerManager: this.gameManager.rulerManager,
-      xProvider: () => {
-        const stateW = this.stateDisplay?.graphics.localBounds.width;
-        if (
-          typeof stateW === 'number' &&
-          Number.isFinite(stateW) &&
-          stateW > 0
-        ) {
-          return 20 + stateW + gap;
-        }
-        return 20 + 180 + gap;
-      },
+      widthProvider: () =>
+        LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+      // Stack below stateDisplay dynamically
+      yProvider: () => this.getSidebarPanelY(1),
       onClick: () => {
         this.showRulerPopup(_engine);
       },
     });
-    this.rulerDisplay = view;
     this.addHudElement(view);
   }
 
@@ -367,25 +433,42 @@ export class GameplayScene extends Scene {
     this.add(popup);
   }
 
-  private addResourceDisplay(engine: Engine) {
+  private addResourceDisplay(_engine: Engine) {
+    // Resources left-aligned in topbar after the sidebar.
+    // ResourceDisplay actual height = iconSize(24) + padding(8)*2 = 40
     this.addHudElement(
       new ResourceDisplay({
-        x: engine.drawWidth - 20,
-        y: 20,
-        bgColor: Color.fromHex('#1a252f'),
+        x: LAYOUT.SIDEBAR_WIDTH + LAYOUT.MARGIN,
+        y: (LAYOUT.TOPBAR_HEIGHT - 40) / 2,
+        bgColor: Color.fromHex('#0c141c'),
         resourceManager: this.resourceManager,
         buildingManager: this.gameManager.buildingManager,
         tooltipProvider: this.tooltipProvider,
-        anchor: 'top-right',
+        anchor: 'top-left',
       })
     );
   }
 
   private addTurnDisplay(engine: Engine) {
+    // Date label right-aligned in the topbar.
     this.addHudElement(
       new TurnDisplay({
-        x: engine.drawWidth / 2,
-        y: 20,
+        x: engine.drawWidth - LAYOUT.MARGIN,
+        y: LAYOUT.TOPBAR_HEIGHT / 2,
+        turnManager: this.turnManager,
+      })
+    );
+  }
+
+  private addFocusDisplay() {
+    // Focus bar centered on the map viewport.
+    const mapCenterX =
+      LAYOUT.SIDEBAR_WIDTH +
+      (CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH) / 2;
+    this.addHudElement(
+      new FocusDisplay({
+        x: mapCenterX,
+        y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.MARGIN,
         turnManager: this.turnManager,
         tooltipProvider: this.tooltipProvider,
       })
@@ -393,35 +476,34 @@ export class GameplayScene extends Scene {
   }
 
   private addButtons(engine: Engine) {
-    // little Back to Main Menu button in left top corner
+    // Game Menu button in top-left (topbar, within sidebar width)
     this.addHudElement(
       new ScreenButton({
-        x: 20,
-        y: engine.drawHeight - 110,
-        width: 100,
-        height: 40,
-        title: 'Exit',
+        x: LAYOUT.SIDEBAR_PADDING,
+        y: (LAYOUT.TOPBAR_HEIGHT - 30) / 2,
+        width: 80,
+        height: 30,
+        title: 'Menu',
         onClick: () => {
-          this.saveCurrentGame();
-          engine.goToScene('main-menu');
+          this.showGameMenuPopup(engine);
         },
       })
     );
 
     this.addHudElement(
       new ScreenButton({
-        x: 20,
-        y: engine.drawHeight - 60,
-        width: 100,
-        height: 40,
-        title: 'Debug Menu',
+        x: LAYOUT.SIDEBAR_PADDING + 88,
+        y: (LAYOUT.TOPBAR_HEIGHT - 30) / 2,
+        width: 80,
+        height: 30,
+        title: 'Debug',
         onClick: () => {
           this.showDebugMenu(engine);
         },
       })
     );
 
-    // End Turn button in right bottom corner
+    // End Turn button in bottom-right of map area
     const endTurnButton = new ScreenButton({
       x: engine.drawWidth - 170,
       y: engine.drawHeight - 60,
@@ -477,25 +559,26 @@ export class GameplayScene extends Scene {
   private addResearchStatusDisplay(engine: Engine): void {
     this.addHudElement(
       new ResearchStatusView({
-        x: 20,
-        y: this.getRulerDisplayBottomY() + 8,
+        x: LAYOUT.SIDEBAR_PADDING,
+        y: this.getSidebarPanelY(2),
         researchManager: this.gameManager.researchManager,
         turnManager: this.turnManager,
-        widthProvider: () => this.getRulerDisplayWidth(),
+        widthProvider: () =>
+          LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
         onClick: () => this.showResearchPopup(engine),
       })
     );
   }
 
   private addMilitaryStatusDisplay(engine: Engine): void {
-    const researchPanelHeight = 10 * 2 + 15 + 4 + 12;
     this.addHudElement(
       new MilitaryStatusView({
-        x: 20,
-        y: this.getRulerDisplayBottomY() + 8 + researchPanelHeight + 8,
+        x: LAYOUT.SIDEBAR_PADDING,
+        y: this.getSidebarPanelY(3),
         militaryManager: this.gameManager.militaryManager,
         buildingManager: this.gameManager.buildingManager,
-        widthProvider: () => this.getRulerDisplayWidth(),
+        widthProvider: () =>
+          LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
         onClick: () => this.showMilitaryPopup(engine),
       })
     );
@@ -553,6 +636,8 @@ export class GameplayScene extends Scene {
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
+      mapViewportLeft: LAYOUT.SIDEBAR_WIDTH,
+      mapViewportWidth: CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH,
       onActionPulses: (pulses) => {
         this.mapIncomeEffectsView?.addIncomePulses(pulses);
       },
@@ -605,6 +690,8 @@ export class GameplayScene extends Scene {
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
+      leftMargin: LAYOUT.SIDEBAR_WIDTH + LAYOUT.MARGIN,
+      bottomMargin: LAYOUT.MARGIN,
       onSelectBuildingForPlacement: (buildingId) => {
         this.startManualBuildPlacement(buildingId);
       },
@@ -623,6 +710,27 @@ export class GameplayScene extends Scene {
     if (syncMap) {
       this.mapView?.setSelectedBuilding(instanceId);
     }
+  }
+
+  private showGameMenuPopup(engine: Engine): void {
+    if (this.gameMenuPopup) {
+      this.gameMenuPopup.close();
+      this.gameMenuPopup = undefined;
+    }
+
+    const popup = new GameMenuPopup({
+      engine,
+      onClose: () => {
+        this.gameMenuPopup = undefined;
+      },
+      onSaveAndExit: () => {
+        this.saveCurrentGame();
+        engine.goToScene('main-menu');
+      },
+    });
+
+    this.gameMenuPopup = popup;
+    this.add(popup);
   }
 
   private showDebugMenu(engine: Engine) {
@@ -819,6 +927,7 @@ export class GameplayScene extends Scene {
   private hasOpenPopup(): boolean {
     return (
       (this.testPopup !== undefined && !this.testPopup.isKilled()) ||
+      (this.gameMenuPopup !== undefined && !this.gameMenuPopup.isKilled()) ||
       (this.statePopup !== undefined && !this.statePopup.isKilled()) ||
       (this.rulerPopup !== undefined && !this.rulerPopup.isKilled()) ||
       (this.researchPopup !== undefined && !this.researchPopup.isKilled()) ||
@@ -827,6 +936,11 @@ export class GameplayScene extends Scene {
   }
 
   private closeTopPopup(): void {
+    if (this.gameMenuPopup && !this.gameMenuPopup.isKilled()) {
+      this.gameMenuPopup.close();
+      this.gameMenuPopup = undefined;
+      return;
+    }
     if (this.militaryPopup && !this.militaryPopup.isKilled()) {
       this.militaryPopup.close();
       this.militaryPopup = undefined;
@@ -853,26 +967,26 @@ export class GameplayScene extends Scene {
     }
   }
 
-  private getRulerDisplayWidth(): number {
-    const rulerBounds = this.rulerDisplay?.graphics.localBounds;
-    if (
-      rulerBounds &&
-      Number.isFinite(rulerBounds.width) &&
-      rulerBounds.width > 0
-    ) {
-      const rulerRight = (this.rulerDisplay?.pos.x ?? 0) + rulerBounds.width;
-      return rulerRight - 20;
-    }
-    return 360;
+  /**
+   * Get the Y position for a sidebar panel by index (0-based).
+   * Panels: 0=State, 1=Ruler, 2=Research, 3=Military.
+   * Uses the measured height of stateDisplay for accurate stacking.
+   */
+  private getSidebarPanelY(index: number): number {
+    const baseY = LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING;
+    if (index === 0) return baseY;
+
+    // Estimate single panel height from stateDisplay or fallback
+    const panelHeight = this.getStatePanelHeight();
+    return baseY + index * (panelHeight + LAYOUT.PANEL_GAP);
   }
 
-  private getRulerDisplayBottomY(): number {
-    const topY = 20;
+  private getStatePanelHeight(): number {
     const height = this.stateDisplay?.graphics.localBounds.height;
     if (typeof height === 'number' && Number.isFinite(height) && height > 0) {
-      return topY + height;
+      return height;
     }
-    return topY + 56;
+    return 56;
   }
 
   private startManualBuildPlacement(buildingId: StateBuildingId): void {

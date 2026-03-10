@@ -20,6 +20,8 @@ export class RulerDisplay extends InteractivePanelElement {
   private rulerManager: RulerManager;
   private textColor: Color;
   private xProvider?: () => number;
+  private yProvider?: () => number;
+  private widthProvider?: () => number;
 
   private lastRendered:
     | Pick<RulerData, 'name' | 'age' | 'popularity'>
@@ -30,6 +32,8 @@ export class RulerDisplay extends InteractivePanelElement {
     this.rulerManager = options.rulerManager;
     this.textColor = options.textColor ?? Color.White;
     this.xProvider = options.xProvider;
+    this.yProvider = options.yProvider;
+    this.widthProvider = options.widthProvider;
   }
 
   private formatPopularity(value: number): string {
@@ -49,9 +53,10 @@ export class RulerDisplay extends InteractivePanelElement {
       popularity: ruler.popularity,
     };
 
-    // Always update position from xProvider (stateDisplay width may change)
+    // Always update position from providers (stateDisplay size may change)
     const dynamicX = this.xProvider?.() ?? this.anchorX;
-    this.pos = vec(dynamicX, this.anchorY);
+    const dynamicY = this.yProvider?.() ?? this.anchorY;
+    this.pos = vec(dynamicX, dynamicY);
 
     if (
       !force &&
@@ -85,7 +90,10 @@ export class RulerDisplay extends InteractivePanelElement {
       }),
     });
 
-    const contentW = padding * 2 + Math.max(nameText.width, statsText.width);
+    const naturalW = padding * 2 + Math.max(nameText.width, statsText.width);
+    const contentW = this.widthProvider
+      ? this.widthProvider()
+      : naturalW;
     const contentH = padding * 2 + 18 + lineGap + 14;
     const pressOffset = this.getPressOffset();
 

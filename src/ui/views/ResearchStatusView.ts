@@ -37,10 +37,9 @@ export class ResearchStatusView extends InteractivePanelElement {
   protected redraw(force: boolean): void {
     const researchVersion = this.researchManager.getResearchVersion();
     const turnVersion = this.turnManager.getTurnVersion();
-    const panelWidth = Math.max(
-      220,
-      Math.floor(this.widthProvider?.() ?? this.fallbackWidth)
-    );
+    const panelWidth = this.widthProvider
+      ? Math.floor(this.widthProvider())
+      : Math.max(220, this.fallbackWidth);
     if (
       !force &&
       researchVersion === this.lastResearchVersion &&
