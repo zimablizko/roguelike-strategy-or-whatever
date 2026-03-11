@@ -64,7 +64,9 @@ export class GameManager {
         ? {
             name: saveData.ruler.name,
             age: saveData.ruler.age,
-            popularity: saveData.ruler.popularity,
+            focus: saveData.ruler.focus,
+            charisma: saveData.ruler.charisma,
+            health: saveData.ruler.health,
           }
         : undefined,
     });
@@ -198,7 +200,9 @@ export class GameManager {
       ruler: {
         name: ruler.name,
         age: ruler.age,
-        popularity: ruler.popularity,
+        focus: ruler.focus,
+        charisma: ruler.charisma,
+        health: ruler.health,
       },
       state: {
         name: state.name,

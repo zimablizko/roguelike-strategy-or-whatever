@@ -10,6 +10,7 @@ import type {
 } from './research-manager.models';
 import type { ResearchId } from './researches.models';
 import type { ResourceStock } from './resource.models';
+import type { RulerHealth } from './ruler.models';
 import type { StateData } from './state.models';
 import type { TurnData } from './turn.models';
 
@@ -25,7 +26,9 @@ export interface GameSaveData {
   ruler: {
     name: string;
     age: number;
-    popularity: number;
+    focus: number;
+    charisma: number;
+    health: RulerHealth;
   };
   state: StateData;
   buildings: {

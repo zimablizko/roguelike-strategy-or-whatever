@@ -23,9 +23,7 @@ export class RulerDisplay extends InteractivePanelElement {
   private yProvider?: () => number;
   private widthProvider?: () => number;
 
-  private lastRendered:
-    | Pick<RulerData, 'name' | 'age' | 'popularity'>
-    | undefined;
+  private lastRendered: Pick<RulerData, 'name' | 'age'> | undefined;
 
   constructor(options: RulerDisplayOptions) {
     super(options);
@@ -36,21 +34,11 @@ export class RulerDisplay extends InteractivePanelElement {
     this.widthProvider = options.widthProvider;
   }
 
-  private formatPopularity(value: number): string {
-    if (value <= 19) return 'Despised';
-    if (value <= 39) return 'Unpopular';
-    if (value <= 59) return 'Neutral';
-    if (value <= 74) return 'Liked';
-    if (value <= 89) return 'Admired';
-    return 'Beloved';
-  }
-
   protected redraw(force: boolean): void {
     const ruler = this.rulerManager.getRulerRef();
     const next = {
       name: ruler.name,
       age: ruler.age,
-      popularity: ruler.popularity,
     };
 
     // Always update position from providers (stateDisplay size may change)
@@ -62,8 +50,7 @@ export class RulerDisplay extends InteractivePanelElement {
       !force &&
       this.lastRendered &&
       this.lastRendered.name === next.name &&
-      this.lastRendered.age === next.age &&
-      this.lastRendered.popularity === next.popularity
+      this.lastRendered.age === next.age
     ) {
       return;
     }
@@ -82,7 +69,7 @@ export class RulerDisplay extends InteractivePanelElement {
     });
 
     const statsText = new Text({
-      text: `Age: ${ruler.age}  ${this.formatPopularity(ruler.popularity)}`,
+      text: `Age: ${ruler.age}  Health: ${ruler.health}`,
       font: new Font({
         size: 14,
         unit: FontUnit.Px,

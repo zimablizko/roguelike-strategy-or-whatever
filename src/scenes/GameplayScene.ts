@@ -26,6 +26,7 @@ import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
+import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { FocusDisplay } from '../ui/views/FocusView';
@@ -414,20 +415,13 @@ export class GameplayScene extends Scene {
       this.rulerPopup = undefined;
     }
 
-    const ruler = this.gameManager.rulerManager.getRuler();
-    const popup = new ScreenPopup({
+    const popup = new RulerPopup({
       x: engine.drawWidth / 2,
       y: engine.drawHeight / 2,
-      anchor: 'center',
-      width: 520,
-      height: 300,
-      title: `Ruler: ${ruler.name}`,
-      backplateStyle: 'gray',
-      closeOnBackplateClick: true,
+      rulerManager: this.gameManager.rulerManager,
       onClose: () => {
         this.rulerPopup = undefined;
       },
-      contentBuilder: () => {},
     });
 
     this.rulerPopup = popup;
@@ -904,7 +898,6 @@ export class GameplayScene extends Scene {
       turnVersion,
       rngState,
       ruler.age,
-      ruler.popularity,
       ruler.name,
       state.name,
       state.size,

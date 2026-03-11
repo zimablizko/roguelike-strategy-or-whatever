@@ -101,7 +101,7 @@ export class TurnManager {
       };
     }
   ) {
-    const maxFocus = options?.maxFocus ?? 10;
+    const maxFocus = options?.maxFocus ?? rulerManager.getFocus();
     const initialData = options?.initial?.data;
     const initialMax = Math.max(
       1,
