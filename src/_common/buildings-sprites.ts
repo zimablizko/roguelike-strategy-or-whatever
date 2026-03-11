@@ -15,12 +15,14 @@ const CELL_SIZE = 48;
  * Update `columns` / `rows` in the SpriteSheet grid if the sheet dimensions grow.
  */
 export const BUILDING_LAYOUT = {
-  castle:       { col: 0, row: 0 },
-  house:        { col: 1, row: 0 },
-  lumbermill:   { col: 2, row: 0 },
+  castle: { col: 0, row: 0 },
+  house: { col: 1, row: 0 },
+  lumbermill: { col: 2, row: 0 },
   'hunters-hut': { col: 3, row: 0 },
-  farm:         { col: 4, row: 0 },
-} as const satisfies Partial<Record<StateBuildingId, { col: number; row: number }>>;
+  farm: { col: 4, row: 0 },
+} as const satisfies Partial<
+  Record<StateBuildingId, { col: number; row: number }>
+>;
 
 export type BuildingSpriteId = keyof typeof BUILDING_LAYOUT;
 

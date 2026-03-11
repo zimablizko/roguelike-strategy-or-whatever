@@ -10,8 +10,11 @@ import {
   type Subscription,
   type WheelEvent,
 } from 'excalibur';
+import {
+  BUILDING_LAYOUT,
+  BuildingsSpritesheet,
+} from '../../_common/buildings-sprites';
 import { ICON_LAYOUT, IconsSpritesheet } from '../../_common/icons';
-import { BUILDING_LAYOUT, BuildingsSpritesheet } from '../../_common/buildings-sprites';
 import type { MapData, MapTileType } from '../../_common/models/map.models';
 import type {
   MapBuildPlacementOverlay,
@@ -541,7 +544,8 @@ export class MapView extends Actor {
       }
 
       // --- Sprite rendering (for buildings with a defined spritesheet cell) ---
-      const buildingLayout = BUILDING_LAYOUT[overlay.buildingId as keyof typeof BUILDING_LAYOUT];
+      const buildingLayout =
+        BUILDING_LAYOUT[overlay.buildingId as keyof typeof BUILDING_LAYOUT];
       const sheetImg = BuildingsSpritesheet.image;
       // Shared geometry used by both sprite and badge paths.
       const centerX = left + width / 2;
