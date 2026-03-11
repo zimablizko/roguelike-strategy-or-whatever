@@ -10,6 +10,8 @@ import {
   type Subscription,
   type WheelEvent,
 } from 'excalibur';
+import { ICON_LAYOUT, IconsSpritesheet } from '../../_common/icons';
+import { BUILDING_LAYOUT, BuildingsSpritesheet } from '../../_common/buildings-sprites';
 import type { MapData, MapTileType } from '../../_common/models/map.models';
 import type {
   MapBuildPlacementOverlay,
@@ -230,6 +232,9 @@ export class MapView extends Actor {
   private drawRareResourceIcons(ctx: CanvasRenderingContext2D): void {
     const rareResources = this.map.rareResources;
     if (!rareResources) return;
+    const sheetImg = IconsSpritesheet.image;
+    if (!sheetImg) return;
+    const CELL = 24;
     const offset = this.mapBorderPx;
     const padding = Math.max(2, Math.floor(this.tileSize * 0.15));
     const iconSize = this.tileSize - padding * 2;
@@ -238,10 +243,14 @@ export class MapView extends Actor {
       if (!rr.visible) continue;
       const def = rareResourceDefinitions[rr.resourceId as RareResourceId];
       if (!def) continue;
-      const img = def.icon.image;
-      if (!img) continue;
+      const layout = ICON_LAYOUT[def.icon];
+      if (!layout) continue;
       ctx.drawImage(
-        img,
+        sheetImg,
+        layout.col * CELL,
+        layout.row * CELL,
+        CELL,
+        CELL,
         offset + rr.x * this.tileSize + padding,
         offset + rr.y * this.tileSize + padding,
         iconSize,
@@ -531,41 +540,66 @@ export class MapView extends Actor {
         ctx.fillRect(left, top, width, height);
       }
 
-      const label = overlay.shortName.trim().slice(0, 3);
-      ctx.font = `700 ${labelFontSize}px "Trebuchet MS", sans-serif`;
-      const maxLabelWidth = this.tileSize * 2 - 12;
-      const labelWidth = Math.min(
-        maxLabelWidth,
-        Math.max(
-          this.tileSize * 1.5,
-          ctx.measureText(label).width + labelPaddingX * 2
-        )
-      );
-      const textMaxWidth = Math.max(1, labelWidth - labelPaddingX * 2);
-      let fittedFontSize = labelFontSize;
-      while (
-        fittedFontSize > minLabelFontSize &&
-        ctx.measureText(label).width > textMaxWidth
-      ) {
-        fittedFontSize -= 1;
-        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
-      }
-
-      const labelHeight = fittedFontSize + 16;
+      // --- Sprite rendering (for buildings with a defined spritesheet cell) ---
+      const buildingLayout = BUILDING_LAYOUT[overlay.buildingId as keyof typeof BUILDING_LAYOUT];
+      const sheetImg = BuildingsSpritesheet.image;
+      // Shared geometry used by both sprite and badge paths.
       const centerX = left + width / 2;
       const centerY = top + height / 2;
+      // fittedFontSize and labelHeight are only needed for the text-label path but
+      // are also referenced by the badge; initialise them to the base value.
+      let fittedFontSize = labelFontSize;
+      let labelHeight = fittedFontSize + 16;
 
-      ctx.fillStyle = 'rgba(12, 16, 22, 0.84)';
-      ctx.fillRect(
-        centerX - labelWidth / 2,
-        centerY - labelHeight / 2,
-        labelWidth,
-        labelHeight
-      );
+      if (buildingLayout && sheetImg) {
+        const CELL = 48;
+        const padding = Math.max(2, Math.floor(Math.min(width, height) * 0.05));
+        ctx.drawImage(
+          sheetImg,
+          buildingLayout.col * CELL,
+          buildingLayout.row * CELL,
+          CELL,
+          CELL,
+          left + padding,
+          top + padding,
+          width - padding * 2,
+          height - padding * 2
+        );
+      } else {
+        // --- Fallback: text label ---
+        const label = overlay.shortName.trim().slice(0, 3);
+        ctx.font = `700 ${labelFontSize}px "Trebuchet MS", sans-serif`;
+        const maxLabelWidth = this.tileSize * 2 - 12;
+        const labelWidth = Math.min(
+          maxLabelWidth,
+          Math.max(
+            this.tileSize * 1.5,
+            ctx.measureText(label).width + labelPaddingX * 2
+          )
+        );
+        const textMaxWidth = Math.max(1, labelWidth - labelPaddingX * 2);
+        while (
+          fittedFontSize > minLabelFontSize &&
+          ctx.measureText(label).width > textMaxWidth
+        ) {
+          fittedFontSize -= 1;
+          ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        }
 
-      // Mute label text when building is under construction.
-      ctx.fillStyle = inProgress ? '#888070' : '#f5efe2';
-      ctx.fillText(label, centerX, centerY + 1);
+        labelHeight = fittedFontSize + 16;
+
+        ctx.fillStyle = 'rgba(12, 16, 22, 0.84)';
+        ctx.fillRect(
+          centerX - labelWidth / 2,
+          centerY - labelHeight / 2,
+          labelWidth,
+          labelHeight
+        );
+
+        // Mute label text when building is under construction.
+        ctx.fillStyle = inProgress ? '#888070' : '#f5efe2';
+        ctx.fillText(label, centerX, centerY + 1);
+      } // end sprite-or-label block
 
       // Turns-remaining badge for in-progress buildings.
       if (inProgress) {

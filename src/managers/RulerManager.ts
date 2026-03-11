@@ -6,7 +6,6 @@ import type {
 } from '../_common/models/ruler.models';
 import { RULER_HEALTH_LEVELS } from '../_common/models/ruler.models';
 import { SeededRandom } from '../_common/random';
-import { Resources } from '../_common/resources';
 
 /**
  * Manages ruler state (name/age/portrait/focus/charisma/health).
@@ -81,8 +80,8 @@ export class RulerManager {
 
     const age = initial?.age ?? this.rng.randomInt(18, 55);
 
-    // Placeholder portrait using an existing loaded icon.
-    const portrait = initial?.portrait ?? Resources.PopulationIcon;
+    // Portrait is optional; a real portrait image should be provided externally.
+    const portrait = initial?.portrait;
 
     // Focus: average 6, range 4–8
     const focus = clamp(initial?.focus ?? this.rng.randomInt(4, 8), 1, 20);

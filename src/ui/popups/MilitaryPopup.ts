@@ -1,11 +1,5 @@
-import {
-  Color,
-  Font,
-  FontUnit,
-  type ImageSource,
-  ScreenElement,
-  Text,
-} from 'excalibur';
+import { Color, Font, FontUnit, ScreenElement, Sprite, Text } from 'excalibur';
+import { getResourceIcon as getResourceIconFn } from '../../_common/icons';
 import type {
   MilitaryTaskType,
   UnitDefinition,
@@ -14,7 +8,6 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { MilitaryPopupOptions } from '../../_common/models/ui.models';
-import { getResourceIcon as getResourceIconFn } from '../../_common/resources';
 import {
   BARRACKS_GARRISON_PER_INSTANCE,
   BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
@@ -633,7 +626,7 @@ export class MilitaryPopup extends ScreenPopup {
 
   private static getResourceIcon(
     resourceType: ResourceType
-  ): ImageSource | undefined {
+  ): Sprite | undefined {
     return getResourceIconFn(resourceType);
   }
 

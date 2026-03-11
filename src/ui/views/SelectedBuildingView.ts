@@ -10,6 +10,7 @@ import {
   type GraphicsGrouping,
   type Scene,
 } from 'excalibur';
+import { getResourceIcon } from '../../_common/icons';
 import { clamp } from '../../_common/math';
 import type {
   StateBuildingActionDefinition,
@@ -18,7 +19,6 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
-import { getResourceIcon } from '../../_common/resources';
 import { measureTextWidth } from '../../_common/text';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
@@ -318,13 +318,13 @@ export class SelectedBuildingView extends ScreenElement {
         const textW = measureTextWidth(seg.value, fontSize);
         segX += textW + 3;
         if (seg.resource && !row.isDetail) {
-          const iconSrc = this.getResourceIconLocal(seg.resource);
-          if (iconSrc?.isLoaded()) {
-            const sprite = iconSrc.toSprite();
-            sprite.width = INFO_ICON_SIZE;
-            sprite.height = INFO_ICON_SIZE;
+          const iconSprite = this.getResourceIconLocal(
+            seg.resource,
+            INFO_ICON_SIZE
+          );
+          if (iconSprite) {
             members.push({
-              graphic: sprite,
+              graphic: iconSprite,
               offset: vec(segX, rowY - 1),
             });
             segX += INFO_ICON_SIZE + 4;
@@ -643,9 +643,12 @@ export class SelectedBuildingView extends ScreenElement {
     ];
   }
 
-  private getResourceIconLocal(resourceType: ResourceType | undefined) {
+  private getResourceIconLocal(
+    resourceType: ResourceType | undefined,
+    size?: number
+  ) {
     if (!resourceType) return undefined;
-    return getResourceIcon(resourceType);
+    return getResourceIcon(resourceType, size);
   }
 
   private clearActionRows(): void {

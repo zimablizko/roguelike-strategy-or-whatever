@@ -4,7 +4,6 @@ import {
   FontUnit,
   GraphicsGroup,
   GraphicsGrouping,
-  ImageSource,
   Rectangle,
   ScreenElement,
   Sprite,
@@ -59,7 +58,6 @@ export class TooltipProvider extends ScreenElement {
   private tooltipHeight = 0;
   private lastPositionKey?: string;
   private lastContentKey?: string;
-  private outcomeIconCache = new Map<ImageSource, Sprite>();
 
   constructor(options?: TooltipProviderOptions) {
     super({ x: 0, y: 0 });
@@ -417,23 +415,12 @@ export class TooltipProvider extends ScreenElement {
     };
   }
 
-  private getOutcomeIconSprite(
-    source: ImageSource | undefined
-  ): Sprite | undefined {
-    if (!source || !source.isLoaded()) {
-      return undefined;
-    }
-
-    const cached = this.outcomeIconCache.get(source);
-    if (cached) {
-      return cached;
-    }
-
-    const sprite = source.toSprite();
-    sprite.width = this.outcomeIconSize;
-    sprite.height = this.outcomeIconSize;
-    this.outcomeIconCache.set(source, sprite);
-    return sprite;
+  private getOutcomeIconSprite(sprite: Sprite | undefined): Sprite | undefined {
+    if (!sprite) return undefined;
+    const sized = sprite.clone();
+    sized.width = this.outcomeIconSize;
+    sized.height = this.outcomeIconSize;
+    return sized;
   }
 
   private wrapTextToWidth(
@@ -640,7 +627,7 @@ export class TooltipProvider extends ScreenElement {
   private buildContentKey(request: TooltipRequest): string {
     const outcomes = (request.outcomes ?? [])
       .map((outcome) => {
-        const iconPath = outcome.icon?.path ?? '';
+        const iconPath = outcome.icon ? 'icon' : '';
         const color = outcome.color?.toHex() ?? '';
         return `${outcome.label}:${outcome.value}:${iconPath}:${color}:${
           outcome.inline ? 1 : 0

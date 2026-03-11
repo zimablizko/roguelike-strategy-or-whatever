@@ -11,6 +11,7 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import { getIconSprite } from '../../_common/icons';
 import type { ResourceStock } from '../../_common/models/resource.models';
 import { FOOD_RESOURCE_TYPES } from '../../_common/models/resource.models';
 import type {
@@ -18,7 +19,6 @@ import type {
   ResourceDisplayKey,
   ResourceDisplayOptions,
 } from '../../_common/models/ui.models';
-import { Resources } from '../../_common/resources';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
@@ -55,8 +55,6 @@ export class ResourceDisplay extends ScreenElement {
     food: 'Food: total edible supplies (Meat + Bread). Consumed each turn.',
     population: 'Population: occupied / total workforce. Build Houses to grow.',
   };
-  private iconSprites: Partial<Record<ResourceConfig['key'], Sprite>> = {};
-
   private lastRendered: ResourceStock | undefined;
   private lastBuildingsVersion = -1;
 
@@ -73,15 +71,31 @@ export class ResourceDisplay extends ScreenElement {
     this.bgColor = options.bgColor ?? Color.fromHex('#1a252f');
     this.textColor = options.textColor ?? Color.White;
 
-    // Map resource types to their icons
+    // Map resource types to their icons (sprites cloned from the shared spritesheet).
     this.resourceConfigs = [
-      { key: 'gold', icon: Resources.MoneyIcon, label: 'Gold' },
-      { key: 'wood', icon: Resources.LumberIcon, label: 'Wood' },
-      { key: 'stone', icon: Resources.StoneIcon, label: 'Stone' },
-      { key: 'food', icon: Resources.FoodIcon, label: 'Food' },
+      {
+        key: 'gold',
+        icon: getIconSprite('money', this.iconSize),
+        label: 'Gold',
+      },
+      {
+        key: 'wood',
+        icon: getIconSprite('lumber', this.iconSize),
+        label: 'Wood',
+      },
+      {
+        key: 'stone',
+        icon: getIconSprite('stone', this.iconSize),
+        label: 'Stone',
+      },
+      {
+        key: 'food',
+        icon: getIconSprite('food', this.iconSize),
+        label: 'Food',
+      },
       {
         key: 'population',
-        icon: Resources.PopulationIcon,
+        icon: getIconSprite('population', this.iconSize),
         label: 'Population',
       },
     ];
@@ -231,20 +245,7 @@ export class ResourceDisplay extends ScreenElement {
   }
 
   private getIconSprite(config: ResourceConfig): Sprite | undefined {
-    const cached = this.iconSprites[config.key];
-    if (cached) {
-      return cached;
-    }
-
-    if (!config.icon.isLoaded()) {
-      return undefined;
-    }
-
-    const sprite = config.icon.toSprite();
-    sprite.width = this.iconSize;
-    sprite.height = this.iconSize;
-    this.iconSprites[config.key] = sprite;
-    return sprite;
+    return config.icon;
   }
 
   /**

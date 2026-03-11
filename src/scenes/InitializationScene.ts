@@ -165,8 +165,10 @@ export class InitializationScene extends Scene {
       return `Slot ${summary.slot} - Empty`;
     }
 
-    const { month, year } = TurnManager.turnToDate(summary.turnNumber ?? 1);
-    const base = `Slot ${summary.slot} - ${month}, ${year}`;
+    const { day, month, year } = TurnManager.turnToDate(
+      summary.turnNumber ?? 1
+    );
+    const base = `Slot ${summary.slot} - ${day} ${month}, ${year}`;
 
     const details: string[] = [];
     if (summary.stateName) {

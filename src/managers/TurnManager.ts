@@ -33,8 +33,11 @@ export class TurnManager {
   private static readonly HOUSE_TAX_TECHNOLOGY_ID = 'eco-tax-collection';
   private static readonly HOUSE_TAX_GOLD_PER_TURN = 2;
 
-  /** Calendar start year. Turn 1 = January of this year. */
+  /** Calendar start year. Turn 1 = January 1 of this year. */
   static readonly START_YEAR = 1000;
+
+  /** Number of days per month (simplified calendar). */
+  static readonly DAYS_PER_MONTH = 30;
 
   /** Month names used for date display. */
   private static readonly MONTH_NAMES = [
@@ -53,21 +56,31 @@ export class TurnManager {
   ] as const;
 
   /**
-   * Convert a 1-based turn number to { month, year }.
-   * Turn 1 = January START_YEAR, Turn 13 = January (START_YEAR + 1), etc.
+   * Convert a 1-based turn number to { day, month, year }.
+   * Turn 1 = January 1 START_YEAR, Turn 31 = February 1 START_YEAR, etc.
+   * Each turn equals 1 day; each month has {@link DAYS_PER_MONTH} days.
    */
-  static turnToDate(turnNumber: number): { month: string; year: number } {
-    const idx = (turnNumber - 1) % 12;
-    const year = TurnManager.START_YEAR + Math.floor((turnNumber - 1) / 12);
-    return { month: TurnManager.MONTH_NAMES[idx], year };
+  static turnToDate(turnNumber: number): {
+    day: number;
+    month: string;
+    year: number;
+  } {
+    const totalDays = turnNumber - 1; // 0-indexed
+    const day = (totalDays % TurnManager.DAYS_PER_MONTH) + 1;
+    const totalMonths = Math.floor(totalDays / TurnManager.DAYS_PER_MONTH);
+    const monthIndex = totalMonths % 12;
+    const year = TurnManager.START_YEAR + Math.floor(totalMonths / 12);
+    return { day, month: TurnManager.MONTH_NAMES[monthIndex], year };
   }
 
   /**
-   * Returns a formatted date label for the current turn, e.g. "January, 1000".
+   * Returns a formatted date label for the current turn, e.g. "15 January, 1000".
    */
   getDateLabel(): string {
-    const { month, year } = TurnManager.turnToDate(this.turnData.turnNumber);
-    return `${month}, ${year}`;
+    const { day, month, year } = TurnManager.turnToDate(
+      this.turnData.turnNumber
+    );
+    return `${day} ${month}, ${year}`;
   }
 
   private turnData: TurnData;
@@ -144,8 +157,8 @@ export class TurnManager {
     this.resetFocus();
     this.turnVersion++;
 
-    // Age increments once per year (every 12 months, when January starts).
-    if ((this.turnData.turnNumber - 1) % 12 === 0) {
+    // Age increments once per year (every 360 days = 12 months, when January 1 starts).
+    if ((this.turnData.turnNumber - 1) % 360 === 0) {
       this.rulerManager.incrementAge();
     }
 
@@ -198,21 +211,28 @@ export class TurnManager {
       this.rng
     );
 
-    const upkeepCost = this.getUpkeepCost();
-    const upkeepPaid = this.resourceManager.spendResources(upkeepCost);
+    // Upkeep is paid at the beginning of each month (day 1 of any month after the first).
+    const isMonthStart =
+      (this.turnData.turnNumber - 1) % TurnManager.DAYS_PER_MONTH === 0 &&
+      this.turnData.turnNumber > 1;
 
-    // Pay food upkeep from the fungible food pool (any food type can cover it).
-    const foodUpkeepPaid = upkeepPaid ? this.payFoodUpkeep() : false;
-
-    if (!upkeepPaid || !foodUpkeepPaid) {
-      console.warn('Game Over: Not enough resources to continue!');
+    let upkeepPaid = true;
+    if (isMonthStart) {
+      const upkeepCost = this.getUpkeepCost();
+      const resourcesOk = this.resourceManager.spendResources(upkeepCost);
+      // Pay food upkeep from the fungible food pool (any food type can cover it).
+      const foodOk = resourcesOk ? this.payFoodUpkeep() : false;
+      upkeepPaid = resourcesOk && foodOk;
+      if (!upkeepPaid) {
+        console.warn('Game Over: Not enough resources to continue!');
+      }
     }
 
     return {
       passiveIncome: passiveIncome.byResource,
       passiveIncomePulses: passiveIncome.pulses,
       completedResearch: researchUpdate?.completedResearch,
-      upkeepPaid: upkeepPaid && foodUpkeepPaid,
+      upkeepPaid,
       threatOutcomes,
       newThreats,
     };
@@ -267,9 +287,9 @@ export class TurnManager {
     return base;
   }
 
-  /** Total food required this turn (ceil(population / 2)). */
+  /** Total food required this month (population * 2). */
   getFoodUpkeepTotal(): number {
-    return Math.ceil(this.buildingManager.getTotalPopulation() / 2);
+    return this.buildingManager.getTotalPopulation() * 2;
   }
 
   /**

@@ -9,13 +9,13 @@ import {
   Text,
   vec,
 } from 'excalibur';
+import { getResourceIcon as getResourceIconFn } from '../../_common/icons';
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { EndTurnIncomePulse } from '../../_common/models/turn.models';
 import type {
   IncomeVisualPulse,
   MapIncomeEffectsViewOptions,
 } from '../../_common/models/ui.models';
-import { getResourceIcon as getResourceIconFn } from '../../_common/resources';
 import { UI_Z } from '../constants/ZLayers';
 import { MapView } from './MapView';
 
@@ -180,19 +180,7 @@ export class MapIncomeEffectsView extends ScreenElement {
   }
 
   private createResourceIcon(resourceType: ResourceType): Sprite | undefined {
-    const source = this.getResourceIcon(resourceType);
-    if (!source || !source.isLoaded()) {
-      return undefined;
-    }
-
-    const sprite = source.toSprite();
-    sprite.width = 18;
-    sprite.height = 18;
-    return sprite;
-  }
-
-  private getResourceIcon(resourceType: ResourceType) {
-    return getResourceIconFn(resourceType);
+    return getResourceIconFn(resourceType, 18);
   }
 
   private getResourceColor(_resourceType: ResourceType): Color {

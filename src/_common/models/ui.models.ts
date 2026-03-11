@@ -1,7 +1,6 @@
 import type {
   Actor,
   Color,
-  ImageSource,
   Keys,
   ScreenElement,
   Sprite,
@@ -49,7 +48,7 @@ export interface ActionElementOptions extends InteractivePanelOptions {
   tooltipProvider: TooltipProvider;
   width?: number;
   height?: number;
-  icon?: ImageSource;
+  icon?: Sprite;
   iconSize?: number;
   textColor?: Color;
   tooltipBgColor?: Color;
@@ -206,7 +205,7 @@ export type ResourceDisplayKey = ResourceType | 'food';
 
 export interface ResourceConfig {
   key: ResourceDisplayKey;
-  icon: ImageSource;
+  icon: Sprite;
   label: string;
 }
 

@@ -15,7 +15,7 @@ export const RULER_HEALTH_LEVELS: readonly RulerHealth[] = [
 export type RulerData = {
   name: string;
   age: number;
-  portrait: ImageSource;
+  portrait?: ImageSource;
   /** Determines max actions per turn. Average ~6 ±2. */
   focus: number;
   /** Communication effectiveness. Average ~10 ±2. */

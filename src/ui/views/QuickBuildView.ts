@@ -12,6 +12,7 @@ import {
   type Scene,
   type Subscription,
 } from 'excalibur';
+import { getResourceIcon } from '../../_common/icons';
 import type {
   StateBuildingId,
   TypedBuildingDefinition,
@@ -22,7 +23,6 @@ import type {
   BuildRow,
   QuickBuildViewOptions,
 } from '../../_common/models/ui.models';
-import { getResourceIcon } from '../../_common/resources';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { getResearchDefinition, isResearchId } from '../../data/researches';
 import { BuildingManager } from '../../managers/BuildingManager';

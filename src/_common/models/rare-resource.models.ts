@@ -1,4 +1,4 @@
-import type { ImageSource } from 'excalibur';
+import type { IconId } from '../icons';
 import type { StateBuildingId } from './buildings.models';
 import type { MapTileType } from './map.models';
 import type { ResourceType } from './resource.models';
@@ -10,7 +10,7 @@ export interface RareResourceDefinition {
   spawnOnTiles: MapTileType[];
   spawnChance: number;
   visible: boolean;
-  icon: ImageSource;
+  icon: IconId;
   bonusBuilding: StateBuildingId;
   bonus: {
     resourceType: ResourceType;

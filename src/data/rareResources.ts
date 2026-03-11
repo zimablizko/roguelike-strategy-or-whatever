@@ -1,6 +1,5 @@
 import type { MapTileType } from '../_common/models/map.models';
 import type { RareResourceDefinition } from '../_common/models/rare-resource.models';
-import { Resources } from '../_common/resources';
 
 export const rareResourceDefinitions = {
   'golden-ore': {
@@ -11,7 +10,7 @@ export const rareResourceDefinitions = {
     spawnOnTiles: ['rocks'] as MapTileType[],
     spawnChance: 0.03,
     visible: true,
-    icon: Resources.GoldenOreIcon,
+    icon: 'goldenOre',
     requiresContiguous2x2: true,
     bonusBuilding: 'mine',
     bonus: {

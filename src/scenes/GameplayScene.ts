@@ -10,10 +10,10 @@ import {
   type SceneActivationContext,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
+import { getIconSprite } from '../_common/icons';
 import type { StateBuildingId } from '../_common/models/buildings.models';
 import type { SaveSlotId } from '../_common/models/save.models';
 import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
-import { Resources } from '../_common/resources';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
@@ -785,13 +785,13 @@ export class GameplayScene extends Scene {
         title: 'Harvest Forest',
         description:
           'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants Wood.',
-        icon: Resources.ResourcesIcon,
+        icon: getIconSprite('resources'),
         outcomes: [
           { label: 'Focus', value: '-1' },
           {
             label: '',
             value: '+4',
-            icon: Resources.ResourcesIcon,
+            icon: getIconSprite('resources'),
             color: Color.fromHex('#9fe6aa'),
           },
         ],
@@ -810,13 +810,13 @@ export class GameplayScene extends Scene {
         title: 'Fishing Boats',
         description:
           'Launch small boats on water tiles to secure meat supplies for the next turn.',
-        icon: Resources.FoodIcon,
+        icon: getIconSprite('food'),
         outcomes: [
           { label: 'Focus', value: '-1' },
           {
             label: '',
             value: '+5',
-            icon: Resources.FoodIcon,
+            icon: getIconSprite('food'),
             color: Color.fromHex('#9fe6aa'),
           },
         ],

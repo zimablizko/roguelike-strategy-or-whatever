@@ -6,12 +6,11 @@ import {
   GraphicsGrouping,
   Rectangle,
   ScreenElement,
-  Sprite,
   Text,
   vec,
 } from 'excalibur';
+import { getIconSprite } from '../../_common/icons';
 import type { FocusDisplayOptions } from '../../_common/models/ui.models';
-import { Resources } from '../../_common/resources';
 import { TurnManager } from '../../managers/TurnManager';
 import type { TooltipProvider } from '../tooltip/TooltipProvider';
 
@@ -119,15 +118,10 @@ export class FocusDisplay extends ScreenElement {
     const panelPaddingX = 12;
     const panelPaddingY = 8;
     const borderWidth = 1;
-    const focusIconSize = 14;
+    const focusIconSize = 24;
     const focusIconGap = 4;
 
-    const focusIconSprite = Resources.FocusIcon.isLoaded()
-      ? new Sprite({
-          image: Resources.FocusIcon,
-          destSize: { width: focusIconSize, height: focusIconSize },
-        })
-      : undefined;
+    const focusIconSprite = getIconSprite('focus', focusIconSize);
     const focusRowWidth =
       apText.width + (focusIconSprite ? focusIconSize + focusIconGap : 0);
 

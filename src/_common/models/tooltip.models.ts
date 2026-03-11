@@ -1,4 +1,4 @@
-import type { Color, ImageSource } from 'excalibur';
+import type { Color, Sprite } from 'excalibur';
 
 export interface TooltipAnchorRect {
   x: number;
@@ -12,7 +12,7 @@ export type TooltipPlacement = 'right' | 'bottom' | 'left' | 'top';
 export interface TooltipOutcome {
   label: string;
   value: string | number;
-  icon?: ImageSource;
+  icon?: Sprite;
   color?: Color;
   inline?: boolean;
   /** When true, renders value then icon (e.g. "+10 🍖"). Default is icon then value. */

@@ -4,7 +4,6 @@ import {
   FontUnit,
   GraphicsGroup,
   GraphicsGrouping,
-  ImageSource,
   Rectangle,
   Sprite,
   Text,
@@ -30,7 +29,7 @@ export class ActionElement extends InteractivePanelElement {
   private readonly outcomes: ActionOutcome[];
   private readonly actionWidth: number;
   private readonly actionHeight: number;
-  private readonly icon?: ImageSource;
+  private readonly icon?: Sprite;
   private readonly iconSize: number;
   private readonly textColor: Color;
   private readonly tooltipProvider: TooltipProvider;
@@ -40,7 +39,6 @@ export class ActionElement extends InteractivePanelElement {
   private readonly onHoverEnterCallback?: () => void;
   private readonly onHoverLeaveCallback?: () => void;
 
-  private cachedIcon?: { source: ImageSource; sprite: Sprite };
   private lastVisualState: { hovered: boolean; pressed: boolean } | undefined;
 
   constructor(options: ActionElementOptions) {
@@ -168,18 +166,7 @@ export class ActionElement extends InteractivePanelElement {
   }
 
   private getIconSprite(): Sprite | undefined {
-    if (!this.icon || !this.icon.isLoaded()) {
-      return undefined;
-    }
-
-    if (this.cachedIcon && this.cachedIcon.source === this.icon) {
-      return this.cachedIcon.sprite;
-    }
-
-    const sprite = this.icon.toSprite();
-    sprite.width = this.iconSize;
-    sprite.height = this.iconSize;
-    this.cachedIcon = { source: this.icon, sprite };
-    return sprite;
+    if (!this.icon) return undefined;
+    return this.icon;
   }
 }
