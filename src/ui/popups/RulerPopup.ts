@@ -9,6 +9,7 @@ import {
   vec,
 } from 'excalibur';
 import type { RulerData } from '../../_common/models/ruler.models';
+import { FONT_FAMILY } from '../../_common/text';
 import type { RulerManager } from '../../managers/RulerManager';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenPopup } from '../elements/ScreenPopup';
@@ -199,11 +200,21 @@ export class RulerPopup extends ScreenPopup {
     const container = new ScreenElement({ x, y });
     const labelText = new Text({
       text: `${label}:`,
-      font: new Font({ size: 14, unit: FontUnit.Px, color: labelColor }),
+      font: new Font({
+        size: 14,
+        unit: FontUnit.Px,
+        color: labelColor,
+        family: FONT_FAMILY,
+      }),
     });
     const valueText = new Text({
       text: value,
-      font: new Font({ size: 14, unit: FontUnit.Px, color: valueColor }),
+      font: new Font({
+        size: 14,
+        unit: FontUnit.Px,
+        color: valueColor,
+        family: FONT_FAMILY,
+      }),
     });
 
     // Render label and value with a fixed offset for alignment
@@ -231,7 +242,7 @@ export class RulerPopup extends ScreenPopup {
     el.graphics.use(
       new Text({
         text,
-        font: new Font({ size, unit: FontUnit.Px, color }),
+        font: new Font({ size, unit: FontUnit.Px, color, family: FONT_FAMILY }),
       })
     );
     return el;

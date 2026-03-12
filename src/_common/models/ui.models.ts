@@ -332,6 +332,7 @@ export interface ResearchStatusViewOptions extends InteractivePanelOptions {
   turnManager: TurnManager;
   width?: number;
   widthProvider?: () => number;
+  yProvider?: () => number;
 }
 
 export interface StatePopupOptions {
@@ -426,4 +427,5 @@ export interface MilitaryStatusViewOptions extends InteractivePanelOptions {
   buildingManager: BuildingManager;
   width?: number;
   widthProvider?: () => number;
+  yProvider?: () => number;
 }

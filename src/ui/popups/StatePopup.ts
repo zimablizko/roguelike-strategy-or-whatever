@@ -15,6 +15,7 @@ import type {
 import { reputationTierFromValue } from '../../_common/models/politics.models';
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { StatePopupOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { getPoliticalRequestDefinition } from '../../data/politicalRequests';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { PoliticsManager } from '../../managers/PoliticsManager';
@@ -295,6 +296,7 @@ export class StatePopup extends ScreenPopup {
           size: 20,
           unit: FontUnit.Px,
           color: Color.fromHex(tierInfo.colorHex),
+          family: FONT_FAMILY,
         }),
       })
     );
@@ -313,6 +315,7 @@ export class StatePopup extends ScreenPopup {
           size: 11,
           unit: FontUnit.Px,
           color: Color.fromHex('#b0bcc8'),
+          family: FONT_FAMILY,
         }),
       })
     );
@@ -330,6 +333,7 @@ export class StatePopup extends ScreenPopup {
           size: 12,
           unit: FontUnit.Px,
           color: Color.fromHex(tierInfo.colorHex),
+          family: FONT_FAMILY,
         }),
       })
     );
@@ -573,6 +577,7 @@ export class StatePopup extends ScreenPopup {
           size,
           unit: FontUnit.Px,
           color,
+          family: FONT_FAMILY,
         }),
       })
     );

@@ -3,6 +3,7 @@ import type {
   SaveSlotId,
   SaveSlotSummary,
 } from '../_common/models/save.models';
+import { FONT_FAMILY } from '../_common/text';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
 import { ScreenButton } from '../ui/elements/ScreenButton';
@@ -30,6 +31,7 @@ export class InitializationScene extends Scene {
         size: 32,
         color: Color.White,
         textAlign: TextAlign.Center,
+        family: FONT_FAMILY,
       }),
     });
     this.add(title);
@@ -42,6 +44,7 @@ export class InitializationScene extends Scene {
         size: 20,
         color: Color.White,
         textAlign: TextAlign.Center,
+        family: FONT_FAMILY,
       }),
     });
     this.add(subtitle);

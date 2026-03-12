@@ -19,6 +19,7 @@ import type {
   ResourceDisplayKey,
   ResourceDisplayOptions,
 } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
@@ -219,16 +220,28 @@ export class ResourceDisplay extends ScreenElement {
       }
 
       // Value text with space after icon and vertically centered
+      const resourceTextColors: Partial<Record<ResourceDisplayKey, string>> = {
+        gold: '#d8b24a',
+        wood: '#8c5a32',
+        stone: '#7d8b96',
+        food: '#c67f2f',
+        population: '#a7bacb',
+      };
+      const textColorKey = resourceTextColors[config.key];
+      const valueColor = textColorKey
+        ? Color.fromHex(textColorKey)
+        : this.textColor;
       const valueText = new Text({
         text: displayText,
         font: new Font({
-          size: 14,
+          size: 16,
           unit: FontUnit.Px,
-          color: this.textColor,
+          color: valueColor,
+          family: FONT_FAMILY,
         }),
       });
 
-      const textY = padding + (innerHeight - valueText.height) / 2;
+      const textY = padding + (innerHeight - 16) / 2;
       members.push({
         graphic: valueText,
         offset: vec(xOffset + this.iconSize + iconTextGap, textY),

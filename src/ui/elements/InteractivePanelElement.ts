@@ -32,9 +32,9 @@ export abstract class InteractivePanelElement extends ScreenElement {
     super({ x: options.x, y: options.y });
     this.anchorX = options.x;
     this.anchorY = options.y;
-    this.idleBgColor = options.bgColor ?? Color.fromHex('#1a252f');
-    this.hoverBgColor = options.hoverBgColor ?? Color.fromHex('#2a3a47');
-    this.pressedBgColor = options.pressedBgColor ?? Color.fromHex('#334859');
+    this.idleBgColor = options.bgColor ?? Color.fromHex('#162635');
+    this.hoverBgColor = options.hoverBgColor ?? Color.fromHex('#1e3347');
+    this.pressedBgColor = options.pressedBgColor ?? Color.fromHex('#253d52');
     this.hoverBorderColor =
       options.hoverBorderColor ?? Color.fromHex('#f1c40f');
     this.onClick = options.onClick;
@@ -83,7 +83,10 @@ export abstract class InteractivePanelElement extends ScreenElement {
     const bottom = this.globalPos.y + bounds.bottom;
 
     const isInside =
-      screenX >= left && screenX <= right && screenY >= top && screenY <= bottom;
+      screenX >= left &&
+      screenX <= right &&
+      screenY >= top &&
+      screenY <= bottom;
 
     if (isInside === this.isHovered) {
       return;

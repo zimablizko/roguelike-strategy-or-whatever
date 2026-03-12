@@ -5,7 +5,7 @@ import type {
 } from '../../_common/models/buildings.models';
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { BuildPopupOptions } from '../../_common/models/ui.models';
-import { wrapText } from '../../_common/text';
+import { FONT_FAMILY, wrapText } from '../../_common/text';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
@@ -230,6 +230,7 @@ export class BuildPopup extends ScreenPopup {
           size,
           unit: FontUnit.Px,
           color,
+          family: FONT_FAMILY,
         }),
       })
     );

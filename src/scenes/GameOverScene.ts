@@ -1,4 +1,5 @@
 import { Color, Font, Label, Scene, TextAlign } from 'excalibur';
+import { FONT_FAMILY } from '../_common/text';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 
 export class GameOverScene extends Scene {
@@ -14,6 +15,7 @@ export class GameOverScene extends Scene {
         size: 48,
         color: Color.White,
         textAlign: TextAlign.Center,
+        family: FONT_FAMILY,
       }),
     });
     this.add(gameOverLabel);

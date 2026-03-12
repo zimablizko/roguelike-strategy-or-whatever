@@ -11,6 +11,7 @@ import {
 } from 'excalibur';
 import { getIconSprite } from '../../_common/icons';
 import type { FocusDisplayOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { TurnManager } from '../../managers/TurnManager';
 import type { TooltipProvider } from '../tooltip/TooltipProvider';
 
@@ -107,9 +108,10 @@ export class FocusDisplay extends ScreenElement {
     const apText = new Text({
       text: `Focus: ${turnData.focus.current} / ${turnData.focus.max}`,
       font: new Font({
-        size: 14,
+        size: 16,
         unit: FontUnit.Px,
         color: this.textColor,
+        family: FONT_FAMILY,
       }),
     });
 

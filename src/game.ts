@@ -1,6 +1,7 @@
 import { Color, DisplayMode, Engine } from 'excalibur';
 import { CONFIG } from './_common/config';
 import { loader } from './_common/resources';
+import { FONT_FAMILY } from './_common/text';
 import {
   GameOverScene,
   GameplayScene,
@@ -21,6 +22,7 @@ export class Game {
       displayMode: DisplayMode.FitScreen,
       backgroundColor: Color.Black,
       canvasElementId: 'game',
+      pixelRatio: window.devicePixelRatio,
       antialiasing: true,
       handleContextLost: (e) => {
         e.preventDefault();
@@ -60,6 +62,10 @@ export class Game {
    * Start the game
    */
   async start(): Promise<void> {
+    // Force the browser to download the custom font NOW, not lazily on first use.
+    // Without this, Excalibur Text objects rasterize with a fallback font on the
+    // first frame and cache that stale texture until a full re-render.
+    await document.fonts.load(`16px "${FONT_FAMILY}"`);
     await this.initialize();
     await this.engine.start(loader);
   }

@@ -14,6 +14,7 @@ import type {
   ActionElementOptions,
   ActionOutcome,
 } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 import { InteractivePanelElement } from './InteractivePanelElement';
 
@@ -119,6 +120,7 @@ export class ActionElement extends InteractivePanelElement {
         size: 16,
         unit: FontUnit.Px,
         color: this.textColor,
+        family: FONT_FAMILY,
       }),
     });
 

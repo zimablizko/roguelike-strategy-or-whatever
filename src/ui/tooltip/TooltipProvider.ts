@@ -21,7 +21,7 @@ import type {
   TooltipOutcomeRenderRow,
   TooltipProviderOptions,
 } from '../../_common/models/ui.models';
-import { measureTextWidth } from '../../_common/text';
+import { FONT_FAMILY, measureTextWidth } from '../../_common/text';
 import {
   TOOLTIP_COLORS,
   TOOLTIP_LAYOUT,
@@ -117,6 +117,7 @@ export class TooltipProvider extends ScreenElement {
             size: this.headerFontSize,
             unit: FontUnit.Px,
             color: this.defaultHeaderColor,
+            family: FONT_FAMILY,
           }),
         })
       : undefined;
@@ -134,6 +135,7 @@ export class TooltipProvider extends ScreenElement {
             size: this.fontSize,
             unit: FontUnit.Px,
             color: line.color,
+            family: FONT_FAMILY,
           }),
         })
     );
@@ -551,6 +553,7 @@ export class TooltipProvider extends ScreenElement {
               size: this.fontSize,
               unit: FontUnit.Px,
               color: defaultTextColor,
+              family: FONT_FAMILY,
             }),
           })
         : undefined;
@@ -563,6 +566,7 @@ export class TooltipProvider extends ScreenElement {
           size: this.fontSize,
           unit: FontUnit.Px,
           color: outcome.color ?? defaultTextColor,
+          family: FONT_FAMILY,
         }),
       });
       const width =
@@ -607,6 +611,7 @@ export class TooltipProvider extends ScreenElement {
         size: this.fontSize,
         unit: FontUnit.Px,
         color: outcome.color ?? defaultTextColor,
+        family: FONT_FAMILY,
       }),
     });
     const width =

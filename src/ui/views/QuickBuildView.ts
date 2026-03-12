@@ -23,6 +23,7 @@ import type {
   BuildRow,
   QuickBuildViewOptions,
 } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { getResearchDefinition, isResearchId } from '../../data/researches';
 import { BuildingManager } from '../../managers/BuildingManager';
@@ -239,6 +240,7 @@ export class QuickBuildView extends ScreenElement {
             size: 13,
             unit: FontUnit.Px,
             color: QUICK_BUILD_COLORS.headerText,
+            family: FONT_FAMILY,
           }),
         }),
         offset: vec(

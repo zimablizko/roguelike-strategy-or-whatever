@@ -9,7 +9,7 @@ const CELL_SIZE = 24;
  *
  * Current grid (4 columns × 3 rows, 24×24 px each):
  *
- *  row 0:  stone  | resources | population | money
+ *  row 0:  stone  | resources | population | money | wheat
  *  row 1:  lumber | goldenOre | food       | focus
  *  row 2:  dummy  |           |            |
  *
@@ -21,6 +21,7 @@ export const ICON_LAYOUT = {
   resources: { col: 1, row: 0 },
   population: { col: 2, row: 0 },
   money: { col: 3, row: 0 },
+  wheat: { col: 4, row: 0 },
   lumber: { col: 0, row: 1 },
   goldenOre: { col: 1, row: 1 },
   food: { col: 2, row: 1 },
@@ -40,7 +41,7 @@ const iconSheet = SpriteSheet.fromImageSource({
   image: IconsSpritesheet,
   grid: {
     rows: 3,
-    columns: 4,
+    columns: 5,
     spriteWidth: CELL_SIZE,
     spriteHeight: CELL_SIZE,
   },
@@ -71,7 +72,7 @@ const RESOURCE_ICON_IDS: Partial<Record<ResourceType | 'food', IconId>> = {
   wood: 'lumber',
   stone: 'stone',
   population: 'population',
-  wheat: 'food',
+  wheat: 'wheat',
   meat: 'food',
   bread: 'food',
   food: 'food',

@@ -10,21 +10,18 @@ import {
   type GraphicsGrouping,
 } from 'excalibur';
 import { clamp } from '../../_common/math';
-import { measureTextWidth } from '../../_common/text';
 import type {
   ResearchId,
   ResearchTreeId,
   TypedResearchDefinition,
 } from '../../_common/models/researches.models';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type {
   ResearchPopupOptions,
   TreeNodeLayout,
 } from '../../_common/models/ui.models';
-import type { TooltipOutcome } from '../../_common/models/tooltip.models';
-import {
-  isResearchId,
-  researchTreeInfo,
-} from '../../data/researches';
+import { FONT_FAMILY, measureTextWidth } from '../../_common/text';
+import { isResearchId, researchTreeInfo } from '../../data/researches';
 import { ResearchManager } from '../../managers/ResearchManager';
 import { TurnManager } from '../../managers/TurnManager';
 import {
@@ -85,8 +82,14 @@ export class ResearchPopup extends ScreenPopup {
       this.tabsRoot.kill();
     }
 
-    this.statusRoot = new ScreenElement({ x: 0, y: RESEARCH_POPUP_LAYOUT.statusOffsetY });
-    this.tabsRoot = new ScreenElement({ x: 0, y: RESEARCH_POPUP_LAYOUT.tabOffsetY });
+    this.statusRoot = new ScreenElement({
+      x: 0,
+      y: RESEARCH_POPUP_LAYOUT.statusOffsetY,
+    });
+    this.tabsRoot = new ScreenElement({
+      x: 0,
+      y: RESEARCH_POPUP_LAYOUT.tabOffsetY,
+    });
     contentRoot.addChild(this.statusRoot);
     contentRoot.addChild(this.tabsRoot);
 
@@ -105,7 +108,10 @@ export class ResearchPopup extends ScreenPopup {
       this.treeRoot.kill();
     }
 
-    this.treeRoot = new ScreenElement({ x: 0, y: RESEARCH_POPUP_LAYOUT.treeOffsetY });
+    this.treeRoot = new ScreenElement({
+      x: 0,
+      y: RESEARCH_POPUP_LAYOUT.treeOffsetY,
+    });
     contentRoot.addChild(this.treeRoot);
     this.populateTree(this.treeRoot);
   }
@@ -122,7 +128,12 @@ export class ResearchPopup extends ScreenPopup {
     const okColor = Color.fromHex('#9fe6aa');
 
     let y = 0;
-    const addLine = (text: string, size: number, color: Color, gapAfter = 4) => {
+    const addLine = (
+      text: string,
+      size: number,
+      color: Color,
+      gapAfter = 4
+    ) => {
       root.addChild(ResearchPopup.createTextLine(0, y, text, size, color));
       y += size + gapAfter;
     };
@@ -278,11 +289,20 @@ export class ResearchPopup extends ScreenPopup {
       return;
     }
 
-    const treeAreaWidth = RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth;
+    const treeAreaWidth =
+      RESEARCH_TREE_DERIVED.viewportWidth -
+      RESEARCH_POPUP_LAYOUT.treeControlColumnWidth;
     const layouts = this.buildTreeLayout(definitions, treeAreaWidth);
     const treeContentHeight =
-      layouts.reduce((maxY, layout) => Math.max(maxY, layout.y + RESEARCH_POPUP_LAYOUT.nodeHeight), 0) + 8;
-    this.treeMaxScroll = Math.max(0, treeContentHeight - RESEARCH_TREE_DRAW.height);
+      layouts.reduce(
+        (maxY, layout) =>
+          Math.max(maxY, layout.y + RESEARCH_POPUP_LAYOUT.nodeHeight),
+        0
+      ) + 8;
+    this.treeMaxScroll = Math.max(
+      0,
+      treeContentHeight - RESEARCH_TREE_DRAW.height
+    );
     this.treeScrollOffset = clamp(this.treeScrollOffset, 0, this.treeMaxScroll);
 
     const layoutById = new Map<ResearchId, TreeNodeLayout>();
@@ -292,7 +312,9 @@ export class ResearchPopup extends ScreenPopup {
 
     root.addChild(
       ResearchPopup.createTextLine(
-        RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth + 3,
+        RESEARCH_TREE_DERIVED.viewportWidth -
+          RESEARCH_POPUP_LAYOUT.treeControlColumnWidth +
+          3,
         8,
         'Scroll',
         11,
@@ -301,12 +323,16 @@ export class ResearchPopup extends ScreenPopup {
     );
 
     const scrollUpButton = new ScreenButton({
-      x: RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth + 6,
+      x:
+        RESEARCH_TREE_DERIVED.viewportWidth -
+        RESEARCH_POPUP_LAYOUT.treeControlColumnWidth +
+        6,
       y: 26,
       width: 32,
       height: 22,
       title: '^',
-      onClick: () => this.adjustTreeScroll(-RESEARCH_POPUP_LAYOUT.treeScrollStep),
+      onClick: () =>
+        this.adjustTreeScroll(-RESEARCH_POPUP_LAYOUT.treeScrollStep),
     });
     if (this.treeScrollOffset <= 0) {
       scrollUpButton.toggle(false);
@@ -314,12 +340,16 @@ export class ResearchPopup extends ScreenPopup {
     root.addChild(scrollUpButton);
 
     const scrollDownButton = new ScreenButton({
-      x: RESEARCH_TREE_DERIVED.viewportWidth - RESEARCH_POPUP_LAYOUT.treeControlColumnWidth + 6,
+      x:
+        RESEARCH_TREE_DERIVED.viewportWidth -
+        RESEARCH_POPUP_LAYOUT.treeControlColumnWidth +
+        6,
       y: RESEARCH_TREE_DERIVED.viewportHeight - 30,
       width: 32,
       height: 22,
       title: 'v',
-      onClick: () => this.adjustTreeScroll(RESEARCH_POPUP_LAYOUT.treeScrollStep),
+      onClick: () =>
+        this.adjustTreeScroll(RESEARCH_POPUP_LAYOUT.treeScrollStep),
     });
     if (this.treeScrollOffset >= this.treeMaxScroll) {
       scrollDownButton.toggle(false);
@@ -330,7 +360,8 @@ export class ResearchPopup extends ScreenPopup {
       researchTreeInfo[this.selectedTree].colorHex
     );
     const clipTop = RESEARCH_POPUP_LAYOUT.treeDrawTop;
-    const clipBottom = RESEARCH_POPUP_LAYOUT.treeDrawTop + RESEARCH_TREE_DRAW.height;
+    const clipBottom =
+      RESEARCH_POPUP_LAYOUT.treeDrawTop + RESEARCH_TREE_DRAW.height;
     for (const layout of layouts) {
       for (const requiredId of layout.definition.requiredResearches) {
         if (!isResearchId(requiredId)) {
@@ -354,8 +385,16 @@ export class ResearchPopup extends ScreenPopup {
 
     const active = this.researchManager.getActiveResearch();
     for (const layout of layouts) {
-      const renderY = layout.y - this.treeScrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
-      if (!this.isVisibleY(renderY, RESEARCH_POPUP_LAYOUT.nodeHeight, clipTop, RESEARCH_TREE_DRAW.height)) {
+      const renderY =
+        layout.y - this.treeScrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
+      if (
+        !this.isVisibleY(
+          renderY,
+          RESEARCH_POPUP_LAYOUT.nodeHeight,
+          clipTop,
+          RESEARCH_TREE_DRAW.height
+        )
+      ) {
         continue;
       }
 
@@ -364,7 +403,9 @@ export class ResearchPopup extends ScreenPopup {
       const activeThis = this.researchManager.isActive(definition.id);
       const startStatus = this.researchManager.canStartResearch(definition.id);
       const startable = startStatus.startable;
-      const shortDescription = this.getShortNodeDescription(definition.description);
+      const shortDescription = this.getShortNodeDescription(
+        definition.description
+      );
 
       let statusText = `Turns: ${definition.turns}`;
       let statusColor = Color.fromHex('#cfd9e2');
@@ -385,11 +426,11 @@ export class ResearchPopup extends ScreenPopup {
         statusText = 'Ready to start';
         statusColor = Color.fromHex('#9fd3ff');
         backgroundColor = Color.fromHex('#273a4d');
-        borderColor = Color.fromHex(researchTreeInfo[this.selectedTree].colorHex);
+        borderColor = Color.fromHex(
+          researchTreeInfo[this.selectedTree].colorHex
+        );
       } else {
-        statusText = active
-          ? 'Locked: another research is active'
-          : 'Locked';
+        statusText = active ? 'Locked: another research is active' : 'Locked';
         statusColor = Color.fromHex('#f5c179');
         backgroundColor = Color.fromHex('#2f343b');
         borderColor = Color.fromHex('#5a6572');
@@ -438,7 +479,11 @@ export class ResearchPopup extends ScreenPopup {
       return;
     }
 
-    const nextOffset = clamp(this.treeScrollOffset + delta, 0, this.treeMaxScroll);
+    const nextOffset = clamp(
+      this.treeScrollOffset + delta,
+      0,
+      this.treeMaxScroll
+    );
     if (nextOffset === this.treeScrollOffset) {
       return;
     }
@@ -511,14 +556,22 @@ export class ResearchPopup extends ScreenPopup {
       depthDefinitions.sort((a, b) => a.name.localeCompare(b.name));
       const rowWidth =
         depthDefinitions.length * RESEARCH_POPUP_LAYOUT.nodeWidth +
-        Math.max(0, depthDefinitions.length - 1) * RESEARCH_POPUP_LAYOUT.nodeHorizontalGap;
+        Math.max(0, depthDefinitions.length - 1) *
+          RESEARCH_POPUP_LAYOUT.nodeHorizontalGap;
       const startX = Math.max(0, (contentWidth - rowWidth) / 2);
       for (const [index, definition] of depthDefinitions.entries()) {
         layouts.push({
           definition,
           depth,
-          x: startX + index * (RESEARCH_POPUP_LAYOUT.nodeWidth + RESEARCH_POPUP_LAYOUT.nodeHorizontalGap),
-          y: depth * (RESEARCH_POPUP_LAYOUT.nodeHeight + RESEARCH_POPUP_LAYOUT.nodeVerticalGap),
+          x:
+            startX +
+            index *
+              (RESEARCH_POPUP_LAYOUT.nodeWidth +
+                RESEARCH_POPUP_LAYOUT.nodeHorizontalGap),
+          y:
+            depth *
+            (RESEARCH_POPUP_LAYOUT.nodeHeight +
+              RESEARCH_POPUP_LAYOUT.nodeVerticalGap),
         });
       }
     }
@@ -537,7 +590,11 @@ export class ResearchPopup extends ScreenPopup {
   ): void {
     const thickness = 2;
     const parentX = parent.x + RESEARCH_POPUP_LAYOUT.nodeWidth / 2;
-    const parentY = parent.y + RESEARCH_POPUP_LAYOUT.nodeHeight - scrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
+    const parentY =
+      parent.y +
+      RESEARCH_POPUP_LAYOUT.nodeHeight -
+      scrollOffset +
+      RESEARCH_POPUP_LAYOUT.treeDrawTop;
     const childX = child.x + RESEARCH_POPUP_LAYOUT.nodeWidth / 2;
     const childY = child.y - scrollOffset + RESEARCH_POPUP_LAYOUT.treeDrawTop;
     const gap = Math.max(1, childY - parentY);
@@ -680,6 +737,7 @@ export class ResearchPopup extends ScreenPopup {
             size: 13,
             unit: FontUnit.Px,
             color: Color.fromHex('#f0f4f8'),
+            family: FONT_FAMILY,
           }),
         }),
         offset: vec(8, 8),
@@ -691,6 +749,7 @@ export class ResearchPopup extends ScreenPopup {
             size: 12,
             unit: FontUnit.Px,
             color: options.statusColor,
+            family: FONT_FAMILY,
           }),
         }),
         offset: vec(8, 27),
@@ -705,6 +764,7 @@ export class ResearchPopup extends ScreenPopup {
             size: 11,
             unit: FontUnit.Px,
             color: Color.fromHex('#b9c9d8'),
+            family: FONT_FAMILY,
           }),
         }),
         offset: vec(8, 45),
@@ -718,6 +778,7 @@ export class ResearchPopup extends ScreenPopup {
             size: 11,
             unit: FontUnit.Px,
             color: Color.fromHex('#9fb4c8'),
+            family: FONT_FAMILY,
           }),
         }),
         offset: vec(8, 59),
@@ -839,9 +900,7 @@ export class ResearchPopup extends ScreenPopup {
       {
         label: 'Prerequisites',
         value:
-          prerequisiteNames.length > 0
-            ? prerequisiteNames.join(', ')
-            : 'None',
+          prerequisiteNames.length > 0 ? prerequisiteNames.join(', ') : 'None',
       },
       {
         label: '',
@@ -884,10 +943,10 @@ export class ResearchPopup extends ScreenPopup {
           size,
           unit: FontUnit.Px,
           color,
+          family: FONT_FAMILY,
         }),
       })
     );
     return line;
   }
 }
-

@@ -16,6 +16,7 @@ import type {
   IncomeVisualPulse,
   MapIncomeEffectsViewOptions,
 } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { UI_Z } from '../constants/ZLayers';
 import { MapView } from './MapView';
 
@@ -67,6 +68,7 @@ export class MapIncomeEffectsView extends ScreenElement {
           size: 24,
           unit: FontUnit.Px,
           color: textColor,
+          family: FONT_FAMILY,
         }),
       });
       const amountShadow = new Text({
@@ -75,6 +77,7 @@ export class MapIncomeEffectsView extends ScreenElement {
           size: 24,
           unit: FontUnit.Px,
           color: Color.fromRGB(8, 12, 16),
+          family: FONT_FAMILY,
         }),
       });
 

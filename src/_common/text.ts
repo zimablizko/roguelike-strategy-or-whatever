@@ -1,5 +1,7 @@
 import { Color, Font, FontUnit, Text } from 'excalibur';
 
+export const FONT_FAMILY = 'Merriweather';
+
 /**
  * Measure the rendered pixel width of a text string.
  * Caches nothing — callers should avoid calling this in tight loops.
@@ -15,6 +17,7 @@ export function measureTextWidth(
       size: fontSize,
       unit: FontUnit.Px,
       color,
+      family: FONT_FAMILY,
     }),
   }).width;
 }

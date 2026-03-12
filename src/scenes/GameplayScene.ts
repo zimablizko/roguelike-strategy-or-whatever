@@ -294,8 +294,8 @@ export class GameplayScene extends Scene {
 
   /** Draw sidebar and topbar background panels that sit above the map. */
   private addLayoutBackgrounds(engine: Engine): void {
-    const bgColor = Color.fromHex('#0c141c');
-    const borderColor = Color.fromRGB(170, 196, 220, 0.35);
+    const bgColor = Color.fromHex('#0f1a24');
+    const borderColor = Color.fromHex('#2a4158');
 
     // Sidebar background
     const sidebar = new ScreenElement({ x: 0, y: LAYOUT.TOPBAR_HEIGHT });
@@ -558,6 +558,7 @@ export class GameplayScene extends Scene {
         researchManager: this.gameManager.researchManager,
         turnManager: this.turnManager,
         widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+        yProvider: () => this.getSidebarPanelY(2),
         onClick: () => this.showResearchPopup(engine),
       })
     );
@@ -571,6 +572,7 @@ export class GameplayScene extends Scene {
         militaryManager: this.gameManager.militaryManager,
         buildingManager: this.gameManager.buildingManager,
         widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+        yProvider: () => this.getSidebarPanelY(3),
         onClick: () => this.showMilitaryPopup(engine),
       })
     );
@@ -682,8 +684,8 @@ export class GameplayScene extends Scene {
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
-      leftMargin: LAYOUT.SIDEBAR_WIDTH + LAYOUT.MARGIN,
-      bottomMargin: LAYOUT.MARGIN,
+      leftMargin: LAYOUT.SIDEBAR_WIDTH + 20,
+      bottomMargin: 20,
       onSelectBuildingForPlacement: (buildingId) => {
         this.startManualBuildPlacement(buildingId);
       },

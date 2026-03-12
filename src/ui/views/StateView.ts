@@ -10,6 +10,7 @@ import {
 } from 'excalibur';
 import type { StateData } from '../../_common/models/state.models';
 import type { StateDisplayOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { StateManager } from '../../managers/StateManager';
 import { InteractivePanelElement } from '../elements/InteractivePanelElement';
 
@@ -18,7 +19,6 @@ import { InteractivePanelElement } from '../elements/InteractivePanelElement';
  */
 export class StateDisplay extends InteractivePanelElement {
   private stateManager: StateManager;
-  private textColor: Color;
   private widthProvider?: () => number;
 
   private lastRendered: Pick<StateData, 'name' | 'size'> | undefined;
@@ -26,7 +26,6 @@ export class StateDisplay extends InteractivePanelElement {
   constructor(options: StateDisplayOptions) {
     super(options);
     this.stateManager = options.stateManager;
-    this.textColor = options.textColor ?? Color.White;
     this.widthProvider = options.widthProvider;
   }
 
@@ -44,63 +43,124 @@ export class StateDisplay extends InteractivePanelElement {
     }
     this.lastRendered = next;
 
-    const padding = 10;
+    const panelW = this.widthProvider ? this.widthProvider() : 196;
+    const borderW = 1;
+    const accentW = 3;
+    const labelPadX = 8;
+    const labelPadY = 5;
+    const labelSize = 11;
+    const sectionH = labelPadY * 2 + labelSize;
+    const sepH = 1;
+    const contentPadX = 10;
+    const contentPadY = 8;
+    const nameSize = 15;
     const lineGap = 4;
+    const subSize = 12;
+    const contentH = contentPadY + nameSize + lineGap + subSize + contentPadY;
+    const panelH = borderW + sectionH + sepH + contentH + borderW;
 
-    const titleText = new Text({
-      text: `State: ${state.name}`,
-      font: new Font({
-        size: 18,
-        unit: FontUnit.Px,
-        color: this.textColor,
-      }),
-    });
-
-    const sizeText = new Text({
-      text: `Size: ${state.size}`,
-      font: new Font({
-        size: 14,
-        unit: FontUnit.Px,
-        color: this.textColor,
-      }),
-    });
-
-    const naturalW = padding * 2 + Math.max(titleText.width, sizeText.width);
-    const contentW = this.widthProvider ? this.widthProvider() : naturalW;
-    const contentH = padding * 2 + 18 + lineGap + 14;
-    const backgroundColor = this.getPanelBackgroundColor();
     const pressOffset = this.getPressOffset();
-
     this.pos = vec(this.anchorX, this.anchorY);
 
-    const members: GraphicsGrouping[] = [
-      {
-        graphic: new Rectangle({
-          width: contentW,
-          height: contentH,
-          color: backgroundColor,
+    const borderColor = Color.fromHex('#2a4158');
+    const accentColor = Color.fromHex('#4a7fb8');
+    const primaryColor = Color.fromHex('#e7edf3');
+    const secondaryColor = Color.fromHex('#a7bacb');
+
+    const members: GraphicsGrouping[] = [];
+
+    // Idle border (overwritten by hover border on hover)
+    members.push({
+      graphic: new Rectangle({
+        width: panelW,
+        height: panelH,
+        color: borderColor,
+      }),
+      offset: vec(pressOffset, pressOffset),
+    });
+
+    // Panel background
+    members.push({
+      graphic: new Rectangle({
+        width: panelW - borderW * 2,
+        height: panelH - borderW * 2,
+        color: this.getPanelBackgroundColor(),
+      }),
+      offset: vec(borderW + pressOffset, borderW + pressOffset),
+    });
+
+    // Left accent bar (section header area)
+    members.push({
+      graphic: new Rectangle({
+        width: accentW,
+        height: sectionH,
+        color: accentColor,
+      }),
+      offset: vec(borderW + pressOffset, borderW + pressOffset),
+    });
+
+    // Section label
+    members.push({
+      graphic: new Text({
+        text: '🏛 STATE',
+        font: new Font({
+          size: labelSize,
+          unit: FontUnit.Px,
+          color: secondaryColor,
+          family: FONT_FAMILY,
         }),
-        offset: vec(pressOffset, pressOffset),
-      },
-      {
-        graphic: titleText,
-        offset: vec(padding + pressOffset, padding + pressOffset),
-      },
-      {
-        graphic: sizeText,
-        offset: vec(
-          padding + pressOffset,
-          padding + 18 + lineGap + pressOffset
-        ),
-      },
-    ];
+      }),
+      offset: vec(
+        borderW + accentW + labelPadX + pressOffset,
+        borderW + labelPadY + pressOffset
+      ),
+    });
 
-    this.addHoverBorder(members, contentW, contentH);
+    // Separator line
+    members.push({
+      graphic: new Rectangle({
+        width: panelW - borderW * 2,
+        height: sepH,
+        color: borderColor,
+      }),
+      offset: vec(borderW + pressOffset, borderW + sectionH + pressOffset),
+    });
 
-    this.graphics.use(
-      new GraphicsGroup({
-        members,
-      })
-    );
+    const contentY = borderW + sectionH + sepH + pressOffset;
+
+    // State name
+    members.push({
+      graphic: new Text({
+        text: state.name,
+        font: new Font({
+          size: nameSize,
+          unit: FontUnit.Px,
+          color: primaryColor,
+          family: FONT_FAMILY,
+        }),
+      }),
+      offset: vec(contentPadX + pressOffset, contentY + contentPadY),
+    });
+
+    // Territory sub-line
+    members.push({
+      graphic: new Text({
+        text: `Territory: ${state.size}`,
+        font: new Font({
+          size: subSize,
+          unit: FontUnit.Px,
+          color: secondaryColor,
+          family: FONT_FAMILY,
+        }),
+      }),
+      offset: vec(
+        contentPadX + pressOffset,
+        contentY + contentPadY + nameSize + lineGap
+      ),
+    });
+
+    this.addHoverBorder(members, panelW, panelH);
+
+    this.graphics.use(new GraphicsGroup({ members }));
   }
 }

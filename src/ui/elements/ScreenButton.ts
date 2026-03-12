@@ -6,9 +6,11 @@ import {
   Rectangle,
   ScreenElement,
   Text,
+  TextAlign,
   vec,
 } from 'excalibur';
 import type { ScreenButtonOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 
 export class ScreenButton extends ScreenElement {
   title: string;
@@ -97,6 +99,8 @@ export class ScreenButton extends ScreenElement {
       size: fontSize,
       unit: FontUnit.Px,
       color: textColor,
+      family: FONT_FAMILY,
+      textAlign: TextAlign.Center,
     });
 
     const lineHeight = fontSize * 1.1;
@@ -104,8 +108,7 @@ export class ScreenButton extends ScreenElement {
 
     const textMembers = lines.map((line, i) => {
       const textGraphic = new Text({ text: line, font });
-      const textWidth = textGraphic.width;
-      const offsetX = (this.buttonWidth - textWidth) / 2 + 2;
+      const offsetX = this.buttonWidth / 2;
       const offsetY =
         (this.buttonHeight - totalTextHeight) / 2 + i * lineHeight + 1;
       return {

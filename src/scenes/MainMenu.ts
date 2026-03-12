@@ -1,4 +1,5 @@
 import { Color, Engine, Font, Label, Scene, TextAlign } from 'excalibur';
+import { FONT_FAMILY } from '../_common/text';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 
 export class MainMenu extends Scene {
@@ -22,6 +23,7 @@ export class MainMenu extends Scene {
         size: 32,
         color: Color.White,
         textAlign: TextAlign.Center,
+        family: FONT_FAMILY,
       }),
     });
     this.add(title);

@@ -8,6 +8,7 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { MilitaryPopupOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import {
   BARRACKS_GARRISON_PER_INSTANCE,
   BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
@@ -656,7 +657,7 @@ export class MilitaryPopup extends ScreenPopup {
     el.graphics.use(
       new Text({
         text,
-        font: new Font({ size, unit: FontUnit.Px, color }),
+        font: new Font({ size, unit: FontUnit.Px, color, family: FONT_FAMILY }),
       })
     );
     return el;

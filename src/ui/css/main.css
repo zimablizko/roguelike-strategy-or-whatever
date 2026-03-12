@@ -1,12 +1,25 @@
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/fonts/Merriweather-VariableFont_opsz,wdth,wght.ttf')
+    format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/fonts/Merriweather-Italic-VariableFont_opsz,wdth,wght.ttf')
+    format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+}
+
 body {
   margin: 0;
   padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: #1a1a1a;
-  font-family: Arial, sans-serif;
+  overflow: hidden;
+  background-color: #0f1a24;
+  font-family: 'Merriweather', serif;
 }
 
 main {
@@ -15,5 +28,6 @@ main {
 
 canvas {
   display: block;
-  border: 2px solid #333;
+  border: 2px solid #2a4158;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }

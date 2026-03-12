@@ -10,6 +10,7 @@ import {
   vec,
 } from 'excalibur';
 import type { TurnDisplayOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { TurnManager } from '../../managers/TurnManager';
 
 /**
@@ -64,6 +65,7 @@ export class TurnDisplay extends ScreenElement {
         size: 16,
         unit: FontUnit.Px,
         color: this.textColor,
+        family: FONT_FAMILY,
       }),
     });
 

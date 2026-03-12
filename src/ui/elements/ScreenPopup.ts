@@ -17,6 +17,7 @@ import type {
   ScreenPopupContentBuilder,
   ScreenPopupOptions,
 } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
 import { UI_Z } from '../constants/ZLayers';
 import { installForegroundPointerBlocker } from '../utils/PointerBlocker';
 import { ScreenButton } from './ScreenButton';
@@ -152,6 +153,7 @@ export class ScreenPopup extends ScreenElement {
           size: 16,
           unit: FontUnit.Px,
           color: this.textColor,
+          family: FONT_FAMILY,
         }),
       });
       const titleX = this.padding;

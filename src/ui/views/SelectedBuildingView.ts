@@ -19,7 +19,7 @@ import type {
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
-import { measureTextWidth } from '../../_common/text';
+import { FONT_FAMILY, measureTextWidth } from '../../_common/text';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
@@ -684,6 +684,7 @@ export class SelectedBuildingView extends ScreenElement {
           size,
           unit: FontUnit.Px,
           color,
+          family: FONT_FAMILY,
         }),
       }),
       offset: vec(x, y),
@@ -706,6 +707,7 @@ export class SelectedBuildingView extends ScreenElement {
           size,
           unit: FontUnit.Px,
           color,
+          family: FONT_FAMILY,
         }),
       })
     );
