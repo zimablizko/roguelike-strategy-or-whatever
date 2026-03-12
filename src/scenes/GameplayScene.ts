@@ -361,6 +361,7 @@ export class GameplayScene extends Scene {
       x: LAYOUT.SIDEBAR_PADDING,
       y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
       stateManager: this.gameManager.stateManager,
+      politicsManager: this.gameManager.politicsManager,
       widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
       onClick: () => {
         this.showStatePopup(_engine);

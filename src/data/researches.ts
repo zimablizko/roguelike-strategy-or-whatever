@@ -89,9 +89,9 @@ export const researchDefinitions = {
   'pol-clan-council': {
     id: 'pol-clan-council',
     tree: 'politics',
-    name: 'Clan Council',
+    name: 'Administration',
     description:
-      'Establishes a formal council. Unlocks the Town Hall tab in the State popup.',
+      'Establishes a formal administration. Appoints Advisors of Economy, Politics, and Military to the Town Hall.',
     turns: 2,
     requiredResearches: [],
   },
@@ -100,7 +100,7 @@ export const researchDefinitions = {
     tree: 'politics',
     name: 'Public Hearings',
     description:
-      'Common Folk requests appear. Approving grants +2 rep instead of +1.',
+      'Formalizes the Common Folk voice. Approving Folk requests grants +2 additional reputation.',
     turns: 3,
     requiredResearches: ['pol-clan-council'],
   },
@@ -108,7 +108,7 @@ export const researchDefinitions = {
     id: 'pol-civil-code',
     tree: 'politics',
     name: 'Civil Code',
-    description: 'Advisor requests appear. Deny penalty reduced from −3 to −1.',
+    description: 'Codifies laws and governance. Deny reputation penalty reduced from −3 to −1.',
     turns: 3,
     requiredResearches: ['pol-clan-council'],
   },
@@ -143,7 +143,7 @@ export const researchDefinitions = {
     tree: 'politics',
     name: 'State Bureaucracy',
     description:
-      'All delegation thresholds lowered to Neutral. +1 max requests per turn.',
+      'All delegation thresholds lowered to Neutral. Entities generate requests more frequently.',
     turns: 5,
     requiredResearches: ['pol-tax-census', 'pol-provincial-governors'],
   },

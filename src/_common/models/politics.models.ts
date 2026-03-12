@@ -127,6 +127,8 @@ export interface PoliticsSaveState {
   activeRequests: PoliticalRequestInstance[];
   /** Tracks last turn each request definition appeared (for cooldown). */
   cooldowns: Array<{ definitionId: string; lastTurn: number }>;
+  /** Per-entity scheduled turn for next request generation. */
+  entityScheduledTurns?: Array<{ entityId: PoliticalEntityId; scheduledTurn: number }>;
   instanceSerial: number;
   version: number;
 }

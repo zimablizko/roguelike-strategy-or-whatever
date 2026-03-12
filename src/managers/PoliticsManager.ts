@@ -19,9 +19,6 @@ import {
 /** Default starting reputation for all entities. */
 const DEFAULT_REPUTATION = 50;
 
-/** Maximum number of new requests generated per turn (base). */
-const BASE_MAX_NEW_REQUESTS = 2;
-
 /** Reputation penalty for ignoring (letting expire) a request. */
 const EXPIRE_REPUTATION_PENALTY = -2;
 
@@ -43,6 +40,8 @@ export class PoliticsManager {
   private entities: Map<PoliticalEntityId, PoliticalEntity> = new Map();
   private activeRequests: PoliticalRequestInstance[] = [];
   private cooldowns: Map<string, number> = new Map();
+  /** Tracks the turn on which each entity is next scheduled to generate a request. */
+  private entityScheduledTurns: Map<PoliticalEntityId, number> = new Map();
   private instanceSerial = 0;
   private version = 0;
 
@@ -70,6 +69,9 @@ export class PoliticsManager {
       for (const cd of options.initial.cooldowns) {
         this.cooldowns.set(cd.definitionId, cd.lastTurn);
       }
+      for (const entry of options.initial.entityScheduledTurns ?? []) {
+        this.entityScheduledTurns.set(entry.entityId, entry.scheduledTurn);
+      }
       this.instanceSerial = options.initial.instanceSerial;
       this.version = options.initial.version;
     } else {
@@ -88,6 +90,20 @@ export class PoliticsManager {
   /** Version counter incremented on every state mutation. */
   getVersion(): number {
     return this.version;
+  }
+
+  // ─── Active entities ─────────────────────────────────────────────
+
+  /**
+   * Returns the entity IDs that are currently active (eligible to generate requests).
+   * Common Folk are always active. Advisors require the Administration tech.
+   */
+  getActiveEntityIds(): PoliticalEntityId[] {
+    const ids: PoliticalEntityId[] = ['common-folk'];
+    if (this.isTechUnlocked('pol-clan-council')) {
+      ids.push('economy-advisor', 'military-advisor', 'politics-advisor');
+    }
+    return ids;
   }
 
   // ─── Entity / Reputation queries ─────────────────────────────────
@@ -183,18 +199,16 @@ export class PoliticsManager {
 
   /**
    * Generate new requests at the start of a turn.
+   * Each active entity sends one request per week (7 turns) on a random day.
    * Called by TurnManager during end-turn resolution.
    */
   generateTurnRequests(currentTurn: number, rng: SeededRandom): void {
     // First, expire old requests
     this.expireRequests(currentTurn);
 
-    // Town Hall must be unlocked (pol-clan-council researched)
-    if (!this.isTechUnlocked('pol-clan-council')) return;
-
-    const maxNew = this.isTechUnlocked('pol-state-bureaucracy')
-      ? BASE_MAX_NEW_REQUESTS + 1
-      : BASE_MAX_NEW_REQUESTS;
+    const activeEntityIds = this.getActiveEntityIds();
+    const activeDefIds = new Set(this.activeRequests.map((r) => r.definitionId));
+    const activeEntitySet = new Set(this.activeRequests.map((r) => r.entityId));
 
     // Build condition context
     const ctx: PoliticalRequestConditionContext = {
@@ -205,62 +219,54 @@ export class PoliticsManager {
       getBuildingCount: this.getBuildingCount,
     };
 
-    // Collect eligible definitions
-    const activeDefIds = new Set(
-      this.activeRequests.map((r) => r.definitionId)
-    );
-    const eligible = politicalRequestDefinitions.filter((def) => {
-      // Skip if already active
-      if (activeDefIds.has(def.id)) return false;
+    for (const entityId of activeEntityIds) {
+      // Lazy-init: schedule entity's first request to a random day in the first week
+      if (!this.entityScheduledTurns.has(entityId)) {
+        this.entityScheduledTurns.set(entityId, rng.randomInt(1, 7));
+      }
 
-      // Check cooldown
-      const lastTurn = this.cooldowns.get(def.id);
-      if (lastTurn !== undefined && currentTurn - lastTurn < def.cooldownTurns)
-        return false;
+      const scheduledTurn = this.entityScheduledTurns.get(entityId)!;
+      if (currentTurn < scheduledTurn) continue;
 
-      // Check condition
-      if (def.condition && !def.condition(ctx)) return false;
+      // Reschedule to next week (base it on scheduledTurn to avoid drift)
+      const nextScheduled = Math.max(currentTurn, scheduledTurn) + 7 + rng.randomInt(0, 6);
+      this.entityScheduledTurns.set(entityId, nextScheduled);
 
-      return true;
-    });
+      // Skip if this entity already has an active pending request
+      if (activeEntitySet.has(entityId)) continue;
 
-    if (eligible.length === 0) return;
+      // Find eligible request definitions for this entity
+      const eligible = politicalRequestDefinitions.filter((def) => {
+        if (def.entityId !== entityId) return false;
+        if (activeDefIds.has(def.id)) return false;
+        const lastTurn = this.cooldowns.get(def.id);
+        if (lastTurn !== undefined && currentTurn - lastTurn < def.cooldownTurns)
+          return false;
+        if (def.condition && !def.condition(ctx)) return false;
+        return true;
+      });
 
-    // Weighted random selection
-    const totalWeight = eligible.reduce((sum, d) => sum + d.weight, 0);
-    const count = Math.min(maxNew, eligible.length);
-    const selected: typeof eligible = [];
+      if (eligible.length === 0) continue;
 
-    for (let i = 0; i < count; i++) {
-      // 50% chance to skip a slot (so 0–maxNew requests appear)
-      if (rng.next() < 0.3) continue;
-
+      // Weighted random selection from eligible pool
+      const totalWeight = eligible.reduce((sum, d) => sum + d.weight, 0);
       const roll = rng.next() * totalWeight;
       let cumulative = 0;
       for (const def of eligible) {
-        if (selected.some((s) => s.id === def.id)) continue;
         cumulative += def.weight;
         if (roll < cumulative) {
-          selected.push(def);
+          this.instanceSerial++;
+          this.activeRequests.push({
+            instanceId: this.instanceSerial,
+            definitionId: def.id,
+            entityId: def.entityId,
+            turnCreated: currentTurn,
+          });
+          this.cooldowns.set(def.id, currentTurn);
+          this.version++;
           break;
         }
       }
-    }
-
-    // Create instances
-    for (const def of selected) {
-      this.instanceSerial++;
-      this.activeRequests.push({
-        instanceId: this.instanceSerial,
-        definitionId: def.id,
-        entityId: def.entityId,
-        turnCreated: currentTurn,
-      });
-      this.cooldowns.set(def.id, currentTurn);
-    }
-
-    if (selected.length > 0) {
-      this.version++;
     }
   }
 
@@ -302,6 +308,9 @@ export class PoliticsManager {
           definitionId,
           lastTurn,
         })
+      ),
+      entityScheduledTurns: Array.from(this.entityScheduledTurns.entries()).map(
+        ([entityId, scheduledTurn]) => ({ entityId, scheduledTurn })
       ),
       instanceSerial: this.instanceSerial,
       version: this.version,

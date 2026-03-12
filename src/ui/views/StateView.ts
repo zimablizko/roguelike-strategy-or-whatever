@@ -11,6 +11,7 @@ import {
 import type { StateData } from '../../_common/models/state.models';
 import type { StateDisplayOptions } from '../../_common/models/ui.models';
 import { FONT_FAMILY } from '../../_common/text';
+import type { PoliticsManager } from '../../managers/PoliticsManager';
 import { StateManager } from '../../managers/StateManager';
 import { InteractivePanelElement } from '../elements/InteractivePanelElement';
 
@@ -19,25 +20,31 @@ import { InteractivePanelElement } from '../elements/InteractivePanelElement';
  */
 export class StateDisplay extends InteractivePanelElement {
   private stateManager: StateManager;
+  private politicsManager?: PoliticsManager;
   private widthProvider?: () => number;
 
-  private lastRendered: Pick<StateData, 'name' | 'size'> | undefined;
+  private lastRendered:
+    | (Pick<StateData, 'name' | 'size'> & { politicsVersion: number })
+    | undefined;
 
   constructor(options: StateDisplayOptions) {
     super(options);
     this.stateManager = options.stateManager;
+    this.politicsManager = options.politicsManager;
     this.widthProvider = options.widthProvider;
   }
 
   protected redraw(force: boolean): void {
     const state = this.stateManager.getStateRef();
-    const next = { name: state.name, size: state.size };
+    const politicsVersion = this.politicsManager?.getVersion() ?? -1;
+    const next = { name: state.name, size: state.size, politicsVersion };
 
     if (
       !force &&
       this.lastRendered &&
       this.lastRendered.name === next.name &&
-      this.lastRendered.size === next.size
+      this.lastRendered.size === next.size &&
+      this.lastRendered.politicsVersion === next.politicsVersion
     ) {
       return;
     }
@@ -56,7 +63,10 @@ export class StateDisplay extends InteractivePanelElement {
     const nameSize = 15;
     const lineGap = 4;
     const subSize = 12;
-    const contentH = contentPadY + nameSize + lineGap + subSize + contentPadY;
+    const hasPolitics = !!this.politicsManager;
+    const townHallLineH = hasPolitics ? lineGap + subSize : 0;
+    const contentH =
+      contentPadY + nameSize + lineGap + subSize + townHallLineH + contentPadY;
     const panelH = borderW + sectionH + sepH + contentH + borderW;
 
     const pressOffset = this.getPressOffset();
@@ -158,6 +168,34 @@ export class StateDisplay extends InteractivePanelElement {
         contentY + contentPadY + nameSize + lineGap
       ),
     });
+
+    // Town Hall status line
+    if (this.politicsManager) {
+      const requestCount = this.politicsManager.getActiveRequests().length;
+      const townHallText =
+        requestCount > 0
+          ? `Town Hall: ${requestCount} ${requestCount === 1 ? 'request' : 'requests'}`
+          : 'Town Hall: Idle';
+      const townHallColor =
+        requestCount > 0
+          ? Color.fromHex('#52b66f')
+          : Color.fromHex('#6b7b8d');
+      members.push({
+        graphic: new Text({
+          text: townHallText,
+          font: new Font({
+            size: subSize,
+            unit: FontUnit.Px,
+            color: townHallColor,
+            family: FONT_FAMILY,
+          }),
+        }),
+        offset: vec(
+          contentPadX + pressOffset,
+          contentY + contentPadY + nameSize + lineGap + subSize + lineGap
+        ),
+      });
+    }
 
     this.addHoverBorder(members, panelW, panelH);
 

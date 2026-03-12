@@ -176,6 +176,7 @@ export interface FocusDisplayOptions {
 
 export interface StateDisplayOptions extends InteractivePanelOptions {
   stateManager: StateManager;
+  politicsManager?: PoliticsManager;
   textColor?: Color;
   widthProvider?: () => number;
 }

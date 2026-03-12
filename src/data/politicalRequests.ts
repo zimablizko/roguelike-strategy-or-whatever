@@ -15,9 +15,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
         'The common folk ask you to distribute food rations to ease hunger in the streets. Costs 10 Bread.',
       weight: 10,
       cooldownTurns: 4,
-      condition: (ctx) =>
-        ctx.isTechUnlocked('pol-public-hearings') &&
-        ctx.getResource('bread') >= 10,
+      condition: (ctx) => ctx.getResource('bread') >= 10,
       approveRepChanges: { 'common-folk': 5 },
       denyRepChanges: { 'common-folk': -3 },
       approveResourceEffects: { bread: -10 },
@@ -31,9 +29,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
         'Citizens request more housing. Spend 20 Gold to improve living conditions.',
       weight: 8,
       cooldownTurns: 5,
-      condition: (ctx) =>
-        ctx.isTechUnlocked('pol-public-hearings') &&
-        ctx.getResource('gold') >= 20,
+      condition: (ctx) => ctx.getResource('gold') >= 20,
       approveRepChanges: { 'common-folk': 4 },
       denyRepChanges: { 'common-folk': -2 },
       approveResourceEffects: { gold: -20 },
@@ -48,7 +44,6 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 6,
       cooldownTurns: 8,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-public-hearings') &&
         ctx.getResource('gold') >= 10 &&
         ctx.getResource('bread') >= 5 &&
         ctx.getResource('meat') >= 5,
@@ -68,7 +63,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 10,
       cooldownTurns: 6,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') &&
+        ctx.isTechUnlocked('pol-clan-council') &&
         ctx.getBuildingCount('lumbermill') < 3,
       approveRepChanges: { 'economy-advisor': 4 },
       denyRepChanges: { 'economy-advisor': -2 },
@@ -83,7 +78,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 8,
       cooldownTurns: 5,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('gold') >= 25,
+        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('gold') >= 25,
       approveRepChanges: { 'economy-advisor': 5 },
       denyRepChanges: { 'economy-advisor': -2, 'common-folk': 1 },
       approveResourceEffects: { gold: -25 },
@@ -98,7 +93,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 7,
       cooldownTurns: 6,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('gold') >= 15,
+        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('gold') >= 15,
       approveRepChanges: { 'economy-advisor': 3, 'common-folk': 3 },
       denyRepChanges: { 'economy-advisor': -1 },
       approveResourceEffects: { gold: -15 },
@@ -115,7 +110,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 9,
       cooldownTurns: 5,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') &&
+        ctx.isTechUnlocked('pol-clan-council') &&
         ctx.getResource('gold') >= 10 &&
         ctx.getResource('meat') >= 3,
       approveRepChanges: { 'military-advisor': 5 },
@@ -131,7 +126,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 7,
       cooldownTurns: 6,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('stone') >= 10,
+        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('stone') >= 10,
       approveRepChanges: { 'military-advisor': 4 },
       denyRepChanges: { 'military-advisor': -2, 'common-folk': 1 },
       approveResourceEffects: { stone: -10 },
@@ -148,7 +143,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 8,
       cooldownTurns: 6,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('gold') >= 20,
+        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('gold') >= 20,
       approveRepChanges: { 'politics-advisor': 5 },
       denyRepChanges: { 'politics-advisor': -2 },
       approveResourceEffects: { gold: -20 },
@@ -163,7 +158,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 7,
       cooldownTurns: 7,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('gold') >= 10,
+        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('gold') >= 10,
       approveRepChanges: { 'politics-advisor': 4, 'common-folk': 2 },
       denyRepChanges: { 'politics-advisor': -3, 'common-folk': -1 },
       approveResourceEffects: { gold: -10 },
@@ -178,7 +173,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 6,
       cooldownTurns: 8,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-civil-code') && ctx.getResource('gold') >= 5,
+        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('gold') >= 5,
       approveRepChanges: { 'politics-advisor': 3, 'economy-advisor': 2 },
       denyRepChanges: { 'politics-advisor': -1 },
       approveResourceEffects: { gold: -5 },

@@ -184,22 +184,14 @@ export class StatePopup extends ScreenPopup {
 
   private populateTownHall(root: ScreenElement): void {
     const L = STATE_POPUP_LAYOUT;
-    const entities = this.politicsManager.getEntities();
-    const hasTownHall =
+    const allEntities = this.politicsManager.getEntities();
+    const hasAdministration =
       this.buildingManager.isTechnologyUnlocked('pol-clan-council');
 
-    if (!hasTownHall) {
-      root.addChild(
-        StatePopup.createLine(
-          0,
-          20,
-          'Research "Clan Council" to unlock the Town Hall.',
-          16,
-          Color.fromHex('#8fa8c0')
-        )
-      );
-      return;
-    }
+    // Town Hall is always available; advisors unlock after Administration tech
+    const entities = hasAdministration
+      ? allEntities
+      : allEntities.filter((e) => e.id === 'common-folk');
 
     // ─ Entity portraits row ─
     const contentWidth = L.width - L.padding * 2;
@@ -213,8 +205,23 @@ export class StatePopup extends ScreenPopup {
       entityX += L.entityIconSize + L.entityGap;
     }
 
+    // ─ Administration hint ─
+    if (!hasAdministration) {
+      root.addChild(
+        StatePopup.createLine(
+          0,
+          L.entityRowHeight + 4,
+          'Research "Administration" to appoint Economy, Politics & Military Advisors.',
+          12,
+          Color.fromHex('#8fa8c0')
+        )
+      );
+    }
+
     // ─ Separator ─
-    const separatorY = L.entityRowHeight + 4;
+    const separatorY = hasAdministration
+      ? L.entityRowHeight + 4
+      : L.entityRowHeight + 26;
     const separator = new ScreenElement({ x: 0, y: separatorY });
     separator.graphics.use(
       new Rectangle({
