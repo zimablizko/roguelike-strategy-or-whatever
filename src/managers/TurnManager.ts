@@ -83,6 +83,20 @@ export class TurnManager {
     return `${day} ${month}, ${year}`;
   }
 
+  getNextUpkeepTurnNumber(): number {
+    const currentTurn = this.turnData.turnNumber;
+    const dayInMonth = ((currentTurn - 1) % TurnManager.DAYS_PER_MONTH) + 1;
+    const daysUntilNextMonth = TurnManager.DAYS_PER_MONTH - dayInMonth + 1;
+    return currentTurn + daysUntilNextMonth;
+  }
+
+  getNextUpkeepDateLabel(): string {
+    const { day, month, year } = TurnManager.turnToDate(
+      this.getNextUpkeepTurnNumber()
+    );
+    return `${day} ${month}, ${year}`;
+  }
+
   private turnData: TurnData;
   private resourceManager: ResourceManager;
   private rulerManager: RulerManager;

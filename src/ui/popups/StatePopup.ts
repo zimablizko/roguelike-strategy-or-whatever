@@ -522,12 +522,18 @@ export class StatePopup extends ScreenPopup {
     );
 
     const upkeep = this.turnManager.getUpkeepBreakdown();
-    addLine('Upkeep (per turn)', 16, titleColor, 8);
+    addLine('Monthly Upkeep', 16, titleColor, 8);
+    addLine(
+      `Next upkeep: ${this.turnManager.getNextUpkeepDateLabel()}`,
+      13,
+      Color.fromHex('#8fa8c0'),
+      6
+    );
     if (upkeep.totalGold > 0) {
-      addLine(`Gold: ${upkeep.totalGold}`, 14, costColor);
+      addLine(`Gold: ${upkeep.totalGold} each month`, 14, costColor);
     }
     addLine(
-      `Food: ${upkeep.populationFood} (1 per 2 pop) — any food type`,
+      `Food: ${upkeep.populationFood} (${upkeep.totalPopulation} pop x 2) — meat/bread pool`,
       14,
       costColor
     );

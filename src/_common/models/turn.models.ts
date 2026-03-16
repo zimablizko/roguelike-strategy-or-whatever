@@ -30,7 +30,7 @@ export interface EndTurnResult {
 
 export interface UpkeepBreakdown {
   baseGold: number;
-  /** Total food need from population (1 per 2 people). */
+  /** Total food need from population (2 food per population each month). */
   populationFood: number;
   totalGold: number;
   /** Sum of all food-type resources currently available. */

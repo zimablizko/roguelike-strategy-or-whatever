@@ -10,9 +10,8 @@ import type { MapTileType } from '../_common/models/map.models';
 
 export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
   castle: [
-    { resourceType: 'gold', amount: 5 },
-    { resourceType: 'wheat', amount: 2 },
-    { resourceType: 'wood', amount: 2 },
+    { resourceType: 'gold', amount: 1 },
+    { resourceType: 'wood', amount: 1 },
   ],
   lumbermill: [{ resourceType: 'wood', amount: 1 }],
   mine: [{ resourceType: 'stone', amount: 'random:1:3' }],
