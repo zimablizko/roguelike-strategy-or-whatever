@@ -26,6 +26,8 @@ import type {
   TypedBuildingDefinition,
 } from './buildings.models';
 import type { MapData } from './map.models';
+import type { BattleResult } from './military.models';
+import type { SeededRandom } from '../random';
 import type { TypedResearchDefinition } from './researches.models';
 import type { ResourceType } from './resource.models';
 import type { TooltipOutcome } from './tooltip.models';
@@ -146,6 +148,7 @@ export interface ScreenPopupOptions {
   backplateStyle?: ScreenPopupBackplateStyle;
   backplateColor?: Color;
   closeOnBackplateClick?: boolean;
+  showCloseButton?: boolean;
   content?: Actor | Actor[];
   contentBuilder?: ScreenPopupContentBuilder;
   onClose?: () => void;
@@ -429,4 +432,41 @@ export interface MilitaryStatusViewOptions extends InteractivePanelOptions {
   width?: number;
   widthProvider?: () => number;
   yProvider?: () => number;
+}
+
+export interface BattlePopupOptions {
+  x: number;
+  y: number;
+  militaryManager: MilitaryManager;
+  rng: SeededRandom;
+  tooltipProvider: TooltipProvider;
+  anchor?: ScreenPopupAnchor;
+  onClose?: () => void;
+}
+
+export interface BattleResultPopupOptions {
+  x: number;
+  y: number;
+  result: BattleResult;
+  tooltipProvider: TooltipProvider;
+  anchor?: ScreenPopupAnchor;
+  onClose?: () => void;
+}
+
+export interface RandomEventOption {
+  title: string;
+  outcomeDescription: string;
+  onSelect: () => void;
+  disabled?: boolean;
+}
+
+export interface RandomEventPopupOptions {
+  x: number;
+  y: number;
+  title: string;
+  description: string;
+  options: RandomEventOption[];
+  tooltipProvider: TooltipProvider;
+  anchor?: ScreenPopupAnchor;
+  onClose?: () => void;
 }

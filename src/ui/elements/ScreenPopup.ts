@@ -42,6 +42,7 @@ export class ScreenPopup extends ScreenElement {
   private backplateStyle?: ScreenPopupBackplateStyle;
   private backplateColor?: Color;
   private closeOnBackplateClick: boolean;
+  private showCloseButton: boolean;
   private content?: Actor | Actor[];
   private contentBuilder?: ScreenPopupContentBuilder;
   private onClose?: () => void;
@@ -72,6 +73,7 @@ export class ScreenPopup extends ScreenElement {
     this.backplateStyle = options.backplateStyle;
     this.backplateColor = options.backplateColor;
     this.closeOnBackplateClick = options.closeOnBackplateClick ?? true;
+    this.showCloseButton = options.showCloseButton ?? true;
     this.content = options.content;
     this.contentBuilder = options.contentBuilder;
     this.onClose = options.onClose;
@@ -85,13 +87,15 @@ export class ScreenPopup extends ScreenElement {
   onInitialize(): void {
     this.buildBackplate();
     this.buildBackground();
-    this.buildCloseButton();
+    if (this.showCloseButton) {
+      this.buildCloseButton();
+    }
     this.buildContentRoot();
     this.populateContent();
     this.buildInteractionShield();
   }
 
-  onPreUpdate(): void {
+  onPreUpdate(_engine?: unknown, _elapsedMs?: number): void {
     this.updateBackplateGraphic();
   }
 

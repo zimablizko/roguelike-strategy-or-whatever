@@ -12,8 +12,12 @@ import {
 import { CONFIG } from '../_common/config';
 import { getIconSprite } from '../_common/icons';
 import type { StateBuildingId } from '../_common/models/buildings.models';
+import { FOOD_RESOURCE_TYPES } from '../_common/models/resource.models';
 import type { SaveSlotId } from '../_common/models/save.models';
-import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
+import type {
+  MapBuildPlacementOverlay,
+  RandomEventPopupOptions,
+} from '../_common/models/ui.models';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
@@ -24,7 +28,10 @@ import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
+import { BattlePopup } from '../ui/popups/BattlePopup';
+import { BattleResultPopup } from '../ui/popups/BattleResultPopup';
 import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
+import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
@@ -57,6 +64,9 @@ export class GameplayScene extends Scene {
   private rulerPopup?: ScreenPopup;
   private researchPopup?: ResearchPopup;
   private militaryPopup?: MilitaryPopup;
+  private battlePopup?: BattlePopup;
+  private battleResultPopup?: BattleResultPopup;
+  private randomEventPopup?: RandomEventPopup;
   private stateDisplay?: StateDisplay;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
@@ -82,6 +92,8 @@ export class GameplayScene extends Scene {
   }
 
   onPreUpdate(engine: Engine): void {
+    this.syncBattleUi(engine);
+
     const quickBuildExpanded = this.quickBuildView?.isExpanded() ?? false;
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.F)) {
       this.mapView?.focusOnPlayerState();
@@ -126,6 +138,9 @@ export class GameplayScene extends Scene {
     this.statePopup = undefined;
     this.rulerPopup = undefined;
     this.researchPopup = undefined;
+    this.militaryPopup = undefined;
+    this.battlePopup = undefined;
+    this.battleResultPopup = undefined;
     this.stateDisplay = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
@@ -145,6 +160,9 @@ export class GameplayScene extends Scene {
     this.statePopup = undefined;
     this.rulerPopup = undefined;
     this.researchPopup = undefined;
+    this.militaryPopup = undefined;
+    this.battlePopup = undefined;
+    this.battleResultPopup = undefined;
     this.stateDisplay = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
@@ -551,6 +569,35 @@ export class GameplayScene extends Scene {
     }
   }
 
+  private syncBattleUi(engine: Engine): void {
+    const activeBattle = this.gameManager?.militaryManager.getActiveBattle();
+    const lastBattleResult =
+      this.gameManager?.militaryManager.getLastBattleResult();
+
+    if (lastBattleResult) {
+      if (this.battlePopup && !this.battlePopup.isKilled()) {
+        this.battlePopup.close();
+        this.battlePopup = undefined;
+      }
+      if (!this.battleResultPopup || this.battleResultPopup.isKilled()) {
+        this.showBattleResultPopup(engine);
+      }
+      return;
+    }
+
+    if (activeBattle) {
+      if (!this.battlePopup || this.battlePopup.isKilled()) {
+        this.showBattlePopup(engine);
+      }
+      return;
+    }
+
+    if (this.battlePopup && !this.battlePopup.isKilled()) {
+      this.battlePopup.close();
+      this.battlePopup = undefined;
+    }
+  }
+
   private addResearchStatusDisplay(engine: Engine): void {
     this.addHudElement(
       new ResearchStatusView({
@@ -599,6 +646,51 @@ export class GameplayScene extends Scene {
     });
 
     this.militaryPopup = popup;
+    this.add(popup);
+  }
+
+  private showBattlePopup(engine: Engine): void {
+    if (this.battlePopup) {
+      this.battlePopup.close();
+      this.battlePopup = undefined;
+    }
+
+    const popup = new BattlePopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      militaryManager: this.gameManager.militaryManager,
+      rng: this.gameManager.rng,
+      tooltipProvider: this.tooltipProvider,
+      onClose: () => {
+        this.battlePopup = undefined;
+      },
+    });
+
+    this.battlePopup = popup;
+    this.add(popup);
+  }
+
+  private showBattleResultPopup(engine: Engine): void {
+    const result = this.gameManager.militaryManager.getLastBattleResult();
+    if (!result) return;
+
+    if (this.battleResultPopup) {
+      this.battleResultPopup.close();
+      this.battleResultPopup = undefined;
+    }
+
+    const popup = new BattleResultPopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      result,
+      tooltipProvider: this.tooltipProvider,
+      onClose: () => {
+        this.battleResultPopup = undefined;
+        this.gameManager.militaryManager.clearLastBattleResult();
+      },
+    });
+
+    this.battleResultPopup = popup;
     this.add(popup);
   }
 
@@ -780,6 +872,28 @@ export class GameplayScene extends Scene {
         },
       }),
 
+      new ScreenButton({
+        x: 0,
+        y: 150,
+        width: 120,
+        height: 40,
+        title: 'Test Battle',
+        onClick: () => {
+          this.startDebugBattle(engine);
+        },
+      }),
+
+      new ScreenButton({
+        x: 0,
+        y: 200,
+        width: 120,
+        height: 40,
+        title: 'Peasants',
+        onClick: () => {
+          this.showAngryPeasantsEvent(engine);
+        },
+      }),
+
       new ActionElement({
         x: 150,
         y: 0,
@@ -842,7 +956,7 @@ export class GameplayScene extends Scene {
       y: engine.drawHeight / 2,
       anchor: 'center',
       width: 520,
-      height: 300,
+      height: 360,
       title: 'Debug Menu',
       backplateStyle: 'gray',
       closeOnBackplateClick: true,
@@ -855,6 +969,160 @@ export class GameplayScene extends Scene {
 
     this.testPopup = popup;
     this.add(popup);
+  }
+
+  private startDebugBattle(engine: Engine): void {
+    if (this.testPopup && !this.testPopup.isKilled()) {
+      this.testPopup.close();
+      this.testPopup = undefined;
+    }
+    if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
+      this.battleResultPopup.close();
+      this.battleResultPopup = undefined;
+      this.gameManager.militaryManager.clearLastBattleResult();
+    }
+
+    this.gameManager.militaryManager.startBattle({
+      name: 'Debug Skirmish',
+      player: {
+        label: 'Player',
+        morale: 68,
+      },
+      enemy: {
+        label: 'Militia',
+        morale: 52,
+        units: { militia: 10 },
+      },
+      rewardMultiplier: 1,
+    });
+    this.showBattlePopup(engine);
+  }
+
+  private showRandomEventPopup(
+    engine: Engine,
+    config: Omit<
+      RandomEventPopupOptions,
+      'x' | 'y' | 'anchor' | 'tooltipProvider' | 'onClose'
+    >
+  ): void {
+    if (this.randomEventPopup && !this.randomEventPopup.isKilled()) {
+      this.randomEventPopup.close();
+      this.randomEventPopup = undefined;
+    }
+
+    const popup = new RandomEventPopup({
+      ...config,
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      anchor: 'center',
+      tooltipProvider: this.tooltipProvider,
+      onClose: () => {
+        this.randomEventPopup = undefined;
+      },
+    });
+
+    this.randomEventPopup = popup;
+    this.add(popup);
+  }
+
+  private showAngryPeasantsEvent(engine: Engine): void {
+    if (this.testPopup && !this.testPopup.isKilled()) {
+      this.testPopup.close();
+      this.testPopup = undefined;
+    }
+
+    const foodDemand = 8;
+    const totalFood = this.getTotalFoodStock();
+    const canGiveFood = totalFood >= foodDemand;
+    const canNegotiate =
+      this.turnManager.getTurnDataRef().focus.current >= 1 &&
+      this.resourceManager.getResource('gold') >= 4;
+
+    this.showRandomEventPopup(engine, {
+      title: 'Angry Peasants',
+      description:
+        'A hungry crowd has gathered before the granary doors. They shout that the winter levies were harsh, the bakeries bare, and the lordly storehouses too full for honest folk to go unfed. The reeve waits for your word before the mood turns from anger to riot.',
+      options: [
+        {
+          title: 'Open the Granaries',
+          disabled: !canGiveFood,
+          outcomeDescription: canGiveFood
+            ? `Spend ${foodDemand} food from your stores. The crowd is fed and breaks apart before dusk.`
+            : `Requires ${foodDemand} food. You do not have enough meat and bread in reserve to satisfy the crowd.`,
+          onSelect: () => {
+            if (!this.spendFoodFromStores(foodDemand)) {
+              return;
+            }
+          },
+        },
+        {
+          title: 'Send the Steward',
+          disabled: !canNegotiate,
+          outcomeDescription: canNegotiate
+            ? 'Spend 1 Focus and 4 Gold. Your steward promises relief, records grievances, and quiets the square without bloodshed.'
+            : 'Requires 1 Focus and 4 Gold. Without coin and personal attention, no peaceful settlement can be arranged.',
+          onSelect: () => {
+            if (!this.turnManager.spendFocus(1)) return;
+            if (!this.resourceManager.spendResource('gold', 4)) return;
+          },
+        },
+        {
+          title: 'Break the Crowd',
+          outcomeDescription:
+            'Begin a battle against Angry Peasants. Order will be restored by force if your troops prevail.',
+          onSelect: () => {
+            if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
+              this.battleResultPopup.close();
+              this.battleResultPopup = undefined;
+              this.gameManager.militaryManager.clearLastBattleResult();
+            }
+            this.gameManager.militaryManager.startBattle({
+              name: 'Angry Peasants',
+              player: {
+                label: 'Player',
+                morale: 66,
+              },
+              enemy: {
+                label: 'Peasants',
+                morale: 44,
+                units: { militia: 14 },
+              },
+              rewardMultiplier: 0.6,
+            });
+            this.showBattlePopup(engine);
+          },
+        },
+      ],
+    });
+  }
+
+  private getTotalFoodStock(): number {
+    let total = 0;
+    for (const type of FOOD_RESOURCE_TYPES) {
+      total += this.resourceManager.getResource(type);
+    }
+    return total;
+  }
+
+  private spendFoodFromStores(amount: number): boolean {
+    let remaining = amount;
+    if (this.getTotalFoodStock() < amount) {
+      return false;
+    }
+
+    for (const type of FOOD_RESOURCE_TYPES) {
+      const available = this.resourceManager.getResource(type);
+      const spend = Math.min(available, remaining);
+      if (spend > 0) {
+        this.resourceManager.spendResource(type, spend);
+        remaining -= spend;
+      }
+      if (remaining <= 0) {
+        break;
+      }
+    }
+
+    return remaining <= 0;
   }
 
   private autoSaveIfDirty(): void {
@@ -889,6 +1157,8 @@ export class GameplayScene extends Scene {
       this.gameManager.buildingManager.getBuildingsVersion();
     const researchVersion =
       this.gameManager.researchManager.getResearchVersion();
+    const militaryVersion = this.gameManager.militaryManager.getMilitaryVersion();
+    const politicsVersion = this.gameManager.politicsManager.getVersion();
     const turnVersion = this.turnManager.getTurnVersion();
     const rngState = this.gameManager.rng.getState();
     const ruler = this.gameManager.rulerManager.getRulerRef();
@@ -898,6 +1168,8 @@ export class GameplayScene extends Scene {
       resourcesVersion,
       buildingsVersion,
       researchVersion,
+      militaryVersion,
+      politicsVersion,
       turnVersion,
       rngState,
       ruler.age,
@@ -925,7 +1197,11 @@ export class GameplayScene extends Scene {
       (this.statePopup !== undefined && !this.statePopup.isKilled()) ||
       (this.rulerPopup !== undefined && !this.rulerPopup.isKilled()) ||
       (this.researchPopup !== undefined && !this.researchPopup.isKilled()) ||
-      (this.militaryPopup !== undefined && !this.militaryPopup.isKilled())
+      (this.militaryPopup !== undefined && !this.militaryPopup.isKilled()) ||
+      (this.randomEventPopup !== undefined && !this.randomEventPopup.isKilled()) ||
+      (this.battlePopup !== undefined && !this.battlePopup.isKilled()) ||
+      (this.battleResultPopup !== undefined &&
+        !this.battleResultPopup.isKilled())
     );
   }
 
@@ -938,6 +1214,21 @@ export class GameplayScene extends Scene {
     if (this.militaryPopup && !this.militaryPopup.isKilled()) {
       this.militaryPopup.close();
       this.militaryPopup = undefined;
+      return;
+    }
+    if (this.randomEventPopup && !this.randomEventPopup.isKilled()) {
+      this.randomEventPopup.close();
+      this.randomEventPopup = undefined;
+      return;
+    }
+    if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
+      this.battleResultPopup.close();
+      this.battleResultPopup = undefined;
+      return;
+    }
+    if (this.battlePopup && !this.battlePopup.isKilled()) {
+      this.battlePopup.close();
+      this.battlePopup = undefined;
       return;
     }
     if (this.researchPopup && !this.researchPopup.isKilled()) {

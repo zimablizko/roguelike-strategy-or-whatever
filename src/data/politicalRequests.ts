@@ -126,7 +126,8 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       weight: 7,
       cooldownTurns: 6,
       condition: (ctx) =>
-        ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('stone') >= 10,
+        ctx.isTechUnlocked('pol-clan-council') &&
+        ctx.getResource('stone') >= 10,
       approveRepChanges: { 'military-advisor': 4 },
       denyRepChanges: { 'military-advisor': -2, 'common-folk': 1 },
       approveResourceEffects: { stone: -10 },

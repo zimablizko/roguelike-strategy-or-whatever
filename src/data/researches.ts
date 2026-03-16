@@ -108,7 +108,8 @@ export const researchDefinitions = {
     id: 'pol-civil-code',
     tree: 'politics',
     name: 'Civil Code',
-    description: 'Codifies laws and governance. Deny reputation penalty reduced from −3 to −1.',
+    description:
+      'Codifies laws and governance. Deny reputation penalty reduced from −3 to −1.',
     turns: 3,
     requiredResearches: ['pol-clan-council'],
   },

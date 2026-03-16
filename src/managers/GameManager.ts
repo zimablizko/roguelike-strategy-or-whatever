@@ -132,8 +132,14 @@ export class GameManager {
         BARRACKS_GARRISON_PER_INSTANCE,
       isTechnologyUnlocked: (techId: string) =>
         this.buildingManager.isTechnologyUnlocked(techId),
+      grantResources: (resources) => this.resourceManager.addResources(resources),
       initial: saveData?.military ?? undefined,
     });
+
+    if (!saveData) {
+      this.militaryManager.addUnits('footman', 10, 'available');
+      this.militaryManager.addUnits('archer', 5, 'available');
+    }
 
     this.politicsManager = new PoliticsManager({
       isTechUnlocked: (techId: string) =>

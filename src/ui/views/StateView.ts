@@ -177,9 +177,7 @@ export class StateDisplay extends InteractivePanelElement {
           ? `Town Hall: ${requestCount} ${requestCount === 1 ? 'request' : 'requests'}`
           : 'Town Hall: Idle';
       const townHallColor =
-        requestCount > 0
-          ? Color.fromHex('#52b66f')
-          : Color.fromHex('#6b7b8d');
+        requestCount > 0 ? Color.fromHex('#52b66f') : Color.fromHex('#6b7b8d');
       members.push({
         graphic: new Text({
           text: townHallText,

@@ -5,8 +5,27 @@ import type { ResourceCost } from './resource.models';
 /** Classification of a military unit. */
 export type UnitClass = 'common' | 'specialist';
 
+/** Tactical attack profile used by battle resolution. */
+export type UnitAttackType = 'melee' | 'ranged' | 'support';
+
 /** Role identifier for all unit types. */
 export type UnitRole = 'militia' | 'footman' | 'archer' | 'spy' | 'engineer';
+
+/** Player-facing per-unit commands for indirect battle control. */
+export type BattleCommandId =
+  | 'press-forward'
+  | 'shield-up'
+  | 'volley'
+  | 'sow-panic'
+  | 'brace-line';
+
+/** Temporary combat statuses applied by commands and battle events. */
+export type BattleStatusId =
+  | 'aggressive'
+  | 'shielded'
+  | 'volleying'
+  | 'fortified'
+  | 'disrupting';
 
 /**
  * Static definition of a military unit type.
@@ -20,6 +39,12 @@ export interface UnitDefinition {
   class: UnitClass;
   /** Base combat power contributed per unit. */
   power: number;
+  /** Base health of a single unit in tactical battle. */
+  health: number;
+  /** Base defense multiplier (1 = normal). */
+  defense: number;
+  /** Which combat phase this unit contributes to most. */
+  attackType: UnitAttackType;
   /** Per-turn upkeep cost while the unit exists. */
   upkeep: ResourceCost;
   /** One-time resource cost to begin training. */
@@ -28,8 +53,33 @@ export interface UnitDefinition {
   trainingTime: number;
   /** Tags for matching specialists to task bonuses. */
   tags: string[];
+  /** Indirect battle commands available from the unit card. */
+  commandIds: BattleCommandId[];
   /** Technology required to unlock this unit type. Empty = always available. */
   requiredTechnologies: string[];
+}
+
+/** Static description of a battle command. */
+export interface BattleCommandDefinition {
+  id: BattleCommandId;
+  name: string;
+  description: string;
+  statusId: BattleStatusId;
+  /** Harder commands are more likely to be ignored at low morale. */
+  disciplineDifficulty: number;
+}
+
+/** Static description of a temporary battle status. */
+export interface BattleStatusDefinition {
+  id: BattleStatusId;
+  name: string;
+  description: string;
+  powerMultiplier?: number;
+  defenseMultiplier?: number;
+  meleePowerMultiplier?: number;
+  rangedPowerMultiplier?: number;
+  rangedDefenseMultiplier?: number;
+  enemyMoraleHit?: number;
 }
 
 // ─── Roster ──────────────────────────────────────────────────────────
@@ -140,6 +190,120 @@ export interface ThreatOutcome {
   specialistBonuses: string[];
 }
 
+// ─── Tactical Battles ────────────────────────────────────────────────
+
+export type BattleWinner = 'player' | 'enemy' | 'draw';
+
+export interface ActiveBattleStatus {
+  statusId: BattleStatusId;
+  turnsLeft: number;
+  sourceCommandId?: BattleCommandId;
+}
+
+export interface BattleAttackQueueItem {
+  side: 'player' | 'enemy';
+  battleUnitId: string;
+}
+
+export interface PendingBattleAction {
+  attackerSide: 'player' | 'enemy';
+  attackerUnitId: string;
+  defenderSide: 'player' | 'enemy';
+  defenderUnitId: string;
+  attackType: UnitAttackType;
+  attackerLabel: string;
+  defenderLabel: string;
+  damage: number;
+  counterDamage: number;
+  roundNumber: number;
+}
+
+export interface BattleUnitState {
+  battleUnitId: string;
+  unitId: UnitRole;
+  initialQuantity: number;
+  remainingHealth: number;
+  killedCount: number;
+  routedCount: number;
+  selectedCommandId?: BattleCommandId;
+  activeStatuses: ActiveBattleStatus[];
+}
+
+export interface BattleSideState {
+  label: string;
+  morale: number;
+  startingMorale: number;
+  usesRoster: boolean;
+  reserveUnits: Partial<Record<UnitRole, number>>;
+  maxGroups: number;
+  units: BattleUnitState[];
+}
+
+export interface BattleTurnSummary {
+  turnNumber: number;
+  roundNumber: number;
+  playerDamage: number;
+  enemyDamage: number;
+  playerMorale: number;
+  enemyMorale: number;
+  playerCasualties: Partial<Record<UnitRole, number>>;
+  enemyCasualties: Partial<Record<UnitRole, number>>;
+  playerRouted: Partial<Record<UnitRole, number>>;
+  enemyRouted: Partial<Record<UnitRole, number>>;
+  action?: PendingBattleAction;
+  commandResults: string[];
+  highlights: string[];
+}
+
+export interface BattleState {
+  battleId: number;
+  name: string;
+  phase: 'preparation' | 'battle';
+  turnNumber: number;
+  roundNumber: number;
+  rewardMultiplier: number;
+  attackQueue: BattleAttackQueueItem[];
+  pendingWinner?: BattleWinner;
+  pendingAction?: PendingBattleAction;
+  pendingRoundNotes: string[];
+  battleLog: string[];
+  player: BattleSideState;
+  enemy: BattleSideState;
+  lastTurnSummary?: BattleTurnSummary;
+}
+
+export interface BattleResult {
+  battleId: number;
+  name: string;
+  winner: BattleWinner;
+  turns: number;
+  playerKilled: Partial<Record<UnitRole, number>>;
+  enemyKilled: Partial<Record<UnitRole, number>>;
+  playerRouted: Partial<Record<UnitRole, number>>;
+  enemyRouted: Partial<Record<UnitRole, number>>;
+  rewards: ResourceCost;
+  playerMorale: number;
+  enemyMorale: number;
+  summaryLines: string[];
+}
+
+export interface BattleStartSide {
+  label?: string;
+  morale?: number;
+  units?: Partial<Record<UnitRole, number>>;
+  /** If true, units are temporarily removed from available roster until battle ends. */
+  reserveFromRoster?: boolean;
+}
+
+export interface StartBattleOptions {
+  name: string;
+  player?: BattleStartSide;
+  enemy: BattleStartSide & {
+    units: Partial<Record<UnitRole, number>>;
+  };
+  rewardMultiplier?: number;
+}
+
 // ─── Manager Options ─────────────────────────────────────────────────
 
 /** Serializable military state for save/load. */
@@ -149,9 +313,12 @@ export interface MilitarySaveState {
   assignments: MilitaryAssignment[];
   threats: MilitaryThreat[];
   lastOutcomes: ThreatOutcome[];
+  activeBattle?: BattleState;
+  lastBattleResult?: BattleResult;
   orderSerial: number;
   assignmentSerial: number;
   threatSerial: number;
+  battleSerial: number;
   version: number;
 }
 
@@ -162,6 +329,8 @@ export interface MilitaryManagerOptions {
   getGarrisonCapacity: () => number;
   /** Technology check — returns true if the given technology id is completed. */
   isTechnologyUnlocked: (techId: string) => boolean;
+  /** Applies battle rewards to the game economy. */
+  grantResources?: (resources: ResourceCost) => void;
   /** Restore from save data. */
   initial?: MilitarySaveState;
 }

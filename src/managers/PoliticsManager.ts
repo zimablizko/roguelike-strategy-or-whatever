@@ -207,7 +207,9 @@ export class PoliticsManager {
     this.expireRequests(currentTurn);
 
     const activeEntityIds = this.getActiveEntityIds();
-    const activeDefIds = new Set(this.activeRequests.map((r) => r.definitionId));
+    const activeDefIds = new Set(
+      this.activeRequests.map((r) => r.definitionId)
+    );
     const activeEntitySet = new Set(this.activeRequests.map((r) => r.entityId));
 
     // Build condition context
@@ -229,7 +231,8 @@ export class PoliticsManager {
       if (currentTurn < scheduledTurn) continue;
 
       // Reschedule to next week (base it on scheduledTurn to avoid drift)
-      const nextScheduled = Math.max(currentTurn, scheduledTurn) + 7 + rng.randomInt(0, 6);
+      const nextScheduled =
+        Math.max(currentTurn, scheduledTurn) + 7 + rng.randomInt(0, 6);
       this.entityScheduledTurns.set(entityId, nextScheduled);
 
       // Skip if this entity already has an active pending request
@@ -240,7 +243,10 @@ export class PoliticsManager {
         if (def.entityId !== entityId) return false;
         if (activeDefIds.has(def.id)) return false;
         const lastTurn = this.cooldowns.get(def.id);
-        if (lastTurn !== undefined && currentTurn - lastTurn < def.cooldownTurns)
+        if (
+          lastTurn !== undefined &&
+          currentTurn - lastTurn < def.cooldownTurns
+        )
           return false;
         if (def.condition && !def.condition(ctx)) return false;
         return true;
