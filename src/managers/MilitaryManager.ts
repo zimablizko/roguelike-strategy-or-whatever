@@ -69,18 +69,14 @@ export class MilitaryManager {
     this.grantResources = options.grantResources ?? (() => {});
 
     if (options.initial) {
-      this.roster = options.initial.roster.map((s) => ({ ...s }));
-      this.trainingQueue = options.initial.trainingQueue.map((o) => ({ ...o }));
-      this.assignments = options.initial.assignments.map((a) => ({
-        ...a,
-        allocatedUnits: { ...a.allocatedUnits },
+      this.roster = options.initial.roster.map((stack) => ({
+        ...stack,
+        readiness: 'available',
       }));
-      this.threats = (options.initial.threats ?? []).map((t) => ({ ...t }));
-      this.lastOutcomes = (options.initial.lastOutcomes ?? []).map((o) => ({
-        ...o,
-        casualties: { ...o.casualties },
-        resourceLosses: { ...o.resourceLosses },
-      }));
+      this.trainingQueue = [];
+      this.assignments = [];
+      this.threats = [];
+      this.lastOutcomes = [];
       this.activeBattle = options.initial.activeBattle
         ? this.cloneBattleState(options.initial.activeBattle)
         : undefined;
@@ -124,6 +120,13 @@ export class MilitaryManager {
       total += stack.count;
     }
     return total;
+  }
+
+  getPopulationUsage(): number {
+    return Object.values(this.getSnapshot().composition).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0
+    );
   }
 
   addUnits(
@@ -878,17 +881,10 @@ export class MilitaryManager {
   getSaveState(): MilitarySaveState {
     return {
       roster: this.roster.map((s) => ({ ...s })),
-      trainingQueue: this.trainingQueue.map((o) => ({ ...o })),
-      assignments: this.assignments.map((a) => ({
-        ...a,
-        allocatedUnits: { ...a.allocatedUnits },
-      })),
-      threats: this.threats.map((t) => ({ ...t })),
-      lastOutcomes: this.lastOutcomes.map((o) => ({
-        ...o,
-        casualties: { ...o.casualties },
-        resourceLosses: { ...o.resourceLosses },
-      })),
+      trainingQueue: [],
+      assignments: [],
+      threats: [],
+      lastOutcomes: [],
       activeBattle: this.activeBattle
         ? this.cloneBattleState(this.activeBattle)
         : undefined,

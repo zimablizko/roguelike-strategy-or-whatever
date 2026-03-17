@@ -61,7 +61,7 @@ export const unitDefinitions = {
     trainingTime: 2,
     tags: ['ranged', 'light'],
     commandIds: ['volley'],
-    requiredTechnologies: ['mil-drill-doctrine'],
+    requiredTechnologies: ['mil-fletching'],
   },
   spy: {
     id: 'spy',

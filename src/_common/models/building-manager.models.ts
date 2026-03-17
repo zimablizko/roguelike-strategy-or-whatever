@@ -1,4 +1,5 @@
 import type { MapManager } from '../../managers/MapManager';
+import type { UnitRole } from './military.models';
 import type { SeededRandom } from '../random';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { MapPlayerStateSummary } from './map.models';
@@ -37,6 +38,15 @@ export interface StateBuildingInstance {
    * undefined (or 0) means the building is fully operational.
    */
   turnsRemaining?: number;
+}
+
+export interface BuildingActionProgress {
+  instanceId: string;
+  buildingId: StateBuildingId;
+  actionId: string;
+  turnsLeft: number;
+  unitId: UnitRole;
+  unitCount: number;
 }
 
 export interface StateBuildingMapOverlay extends StateBuildingInstance {
@@ -79,5 +89,6 @@ export interface BuildingManagerOptions {
     builtBuildings?: Partial<Record<StateBuildingId, number | boolean>>;
     buildingInstances?: StateBuildingInstance[];
     buildingInstanceSerial?: number;
+    actionProgresses?: BuildingActionProgress[];
   };
 }

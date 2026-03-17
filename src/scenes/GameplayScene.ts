@@ -557,15 +557,11 @@ export class GameplayScene extends Scene {
   private performEndTurn(engine: Engine): void {
     const result = this.turnManager.endTurn();
     this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
+    this.mapIncomeEffectsView?.addIncomePulses(result.actionPulses);
     this.saveCurrentGame();
     if (!result.upkeepPaid) {
       engine.goToScene('game-over');
       return;
-    }
-
-    // Auto-open military popup when threats resolve or new threats appear
-    if (result.threatOutcomes.length > 0 || result.newThreats.length > 0) {
-      this.showMilitaryPopup(engine);
     }
   }
 

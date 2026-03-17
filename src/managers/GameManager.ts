@@ -109,6 +109,7 @@ export class GameManager {
             builtBuildings: saveData.buildings.counts,
             buildingInstances: saveData.buildings.instances,
             buildingInstanceSerial: saveData.buildings.instanceSerial,
+            actionProgresses: saveData.buildings.actionProgresses,
           }
         : undefined,
     });
@@ -135,11 +136,9 @@ export class GameManager {
       grantResources: (resources) => this.resourceManager.addResources(resources),
       initial: saveData?.military ?? undefined,
     });
-
-    if (!saveData) {
-      this.militaryManager.addUnits('footman', 10, 'available');
-      this.militaryManager.addUnits('archer', 5, 'available');
-    }
+    this.buildingManager.setAdditionalOccupiedPopulationProvider(() =>
+      this.militaryManager.getPopulationUsage()
+    );
 
     this.politicsManager = new PoliticsManager({
       isTechUnlocked: (techId: string) =>
@@ -226,6 +225,7 @@ export class GameManager {
         instances: this.buildingManager.getBuildingInstances(),
         instanceSerial: this.buildingManager.getBuildingInstanceSerial(),
         technologies: this.buildingManager.getUnlockedTechnologies(),
+        actionProgresses: this.buildingManager.getBuildingActionProgresses(),
       },
       research: {
         activeResearch: this.researchManager.getActiveResearchState(),

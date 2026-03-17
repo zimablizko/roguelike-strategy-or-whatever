@@ -1,5 +1,6 @@
 import { clamp } from '../_common/math';
 import type {
+  BuildingActionProgress,
   BuildingManagerOptions,
   BuildingManagerStateBridge,
   BuildingMapCell,
@@ -17,11 +18,13 @@ import type {
   TypedBuildingDefinition,
 } from '../_common/models/buildings.models';
 import type { MapData } from '../_common/models/map.models';
+import type { UnitRole } from '../_common/models/military.models';
 import type {
   ResourceCost,
   ResourceType,
 } from '../_common/models/resource.models';
 import type { EndTurnIncomePulse } from '../_common/models/turn.models';
+import { SeededRandom } from '../_common/random';
 import {
   createEmptyBuildingRecord,
   stateBuildingDefinitions,
@@ -31,22 +34,27 @@ import {
   type RareResourceId,
 } from '../data/rareResources';
 import { MapManager } from './MapManager';
+import type { MilitaryManager } from './MilitaryManager';
 import type { ResourceManager } from './ResourceManager';
 
 export class BuildingManager {
   private readonly mapManager?: MapManager;
   private readonly stateBridge: BuildingManagerStateBridge;
+  private readonly rng: SeededRandom;
   private buildingCounts: Record<StateBuildingId, number>;
   private buildingInstances: StateBuildingInstance[] = [];
+  private actionProgresses: BuildingActionProgress[] = [];
   private buildingInstanceSerial = 0;
   private buildingsVersion = 0;
   private unlockedTechnologies = new Set<TechnologyId>();
+  private additionalOccupiedPopulationProvider: () => number = () => 0;
   /** Tracks how many times each action has been used this turn. Key: "instanceId:actionId". */
   private actionUsesThisTurn = new Map<string, number>();
 
   constructor(options: BuildingManagerOptions) {
     this.mapManager = options.mapManager;
     this.stateBridge = options.stateBridge;
+    this.rng = options.rng ?? new SeededRandom();
     this.buildingCounts = createEmptyBuildingRecord();
     this.applyProgress(options.initial);
     this.ensureStartingCastle();
@@ -56,6 +64,7 @@ export class BuildingManager {
   regenerate(initial?: BuildingManagerOptions['initial']): void {
     this.buildingCounts = createEmptyBuildingRecord();
     this.buildingInstances = [];
+    this.actionProgresses = [];
     this.buildingInstanceSerial = 0;
     this.buildingsVersion = 0;
     this.applyProgress(initial);
@@ -97,6 +106,20 @@ export class BuildingManager {
     return this.buildingInstances;
   }
 
+  getBuildingActionProgresses(): BuildingActionProgress[] {
+    return this.actionProgresses.map((progress) => ({ ...progress }));
+  }
+
+  getBuildingActionProgress(
+    instanceId: string,
+    actionId: string
+  ): BuildingActionProgress | undefined {
+    const progress = this.actionProgresses.find(
+      (item) => item.instanceId === instanceId && item.actionId === actionId
+    );
+    return progress ? { ...progress } : undefined;
+  }
+
   getBuildingInstanceSerial(): number {
     return this.buildingInstanceSerial;
   }
@@ -123,6 +146,11 @@ export class BuildingManager {
 
   getBuildingsVersion(): number {
     return this.buildingsVersion;
+  }
+
+  setAdditionalOccupiedPopulationProvider(provider: (() => number) | undefined) {
+    this.additionalOccupiedPopulationProvider = provider ?? (() => 0);
+    this.buildingsVersion++;
   }
 
   /**
@@ -192,7 +220,48 @@ export class BuildingManager {
         occupied += definition.populationRequired;
       }
     }
+    occupied += Math.max(0, this.additionalOccupiedPopulationProvider());
     return occupied;
+  }
+
+  advanceBuildingActionProgress(
+    militaryManager?: MilitaryManager
+  ): EndTurnIncomePulse[] {
+    const pulses: EndTurnIncomePulse[] = [];
+    const remaining: BuildingActionProgress[] = [];
+    let changed = false;
+
+    for (const progress of this.actionProgresses) {
+      const nextTurnsLeft = progress.turnsLeft - 1;
+      if (nextTurnsLeft > 0) {
+        remaining.push({ ...progress, turnsLeft: nextTurnsLeft });
+        changed = true;
+        continue;
+      }
+
+      changed = true;
+      if (militaryManager) {
+        militaryManager.addUnits(progress.unitId, progress.unitCount, 'available');
+      }
+      const instance = this.buildingInstances.find(
+        (item) => item.instanceId === progress.instanceId
+      );
+      if (instance) {
+        pulses.push(
+          this.createUnitPulse(
+            instance,
+            progress.unitCount,
+            this.getUnitPulseLabel(progress.unitId)
+          )
+        );
+      }
+    }
+
+    this.actionProgresses = remaining;
+    if (changed) {
+      this.buildingsVersion++;
+    }
+    return pulses;
   }
 
   /**
@@ -341,7 +410,12 @@ export class BuildingManager {
 
   unlockTechnology(id: TechnologyId): void {
     if (!id.trim()) return;
-    this.unlockedTechnologies.add(id.trim());
+    const normalized = id.trim();
+    if (this.unlockedTechnologies.has(normalized)) {
+      return;
+    }
+    this.unlockedTechnologies.add(normalized);
+    this.buildingsVersion++;
   }
 
   canBuildBuilding(
@@ -600,12 +674,26 @@ export class BuildingManager {
       return null;
     }
 
-    if (buildingId === 'castle' && actionId === 'expand-border') {
-      const expanded = this.expandPlayerBorders();
-      if (expanded) {
-        this.incrementActionUsage(instanceId, actionId);
+    const militaryAction = this.getMilitaryActionDefinition(buildingId, actionId);
+    if (militaryAction) {
+      if (!resources.spendResources(militaryAction.cost)) {
+        return null;
       }
-      return expanded ? [] : null;
+
+      this.actionProgresses.push({
+        instanceId,
+        buildingId,
+        actionId,
+        turnsLeft: militaryAction.duration,
+        unitId: militaryAction.unitId,
+        unitCount: this.rng.randomInt(
+          militaryAction.minUnits,
+          militaryAction.maxUnits
+        ),
+      });
+      this.incrementActionUsage(instanceId, actionId);
+      this.buildingsVersion++;
+      return [];
     }
 
     const definition = this.getBuildingDefinition(buildingId);
@@ -739,6 +827,16 @@ export class BuildingManager {
       };
     }
 
+    const activeProgress = this.actionProgresses.find(
+      (item) => item.instanceId === instanceId && item.actionId === actionId
+    );
+    if (activeProgress) {
+      return {
+        activatable: false,
+        reason: `In progress (${activeProgress.turnsLeft} turn${activeProgress.turnsLeft === 1 ? '' : 's'} remaining).`,
+      };
+    }
+
     const usesMax = action.charges ?? 1;
     const usedCount =
       this.actionUsesThisTurn.get(`${instanceId}:${actionId}`) ?? 0;
@@ -753,9 +851,60 @@ export class BuildingManager {
       };
     }
 
-    if (buildingId === 'castle' && actionId === 'expand-border') {
-      const expandStatus = this.getExpandBorderStatus();
-      return { ...expandStatus, usesRemaining, usesMax };
+    const militaryAction = this.getMilitaryActionDefinition(buildingId, actionId);
+    if (militaryAction) {
+      const siblingProgress = this.actionProgresses.find(
+        (item) =>
+          item.instanceId === instanceId &&
+          item.buildingId === buildingId &&
+          item.actionId !== actionId
+      );
+      if (siblingProgress) {
+        return {
+          activatable: false,
+          reason: `Another action is already in progress (${siblingProgress.turnsLeft} turn${siblingProgress.turnsLeft === 1 ? '' : 's'} remaining).`,
+          usesRemaining,
+          usesMax,
+        };
+      }
+
+      if (
+        militaryAction.requiredTechnology &&
+        !this.isTechnologyUnlocked(militaryAction.requiredTechnology)
+      ) {
+        return {
+          activatable: false,
+          reason: `Requires ${militaryAction.requiredTechnologyName}.`,
+          usesRemaining,
+          usesMax,
+        };
+      }
+
+      if (this.getFreePopulation() < 1) {
+        return {
+          activatable: false,
+          reason: 'Requires at least 1 free Population.',
+          usesRemaining,
+          usesMax,
+        };
+      }
+
+      if (resources) {
+        const missing = this.getMissingResources(militaryAction.cost, resources);
+        const missingEntries = Object.entries(missing);
+        if (missingEntries.length > 0) {
+          return {
+            activatable: false,
+            reason: `Missing ${missingEntries
+              .map(([resourceType, amount]) => `${amount} ${resourceType}`)
+              .join(', ')}.`,
+            usesRemaining,
+            usesMax,
+          };
+        }
+      }
+
+      return { activatable: true, usesRemaining, usesMax };
     }
 
     if (action.canRun) {
@@ -802,6 +951,7 @@ export class BuildingManager {
 
     this.buildingCounts = createEmptyBuildingRecord();
     this.buildingInstances = [];
+    this.actionProgresses = [];
     this.buildingInstanceSerial = 0;
 
     if (initial?.buildingInstances && initial.buildingInstances.length > 0) {
@@ -835,6 +985,17 @@ export class BuildingManager {
         0
       );
       this.buildingInstanceSerial = Math.max(requestedSerial, highestSerial);
+      this.actionProgresses = (initial.actionProgresses ?? [])
+        .filter((progress) =>
+          this.buildingInstances.some(
+            (instance) => instance.instanceId === progress.instanceId
+          )
+        )
+        .map((progress) => ({
+          ...progress,
+          turnsLeft: Math.max(1, Math.floor(progress.turnsLeft)),
+          unitCount: Math.max(1, Math.floor(progress.unitCount)),
+        }));
       return;
     }
 
@@ -1096,129 +1257,80 @@ export class BuildingManager {
     );
   }
 
-  private expandPlayerBorders(): boolean {
-    if (!this.mapManager) {
-      return false;
+  private getMilitaryActionDefinition(
+    buildingId: StateBuildingId,
+    actionId: string
+  ):
+    | {
+        cost: ResourceCost;
+        duration: number;
+        unitId: UnitRole;
+        minUnits: number;
+        maxUnits: number;
+        requiredTechnology?: TechnologyId;
+        requiredTechnologyName?: string;
+      }
+    | undefined {
+    if (buildingId === 'barracks' && actionId === 'train-footmen') {
+      return {
+        cost: { gold: 50 },
+        duration: 2,
+        unitId: 'footman',
+        minUnits: 3,
+        maxUnits: 5,
+      };
     }
-
-    const status = this.getExpandBorderStatus();
-    if (!status.activatable || !status.candidates) {
-      return false;
+    if (buildingId === 'barracks' && actionId === 'train-archers') {
+      return {
+        cost: { gold: 75, wood: 25 },
+        duration: 2,
+        unitId: 'archer',
+        minUnits: 3,
+        maxUnits: 5,
+        requiredTechnology: 'mil-fletching',
+        requiredTechnologyName: 'Fletching',
+      };
     }
-
-    const map = this.mapManager.getMapRef() as MapData;
-    const playerZoneId = map.playerZoneId;
-    if (playerZoneId === null) {
-      return false;
+    if (buildingId === 'castle' && actionId === 'call-to-arms') {
+      return {
+        cost: { gold: 10 },
+        duration: 1,
+        unitId: 'militia',
+        minUnits: 4,
+        maxUnits: 6,
+      };
     }
-
-    for (const cell of status.candidates) {
-      map.zones[cell.y][cell.x] = playerZoneId;
-    }
-
-    this.syncStateWithMapSummary();
-    return true;
+    return undefined;
   }
 
-  private getExpandBorderStatus(): StateBuildingActionStatus & {
-    candidates?: BuildingMapCell[];
-  } {
-    if (!this.mapManager) {
-      return {
-        activatable: false,
-        reason: 'Map is unavailable for expansion.',
-      };
-    }
-
-    const map = this.mapManager.getMapRef();
-    const playerZoneId = map.playerZoneId;
-    if (playerZoneId === null) {
-      return {
-        activatable: false,
-        reason: 'No player zone to expand.',
-      };
-    }
-
-    const zoneCells: BuildingMapCell[] = [];
-    for (let y = 0; y < map.height; y++) {
-      for (let x = 0; x < map.width; x++) {
-        if (map.zones[y][x] === playerZoneId) {
-          zoneCells.push({ x, y });
-        }
-      }
-    }
-
-    if (zoneCells.length === 0) {
-      return {
-        activatable: false,
-        reason: 'No player zone to expand.',
-      };
-    }
-
-    const zoneKeys = new Set<string>(
-      zoneCells.map((cell) => `${cell.x},${cell.y}`)
-    );
-    const candidatesByKey = new Map<string, BuildingMapCell>();
-    let blockedByEdge = false;
-    let blockedByOcean = false;
-
-    for (const cell of zoneCells) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) {
-            continue;
-          }
-
-          const nx = cell.x + dx;
-          const ny = cell.y + dy;
-          if (!this.isInsideMap(nx, ny, map.width, map.height)) {
-            blockedByEdge = true;
-            continue;
-          }
-
-          if (map.tiles[ny][nx] === 'ocean') {
-            blockedByOcean = true;
-            continue;
-          }
-
-          const key = `${nx},${ny}`;
-          if (!zoneKeys.has(key)) {
-            candidatesByKey.set(key, { x: nx, y: ny });
-          }
-        }
-      }
-    }
-
-    const candidates = Array.from(candidatesByKey.values());
-    if (candidates.length === 0) {
-      if (blockedByEdge && blockedByOcean) {
-        return {
-          activatable: false,
-          reason: 'Cannot expand: all sides are blocked by map edge or ocean.',
-        };
-      }
-      if (blockedByEdge) {
-        return {
-          activatable: false,
-          reason: 'Cannot expand: all available sides hit map edge.',
-        };
-      }
-      if (blockedByOcean) {
-        return {
-          activatable: false,
-          reason: 'Cannot expand: all available sides are ocean.',
-        };
-      }
-      return {
-        activatable: false,
-        reason: 'No tiles available to expand.',
-      };
-    }
-
+  private createUnitPulse(
+    instance: StateBuildingInstance,
+    amount: number,
+    unitLabel: string
+  ): EndTurnIncomePulse {
     return {
-      activatable: true,
-      candidates,
+      tileX: instance.x + (instance.width - 1) / 2,
+      tileY: instance.y + (instance.height - 1) / 2,
+      label: `+${amount} ${unitLabel}`,
+      colorHex: '#9fe6aa',
     };
+  }
+
+  private getUnitPulseLabel(unitId: UnitRole): string {
+    switch (unitId) {
+      case 'footman':
+        return 'Footmen';
+      case 'archer':
+        return 'Archers';
+      case 'militia':
+        return 'Militia';
+      case 'spy':
+        return 'Spies';
+      case 'engineer':
+        return 'Engineers';
+      default:
+        return unitId;
+    }
   }
 
   private findBestPlacement(
@@ -1448,12 +1560,4 @@ export class BuildingManager {
     };
   }
 
-  private isInsideMap(
-    x: number,
-    y: number,
-    width: number,
-    height: number
-  ): boolean {
-    return x >= 0 && x < width && y >= 0 && y < height;
-  }
 }

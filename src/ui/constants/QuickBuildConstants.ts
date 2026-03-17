@@ -24,7 +24,7 @@ export const QUICK_BUILD_HOTKEYS: Partial<
   mine: { key: Keys.M, label: 'M' },
   farm: { key: Keys.F, label: 'F' },
   'hunters-hut': { key: Keys.T, label: 'T' },
-  barracks: { key: Keys.B, label: 'B' },
+  barracks: { key: Keys.K, label: 'K' },
 };
 
 export const QUICK_BUILD_COLORS = {

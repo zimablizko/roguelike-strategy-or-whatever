@@ -151,18 +151,27 @@ export const researchDefinitions = {
   'mil-drill-doctrine': {
     id: 'mil-drill-doctrine',
     tree: 'military',
-    name: 'Drill Doctrine',
+    name: 'Standing Army',
     description:
-      'Standardized battlefield drills for regular troops. Unlocks Barracks construction and training of Footmen and Archers.',
+      'Establishes permanent troop levies and a formal barracks system. Unlocks Barracks construction and Footmen training.',
     turns: 2,
     requiredResearches: [],
+  },
+  'mil-fletching': {
+    id: 'mil-fletching',
+    tree: 'military',
+    name: 'Fletching',
+    description:
+      'Standardized bowcraft and arrow-making. Unlocks Archer training at Barracks.',
+    turns: 3,
+    requiredResearches: ['mil-drill-doctrine'],
   },
   'mil-iron-weapons': {
     id: 'mil-iron-weapons',
     tree: 'military',
     name: 'Iron Weapons',
     description:
-      'Improved forging methods for durable iron arms. Unlocks Spy training. All Footmen gain +1 power.',
+      'Improved forging methods for durable iron arms. All Footmen gain +1 power.',
     turns: 3,
     requiredResearches: ['mil-drill-doctrine'],
   },
@@ -171,7 +180,7 @@ export const researchDefinitions = {
     tree: 'military',
     name: 'Fortification Engineering',
     description:
-      'Advanced wall and tower construction techniques. Unlocks Engineer training. Border defense and anti-raid assignments gain +2 base power.',
+      'Advanced wall and tower construction techniques for hardened military infrastructure.',
     turns: 3,
     requiredResearches: ['mil-drill-doctrine'],
   },
@@ -180,16 +189,16 @@ export const researchDefinitions = {
     tree: 'military',
     name: 'Siege Tactics',
     description:
-      'Coordinated assault planning against defended positions. Unlocks the Campaign assignment type for offensive operations.',
+      'Coordinated assault planning against defended positions and long sieges.',
     turns: 4,
     requiredResearches: ['mil-iron-weapons'],
   },
   'mil-standing-army': {
     id: 'mil-standing-army',
     tree: 'military',
-    name: 'Standing Army',
+    name: 'Army Logistics',
     description:
-      'Permanent trained army with strict command hierarchy. Doubles garrison capacity per Barracks and reduces all unit upkeep by 1 meat.',
+      'Permanent supply chains and depot planning. Doubles garrison capacity per Barracks and reduces all unit upkeep by 1 meat.',
     turns: 5,
     requiredResearches: ['mil-fortification-engineering', 'mil-siege-tactics'],
   },

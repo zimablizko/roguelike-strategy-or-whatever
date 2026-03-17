@@ -50,11 +50,9 @@ export const stateBuildingDefinitions = {
     ],
     actions: [
       {
-        id: 'expand-border',
-        name: 'Expand',
-        description:
-          'Expand state borders by 1 cell in all directions if no edge or ocean blocks expansion.',
-        charges: 2,
+        id: 'call-to-arms',
+        name: 'Call to Arms',
+        description: 'Raise a levy of local militia.',
         run: () => {},
       },
     ],
@@ -448,7 +446,7 @@ export const stateBuildingDefinitions = {
     shortName: 'Brk',
     name: 'Barracks',
     description:
-      'Military training facility where recruits are drilled into soldiers. Each Barracks provides 4 training slots and garrisons up to 8 units.',
+      'Military training facility where recruits are drilled into soldiers.',
     buildCost: {
       gold: 60,
       wood: 20,
@@ -467,11 +465,25 @@ export const stateBuildingDefinitions = {
     requiredTechnologies: ['mil-drill-doctrine'],
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
-      `Training capacity: ${count * 4} slots`,
-      `Garrison capacity: ${count * 8} units`,
+      'Trains one unit batch at a time per Barracks',
       'Occupies 3x2 tiles',
     ],
-    actions: [],
+    actions: [
+      {
+        id: 'train-footmen',
+        name: 'Train Footmen',
+        description:
+          'Begin drilling a batch of Footmen. Requires at least 1 free Population.',
+        run: () => {},
+      },
+      {
+        id: 'train-archers',
+        name: 'Train Archers',
+        description:
+          'Begin drilling a batch of Archers. Requires Fletching and at least 1 free Population.',
+        run: () => {},
+      },
+    ],
   },
   'hunters-hut': {
     id: 'hunters-hut',

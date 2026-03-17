@@ -16,6 +16,7 @@ import type {
   StateBuildingActionDefinition,
   TypedBuildingDefinition,
 } from '../../_common/models/buildings.models';
+import type { UnitRole } from '../../_common/models/military.models';
 import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models';
@@ -68,6 +69,7 @@ export class SelectedBuildingView extends ScreenElement {
   private readonly mapViewportWidth: number;
 
   private currentPanelWidth: number;
+  private currentPanelHeight: number;
   private selectedBuildingInstanceId?: string;
   private actionRows: ActionElement[] = [];
   private lastBuildingsVersion = -1;
@@ -92,6 +94,7 @@ export class SelectedBuildingView extends ScreenElement {
     this.mapViewportLeft = options.mapViewportLeft ?? 0;
     this.mapViewportWidth = options.mapViewportWidth ?? 0;
     this.currentPanelWidth = this.minPanelWidth;
+    this.currentPanelHeight = this.panelHeight;
   }
 
   onInitialize(): void {
@@ -129,7 +132,7 @@ export class SelectedBuildingView extends ScreenElement {
       screenX >= x &&
       screenX <= x + this.currentPanelWidth &&
       screenY >= y &&
-      screenY <= y + this.panelHeight
+      screenY <= y + this.currentPanelHeight
     );
   }
 
@@ -145,7 +148,7 @@ export class SelectedBuildingView extends ScreenElement {
 
     this.pos = vec(
       vpLeft + (vpWidth - this.currentPanelWidth) / 2,
-      engine.drawHeight - this.panelHeight - this.bottomMargin
+      engine.drawHeight - this.currentPanelHeight - this.bottomMargin
     );
   }
 
@@ -179,6 +182,7 @@ export class SelectedBuildingView extends ScreenElement {
     this.clearActionRows();
 
     if (!selected) {
+      this.currentPanelHeight = this.panelHeight;
       this.graphics.isVisible = false;
       this.graphics.use(new GraphicsGroup({ members: [] }));
       return;
@@ -186,39 +190,13 @@ export class SelectedBuildingView extends ScreenElement {
 
     this.graphics.isVisible = true;
 
-    const members: GraphicsGrouping[] = [
-      {
-        graphic: new Rectangle({
-          width: this.currentPanelWidth,
-          height: this.panelHeight,
-          color: Color.fromRGB(14, 24, 35, 0.86),
-        }),
-        offset: vec(0, 0),
-      },
-      {
-        graphic: new Rectangle({
-          width: this.currentPanelWidth,
-          height: 1,
-          color: Color.fromRGB(170, 196, 220, 0.55),
-        }),
-        offset: vec(0, 0),
-      },
-      {
-        graphic: new Rectangle({
-          width: this.currentPanelWidth,
-          height: 1,
-          color: Color.fromRGB(170, 196, 220, 0.55),
-        }),
-        offset: vec(0, this.panelHeight - 1),
-      },
-    ];
-
     const definition = this.buildingManager.getBuildingDefinition(
       selected.buildingId
     );
     if (!definition) {
+      this.currentPanelHeight = this.panelHeight;
       this.graphics.isVisible = false;
-      this.graphics.use(new GraphicsGroup({ members }));
+      this.graphics.use(new GraphicsGroup({ members: [] }));
       return;
     }
 
@@ -250,7 +228,8 @@ export class SelectedBuildingView extends ScreenElement {
       280
     );
 
-    const actionButtonWidth = this.resolveActionButtonWidth(definition.actions);
+    const visibleActions = this.getVisibleActions(definition);
+    const actionButtonWidth = this.resolveActionButtonWidth(visibleActions);
     const contentGap = 14;
     const sidePadding = 12;
     const desiredPanelWidth =
@@ -276,7 +255,50 @@ export class SelectedBuildingView extends ScreenElement {
     const POS_COLOR = Color.fromHex('#78d989');
     const NEG_COLOR = Color.fromHex('#e6c97a');
     const DETAIL_COLOR = Color.fromHex('#8b9bab');
+    const actionsStartY = 30;
+    const actionRowGap = 38;
+    const actionBottomY =
+      actionsStartY +
+      Math.max(
+        0,
+        visibleActions.length * actionRowGap -
+          (visibleActions.length > 0 ? 4 : 0)
+      );
+    const infoBottomY =
+      INFO_ROW_START_Y + Math.max(0, infoRows.length * INFO_ROW_GAP - 2);
+    this.currentPanelHeight = Math.max(
+      this.panelHeight,
+      infoBottomY + 10,
+      actionBottomY + 12
+    );
     const actionsTitleX = this.currentPanelWidth - actionButtonWidth - 12;
+
+    const members: GraphicsGrouping[] = [
+      {
+        graphic: new Rectangle({
+          width: this.currentPanelWidth,
+          height: this.currentPanelHeight,
+          color: Color.fromRGB(14, 24, 35, 0.86),
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: this.currentPanelWidth,
+          height: 1,
+          color: Color.fromRGB(170, 196, 220, 0.55),
+        }),
+        offset: vec(0, 0),
+      },
+      {
+        graphic: new Rectangle({
+          width: this.currentPanelWidth,
+          height: 1,
+          color: Color.fromRGB(170, 196, 220, 0.55),
+        }),
+        offset: vec(0, this.currentPanelHeight - 1),
+      },
+    ];
 
     members.push(
       this.createTextMember('Selected', 12, Color.fromHex('#9fb4c8'), 12, 8),
@@ -291,7 +313,7 @@ export class SelectedBuildingView extends ScreenElement {
 
     let rowY = INFO_ROW_START_Y;
     for (const row of infoRows) {
-      if (rowY + 14 > this.panelHeight - 4) break;
+      if (rowY + 14 > this.currentPanelHeight - 4) break;
       if (row.label) {
         members.push(
           this.createTextMember(
@@ -345,16 +367,23 @@ export class SelectedBuildingView extends ScreenElement {
     );
 
     this.graphics.use(new GraphicsGroup({ members }));
-    this.createActionRows(definition, actionsTitleX, 30, actionButtonWidth);
+    this.createActionRows(
+      definition,
+      visibleActions,
+      actionsTitleX,
+      actionsStartY,
+      actionButtonWidth
+    );
   }
 
   private createActionRows(
     definition: TypedBuildingDefinition,
+    actions: ReadonlyArray<StateBuildingActionDefinition>,
     startX: number,
     startY: number,
     rowWidth: number
   ): void {
-    if (definition.actions.length === 0) {
+    if (actions.length === 0) {
       this.addChild(
         this.createStaticTextElement(
           'No actions available.',
@@ -370,8 +399,8 @@ export class SelectedBuildingView extends ScreenElement {
     let y = startY;
     const instanceId = this.selectedBuildingInstanceId ?? '';
     const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
-    for (const action of definition.actions) {
-      if (y + 36 > this.panelHeight - 8) {
+    for (const action of actions) {
+      if (y + 36 > this.currentPanelHeight - 8) {
         break;
       }
 
@@ -461,6 +490,21 @@ export class SelectedBuildingView extends ScreenElement {
     );
 
     return clamp(Math.ceil(widestTitle) + 26, 188, 300);
+  }
+
+  private getVisibleActions(
+    definition: TypedBuildingDefinition
+  ): StateBuildingActionDefinition[] {
+    return definition.actions.filter((action) => {
+      if (
+        definition.id === 'barracks' &&
+        action.id === 'train-archers' &&
+        !this.buildingManager.isTechnologyUnlocked('mil-fletching')
+      ) {
+        return false;
+      }
+      return true;
+    });
   }
 
   private getInfoRows(
@@ -555,6 +599,22 @@ export class SelectedBuildingView extends ScreenElement {
       }
     }
 
+    const activeProgress = this.buildingManager
+      .getBuildingActionProgresses()
+      .filter((progress) => progress.instanceId === instanceId);
+    for (const progress of activeProgress) {
+      rows.push({
+        label: 'Action:',
+        segments: [
+          {
+            value: `${this.getUnitLabel(progress.unitId)} ready in ${progress.turnsLeft} turn${progress.turnsLeft === 1 ? '' : 's'}`,
+            isPositive: true,
+          },
+        ],
+        isDetail: true,
+      });
+    }
+
     return rows;
   }
 
@@ -598,20 +658,84 @@ export class SelectedBuildingView extends ScreenElement {
       ];
     }
 
+    if (definition.id === 'castle' && action.id === 'call-to-arms') {
+      return [
+        {
+          label: 'Costs',
+          icon: this.getResourceIconLocal('gold'),
+          value: '-10',
+          color: Color.fromHex('#e6c97a'),
+          inline: true,
+        },
+        {
+          label: 'Muster',
+          value: '+4-6 Militia',
+          color: Color.fromHex('#9fe6aa'),
+        },
+        {
+          label: 'Time',
+          value: '1 turn',
+          color: Color.fromHex('#a9bbcb'),
+        },
+      ];
+    }
+
+    if (definition.id === 'barracks' && action.id === 'train-footmen') {
+      return [
+        {
+          label: 'Costs',
+          icon: this.getResourceIconLocal('gold'),
+          value: '-50',
+          color: Color.fromHex('#e6c97a'),
+          inline: true,
+        },
+        {
+          label: 'Training',
+          value: '+3-5 Footmen',
+          color: Color.fromHex('#9fe6aa'),
+        },
+        {
+          label: 'Time',
+          value: '2 turns',
+          color: Color.fromHex('#a9bbcb'),
+        },
+      ];
+    }
+
+    if (definition.id === 'barracks' && action.id === 'train-archers') {
+      return [
+        {
+          label: 'Costs',
+          icon: this.getResourceIconLocal('gold'),
+          value: '-75',
+          color: Color.fromHex('#e6c97a'),
+          inline: true,
+        },
+        {
+          label: '',
+          icon: this.getResourceIconLocal('wood'),
+          value: '-25',
+          color: Color.fromHex('#e6c97a'),
+          inline: true,
+        },
+        {
+          label: 'Training',
+          value: '+3-5 Archers',
+          color: Color.fromHex('#9fe6aa'),
+        },
+        {
+          label: 'Time',
+          value: '2 turns',
+          color: Color.fromHex('#a9bbcb'),
+        },
+      ];
+    }
+
     const gainByBuilding: Partial<
       Record<TypedBuildingDefinition['id'], number>
     > = {
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
     };
-    if (definition.id === 'castle' && action.id === 'expand-border') {
-      return [
-        {
-          label: 'Border',
-          value: '+1 ring',
-          color: Color.fromHex('#9fe6aa'),
-        },
-      ];
-    }
     if (definition.id === 'lumbermill' && action.id === 'plant-trees') {
       return [
         {
@@ -649,6 +773,23 @@ export class SelectedBuildingView extends ScreenElement {
   ) {
     if (!resourceType) return undefined;
     return getResourceIcon(resourceType, size);
+  }
+
+  private getUnitLabel(unitId: UnitRole): string {
+    switch (unitId) {
+      case 'footman':
+        return 'Footmen';
+      case 'archer':
+        return 'Archers';
+      case 'militia':
+        return 'Militia';
+      case 'spy':
+        return 'Spies';
+      case 'engineer':
+        return 'Engineers';
+      default:
+        return unitId;
+    }
   }
 
   private clearActionRows(): void {

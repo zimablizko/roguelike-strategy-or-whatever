@@ -55,15 +55,19 @@ export class MapIncomeEffectsView extends ScreenElement {
       tileSeen.set(key, slotIndex + 1);
       const laneOffsetX = 0;
       const laneOffsetY = -slotIndex * 28 - (totalInTile > 1 ? 8 : 0);
-      const rawAmount = pulse.amount;
+      const rawAmount = pulse.amount ?? 0;
       const absAmount = Math.abs(rawAmount);
       const sign = rawAmount < 0 ? '-' : '+';
+      const textValue =
+        pulse.label ?? `${sign}${absAmount}`;
       const textColor =
-        rawAmount < 0
-          ? Color.fromRGB(220, 80, 80)
-          : this.getResourceColor(pulse.resourceType);
+        pulse.colorHex
+          ? Color.fromHex(pulse.colorHex)
+          : rawAmount < 0
+            ? Color.fromRGB(220, 80, 80)
+            : this.getResourceColor(pulse.resourceType);
       const amountText = new Text({
-        text: `${sign}${absAmount}`,
+        text: textValue,
         font: new Font({
           size: 24,
           unit: FontUnit.Px,
@@ -72,7 +76,7 @@ export class MapIncomeEffectsView extends ScreenElement {
         }),
       });
       const amountShadow = new Text({
-        text: `${sign}${absAmount}`,
+        text: textValue,
         font: new Font({
           size: 24,
           unit: FontUnit.Px,
@@ -90,7 +94,7 @@ export class MapIncomeEffectsView extends ScreenElement {
         jitterX: 0,
         laneOffsetX,
         laneOffsetY,
-        icon: this.createResourceIcon(pulse.resourceType),
+        icon: pulse.label ? undefined : this.createResourceIcon(pulse.resourceType),
         amountText,
         amountShadow,
         amountTextWidth: amountText.width,
@@ -182,11 +186,14 @@ export class MapIncomeEffectsView extends ScreenElement {
     }
   }
 
-  private createResourceIcon(resourceType: ResourceType): Sprite | undefined {
+  private createResourceIcon(resourceType: ResourceType | undefined): Sprite | undefined {
+    if (!resourceType) {
+      return undefined;
+    }
     return getResourceIconFn(resourceType, 18);
   }
 
-  private getResourceColor(_resourceType: ResourceType): Color {
+  private getResourceColor(_resourceType: ResourceType | undefined): Color {
     return Color.fromRGB(255, 173, 84);
   }
 }

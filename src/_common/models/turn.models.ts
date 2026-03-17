@@ -1,4 +1,3 @@
-import type { MilitaryThreat, ThreatOutcome } from './military.models';
 import type { CompletedResearchSummary } from './research-manager.models';
 import type { ResourceType } from './resource.models';
 
@@ -13,19 +12,18 @@ export type TurnData = {
 export interface EndTurnIncomePulse {
   tileX: number;
   tileY: number;
-  resourceType: ResourceType;
-  amount: number;
+  resourceType?: ResourceType;
+  amount?: number;
+  label?: string;
+  colorHex?: string;
 }
 
 export interface EndTurnResult {
   passiveIncome: Partial<Record<ResourceType, number>>;
   passiveIncomePulses: EndTurnIncomePulse[];
+  actionPulses: EndTurnIncomePulse[];
   completedResearch?: CompletedResearchSummary;
   upkeepPaid: boolean;
-  /** Threat resolution outcomes from this turn. */
-  threatOutcomes: ThreatOutcome[];
-  /** Newly spawned threats. */
-  newThreats: MilitaryThreat[];
 }
 
 export interface UpkeepBreakdown {

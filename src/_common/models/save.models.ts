@@ -1,4 +1,7 @@
-import type { StateBuildingInstance } from './building-manager.models';
+import type {
+  BuildingActionProgress,
+  StateBuildingInstance,
+} from './building-manager.models';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { PlayerData } from './game.models';
 import type { MapData } from './map.models';
@@ -36,6 +39,7 @@ export interface GameSaveData {
     instances: StateBuildingInstance[];
     instanceSerial: number;
     technologies: TechnologyId[];
+    actionProgresses?: BuildingActionProgress[];
   };
   research: {
     activeResearch?: ActiveResearchState;

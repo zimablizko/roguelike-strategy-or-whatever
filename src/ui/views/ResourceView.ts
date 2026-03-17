@@ -58,6 +58,8 @@ export class ResourceDisplay extends ScreenElement {
   };
   private lastRendered: ResourceStock | undefined;
   private lastBuildingsVersion = -1;
+  private lastOccupiedPopulation = -1;
+  private lastTotalPopulation = -1;
 
   constructor(options: ResourceDisplayOptions) {
     super({ x: options.x, y: options.y });
@@ -141,17 +143,23 @@ export class ResourceDisplay extends ScreenElement {
   private updateDisplay(force: boolean): void {
     const resources = this.resourceManager.getAllResourcesRef();
     const buildingsVersion = this.buildingManager.getBuildingsVersion();
+    const occupiedPopulation = this.buildingManager.getOccupiedPopulation();
+    const totalPopulation = this.buildingManager.getTotalPopulation();
 
     if (
       !force &&
       this.lastRendered &&
       this.lastBuildingsVersion === buildingsVersion &&
+      this.lastOccupiedPopulation === occupiedPopulation &&
+      this.lastTotalPopulation === totalPopulation &&
       this.sameResources(this.lastRendered, resources)
     ) {
       return;
     }
     this.lastRendered = { ...resources };
     this.lastBuildingsVersion = buildingsVersion;
+    this.lastOccupiedPopulation = occupiedPopulation;
+    this.lastTotalPopulation = totalPopulation;
 
     const padding = 8;
     const iconTextGap = 4;
@@ -190,9 +198,7 @@ export class ResourceDisplay extends ScreenElement {
     for (const config of this.resourceConfigs) {
       let displayText: string;
       if (config.key === 'population') {
-        const occupied = this.buildingManager.getOccupiedPopulation();
-        const total = this.buildingManager.getTotalPopulation();
-        displayText = `${occupied}/${total}`;
+        displayText = `${occupiedPopulation}/${totalPopulation}`;
       } else if (config.key === 'food') {
         // Virtual aggregate: sum of all food-type resources
         let foodTotal = 0;

@@ -26,6 +26,7 @@ export class MilitaryStatusView extends InteractivePanelElement {
   private readonly yProvider?: () => number;
 
   private lastMilitaryVersion = -1;
+  private lastBuildingsVersion = -1;
   private lastPanelWidth = -1;
   private lastHovered = false;
   private lastPressed = false;
@@ -44,12 +45,14 @@ export class MilitaryStatusView extends InteractivePanelElement {
     this.pos = vec(this.anchorX, this.yProvider?.() ?? this.anchorY);
 
     const milVer = this.militaryManager.getMilitaryVersion();
+    const buildingsVer = this.buildingManager.getBuildingsVersion();
     const panelWidth = this.widthProvider
       ? Math.floor(this.widthProvider())
       : Math.max(220, this.fallbackWidth);
     if (
       !force &&
       milVer === this.lastMilitaryVersion &&
+      buildingsVer === this.lastBuildingsVersion &&
       panelWidth === this.lastPanelWidth &&
       this.lastHovered === this.isHovered &&
       this.lastPressed === this.isPressed
@@ -57,37 +60,35 @@ export class MilitaryStatusView extends InteractivePanelElement {
       return;
     }
     this.lastMilitaryVersion = milVer;
+    this.lastBuildingsVersion = buildingsVer;
     this.lastPanelWidth = panelWidth;
     this.lastHovered = this.isHovered;
     this.lastPressed = this.isPressed;
 
     const snapshot = this.militaryManager.getSnapshot();
-    const totalUnits =
-      snapshot.availableCount + snapshot.assignedCount + snapshot.trainingCount;
+    const totalUnits = Object.values(snapshot.composition).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0
+    );
+    const activeMusters = this.buildingManager.getBuildingActionProgresses().length;
 
     let headerText: string;
     let headerColor: Color;
     let subText: string;
     let subColor: Color;
 
-    if (
-      totalUnits === 0 &&
-      this.buildingManager.getBuildingCount('barracks') === 0
-    ) {
-      headerText = 'No barracks';
+    if (totalUnits === 0 && activeMusters === 0) {
+      headerText = 'No army';
       headerColor = Color.fromHex('#a7bacb');
-      subText = 'Build barracks to raise an army';
+      subText = '';
       subColor = Color.fromHex('#a7bacb');
     } else {
       headerText = `Power: ${snapshot.totalPower}`;
       headerColor = Color.fromHex('#c94a4a');
       const parts: string[] = [];
       if (snapshot.availableCount > 0)
-        parts.push(`${snapshot.availableCount} avail`);
-      if (snapshot.assignedCount > 0)
-        parts.push(`${snapshot.assignedCount} assigned`);
-      if (snapshot.trainingCount > 0)
-        parts.push(`${snapshot.trainingCount} training`);
+        parts.push(`${snapshot.availableCount} ready`);
+      if (activeMusters > 0) parts.push(`${activeMusters} mustering`);
       subText = parts.length > 0 ? parts.join('  |  ') : 'No units';
       subColor = Color.fromHex('#a7bacb');
     }
