@@ -99,6 +99,9 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
     this.flagRedraw();
 
     this.on('pointerwheel', (ev: WheelEvent) => {
+      if (!this.containsScreenPoint(ev.screenX, ev.screenY)) {
+        return;
+      }
       const direction = Math.sign(ev.deltaY);
       if (direction !== 0) {
         this.applyScroll(direction * this.scrollStep);
@@ -547,5 +550,16 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
       );
       ctx.restore();
     }
+  }
+
+  private containsScreenPoint(screenX: number, screenY: number): boolean {
+    const localX = screenX - this.globalPos.x;
+    const localY = screenY - this.globalPos.y;
+    return (
+      localX >= 0 &&
+      localY >= 0 &&
+      localX <= this.viewportWidth &&
+      localY <= this.viewportHeight
+    );
   }
 }

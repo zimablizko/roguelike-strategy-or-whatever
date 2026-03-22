@@ -18,6 +18,7 @@ import type {
   TypedResearchDefinition,
 } from '../_common/models/researches.models';
 import { BuildingManager } from './BuildingManager';
+import type { GameLogManager } from './GameLogManager';
 
 export class ResearchManager {
   private static isQuickResearchEnabled(): boolean {
@@ -29,10 +30,12 @@ export class ResearchManager {
   private readonly completedResearches = new Set<ResearchId>();
   private latestCompletion?: CompletedResearchSummary;
   private researchVersion = 0;
+  private readonly logManager?: GameLogManager;
 
   constructor(
     buildingManager: BuildingManager,
     options?: {
+      logManager?: GameLogManager;
       initial?: {
         activeResearch?: ActiveResearchState;
         completedResearches?: ResearchId[];
@@ -42,6 +45,7 @@ export class ResearchManager {
     }
   ) {
     this.buildingManager = buildingManager;
+    this.logManager = options?.logManager;
     this.bootstrap(options?.initial);
   }
 
@@ -167,6 +171,9 @@ export class ResearchManager {
       totalTurns,
       remainingTurns: totalTurns,
     };
+    this.logManager?.addNeutral(
+      `Research started: ${definition.name} (${totalTurns} turns).`
+    );
 
     if (ResearchManager.isQuickResearchEnabled()) {
       this.completeActiveResearch(currentTurn);
@@ -295,6 +302,7 @@ export class ResearchManager {
       completedOnTurn: currentTurn,
     };
     this.latestCompletion = completedResearch;
+    this.logManager?.addGood(`Research completed: ${completedDefinition.name}.`);
     return completedResearch;
   }
 

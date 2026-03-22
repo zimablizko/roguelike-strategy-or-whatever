@@ -931,6 +931,9 @@ export class MapView extends Actor {
         if (this.isMapInputBlocked()) {
           return;
         }
+        if (!this.isScreenPointInsideViewport(evt.screenX, evt.screenY)) {
+          return;
+        }
 
         const engine = this.scene?.engine;
         if (!engine) {
@@ -1258,6 +1261,15 @@ export class MapView extends Actor {
     screenY: number
   ): boolean {
     return this.getTileFromScreenPosition(screenX, screenY) !== undefined;
+  }
+
+  private isScreenPointInsideViewport(screenX: number, screenY: number): boolean {
+    return (
+      screenX >= this.vpLeft &&
+      screenX <= this.vpLeft + this.vpWidth &&
+      screenY >= this.vpTop &&
+      screenY <= this.vpTop + this.vpHeight
+    );
   }
 
   private getTileFromScreenPosition(

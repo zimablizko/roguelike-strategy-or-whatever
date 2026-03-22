@@ -22,7 +22,11 @@ import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
-import { LAYOUT } from '../ui/constants/LayoutConstants';
+import {
+  LAYOUT,
+  SIDEBAR_LAYOUT,
+  SIDEBAR_STACK,
+} from '../ui/constants/LayoutConstants';
 import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
@@ -31,6 +35,7 @@ import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { BattlePopup } from '../ui/popups/BattlePopup';
 import { BattleResultPopup } from '../ui/popups/BattleResultPopup';
 import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
+import { LogPopup } from '../ui/popups/LogPopup';
 import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
@@ -40,6 +45,7 @@ import { FocusDisplay } from '../ui/views/FocusView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
 import { MilitaryStatusView } from '../ui/views/MilitaryStatusView';
+import { LogView } from '../ui/views/LogView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
@@ -67,7 +73,7 @@ export class GameplayScene extends Scene {
   private battlePopup?: BattlePopup;
   private battleResultPopup?: BattleResultPopup;
   private randomEventPopup?: RandomEventPopup;
-  private stateDisplay?: StateDisplay;
+  private logPopup?: LogPopup;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
@@ -141,7 +147,7 @@ export class GameplayScene extends Scene {
     this.militaryPopup = undefined;
     this.battlePopup = undefined;
     this.battleResultPopup = undefined;
-    this.stateDisplay = undefined;
+    this.logPopup = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
@@ -163,7 +169,7 @@ export class GameplayScene extends Scene {
     this.militaryPopup = undefined;
     this.battlePopup = undefined;
     this.battleResultPopup = undefined;
-    this.stateDisplay = undefined;
+    this.logPopup = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
     this.selectedBuildingView = undefined;
@@ -190,6 +196,8 @@ export class GameplayScene extends Scene {
               gold: 100,
               wood: 50,
               stone: 50,
+              jewelry: 0,
+              ironOre: 0,
               wheat: 0,
               meat: 50,
               bread: 50,
@@ -212,6 +220,7 @@ export class GameplayScene extends Scene {
         researchManager: this.gameManager.researchManager,
         militaryManager: this.gameManager.militaryManager,
         politicsManager: this.gameManager.politicsManager,
+        logManager: this.gameManager.logManager,
         initial: slotSave?.turn
           ? {
               data: slotSave.turn.data,
@@ -221,6 +230,19 @@ export class GameplayScene extends Scene {
           : undefined,
       }
     );
+    this.gameManager.logManager.setCurrentDate(
+      this.turnManager.getTurnDataRef().turnNumber,
+      this.turnManager.getDateLabel()
+    );
+    if (slotSave) {
+      this.gameManager.logManager.addNeutral(
+        `Game loaded from slot ${selectedSlot}.`
+      );
+    } else {
+      this.gameManager.logManager.addNeutral(
+        `A new reign begins in ${this.gameManager.stateManager.getStateRef().name}.`
+      );
+    }
 
     this.gameManager.logData();
 
@@ -235,6 +257,7 @@ export class GameplayScene extends Scene {
     this.addTurnDisplay(engine);
     this.addResearchStatusDisplay(engine);
     this.addMilitaryStatusDisplay(engine);
+    this.addLogView(engine);
     this.addButtons(engine);
     this.addFocusDisplay();
     this.addQuickBuildView();
@@ -376,16 +399,15 @@ export class GameplayScene extends Scene {
 
   private addStateDisplay(_engine: Engine) {
     const view = new StateDisplay({
-      x: LAYOUT.SIDEBAR_PADDING,
-      y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
+      x: SIDEBAR_LAYOUT.panelX,
+      y: SIDEBAR_STACK.stateY,
       stateManager: this.gameManager.stateManager,
       politicsManager: this.gameManager.politicsManager,
-      widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
+      widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
       onClick: () => {
         this.showStatePopup(_engine);
       },
     });
-    this.stateDisplay = view;
     this.addHudElement(view);
   }
 
@@ -415,12 +437,11 @@ export class GameplayScene extends Scene {
 
   private addRulerDisplay(_engine: Engine) {
     const view = new RulerDisplay({
-      x: LAYOUT.SIDEBAR_PADDING,
-      y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING,
+      x: SIDEBAR_LAYOUT.panelX,
+      y: SIDEBAR_STACK.rulerY,
       rulerManager: this.gameManager.rulerManager,
-      widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
-      // Stack below stateDisplay dynamically
-      yProvider: () => this.getSidebarPanelY(1),
+      widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
+      yProvider: () => SIDEBAR_STACK.rulerY,
       onClick: () => {
         this.showRulerPopup(_engine);
       },
@@ -595,31 +616,60 @@ export class GameplayScene extends Scene {
   }
 
   private addResearchStatusDisplay(engine: Engine): void {
-    this.addHudElement(
-      new ResearchStatusView({
-        x: LAYOUT.SIDEBAR_PADDING,
-        y: this.getSidebarPanelY(2),
-        researchManager: this.gameManager.researchManager,
-        turnManager: this.turnManager,
-        widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
-        yProvider: () => this.getSidebarPanelY(2),
-        onClick: () => this.showResearchPopup(engine),
-      })
-    );
+    const view = new ResearchStatusView({
+      x: SIDEBAR_LAYOUT.panelX,
+      y: SIDEBAR_STACK.researchY,
+      researchManager: this.gameManager.researchManager,
+      turnManager: this.turnManager,
+      widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
+      yProvider: () => SIDEBAR_STACK.researchY,
+      onClick: () => this.showResearchPopup(engine),
+    });
+    this.addHudElement(view);
   }
 
   private addMilitaryStatusDisplay(engine: Engine): void {
-    this.addHudElement(
-      new MilitaryStatusView({
-        x: LAYOUT.SIDEBAR_PADDING,
-        y: this.getSidebarPanelY(3),
-        militaryManager: this.gameManager.militaryManager,
-        buildingManager: this.gameManager.buildingManager,
-        widthProvider: () => LAYOUT.SIDEBAR_WIDTH - LAYOUT.SIDEBAR_PADDING * 2,
-        yProvider: () => this.getSidebarPanelY(3),
-        onClick: () => this.showMilitaryPopup(engine),
-      })
-    );
+    const view = new MilitaryStatusView({
+      x: SIDEBAR_LAYOUT.panelX,
+      y: SIDEBAR_STACK.militaryY,
+      militaryManager: this.gameManager.militaryManager,
+      buildingManager: this.gameManager.buildingManager,
+      widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
+      yProvider: () => SIDEBAR_STACK.militaryY,
+      onClick: () => this.showMilitaryPopup(engine),
+    });
+    this.addHudElement(view);
+  }
+
+  private addLogView(engine: Engine): void {
+    const view = new LogView({
+      x: SIDEBAR_LAYOUT.panelX,
+      y: SIDEBAR_STACK.logY,
+      width: SIDEBAR_LAYOUT.panelWidth,
+      height: SIDEBAR_STACK.getLogHeight(engine.drawHeight),
+      logManager: this.gameManager.logManager,
+      onOpenHistory: () => this.showLogPopup(engine),
+    });
+    this.addHudElement(view);
+  }
+
+  private showLogPopup(engine: Engine): void {
+    if (this.logPopup) {
+      this.logPopup.close();
+      this.logPopup = undefined;
+    }
+
+    const popup = new LogPopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      logManager: this.gameManager.logManager,
+      onClose: () => {
+        this.logPopup = undefined;
+      },
+    });
+
+    this.logPopup = popup;
+    this.add(popup);
   }
 
   private showMilitaryPopup(engine: Engine): void {
@@ -1018,6 +1068,7 @@ export class GameplayScene extends Scene {
     });
 
     this.randomEventPopup = popup;
+    this.gameManager.logManager.addNeutral(`Event: ${config.title}.`);
     this.add(popup);
   }
 
@@ -1049,6 +1100,9 @@ export class GameplayScene extends Scene {
             if (!this.spendFoodFromStores(foodDemand)) {
               return;
             }
+            this.gameManager.logManager.addGood(
+              'The angry peasants were fed from the granaries.'
+            );
           },
         },
         {
@@ -1060,6 +1114,9 @@ export class GameplayScene extends Scene {
           onSelect: () => {
             if (!this.turnManager.spendFocus(1)) return;
             if (!this.resourceManager.spendResource('gold', 4)) return;
+            this.gameManager.logManager.addGood(
+              'The steward calmed the angry peasants.'
+            );
           },
         },
         {
@@ -1085,6 +1142,9 @@ export class GameplayScene extends Scene {
               },
               rewardMultiplier: 0.6,
             });
+            this.gameManager.logManager.addBad(
+              'The angry peasants were confronted by force.'
+            );
             this.showBattlePopup(engine);
           },
         },
@@ -1155,6 +1215,7 @@ export class GameplayScene extends Scene {
       this.gameManager.researchManager.getResearchVersion();
     const militaryVersion = this.gameManager.militaryManager.getMilitaryVersion();
     const politicsVersion = this.gameManager.politicsManager.getVersion();
+    const logVersion = this.gameManager.logManager.getVersion();
     const turnVersion = this.turnManager.getTurnVersion();
     const rngState = this.gameManager.rng.getState();
     const ruler = this.gameManager.rulerManager.getRulerRef();
@@ -1166,6 +1227,7 @@ export class GameplayScene extends Scene {
       researchVersion,
       militaryVersion,
       politicsVersion,
+      logVersion,
       turnVersion,
       rngState,
       ruler.age,
@@ -1195,6 +1257,7 @@ export class GameplayScene extends Scene {
       (this.researchPopup !== undefined && !this.researchPopup.isKilled()) ||
       (this.militaryPopup !== undefined && !this.militaryPopup.isKilled()) ||
       (this.randomEventPopup !== undefined && !this.randomEventPopup.isKilled()) ||
+      (this.logPopup !== undefined && !this.logPopup.isKilled()) ||
       (this.battlePopup !== undefined && !this.battlePopup.isKilled()) ||
       (this.battleResultPopup !== undefined &&
         !this.battleResultPopup.isKilled())
@@ -1215,6 +1278,11 @@ export class GameplayScene extends Scene {
     if (this.randomEventPopup && !this.randomEventPopup.isKilled()) {
       this.randomEventPopup.close();
       this.randomEventPopup = undefined;
+      return;
+    }
+    if (this.logPopup && !this.logPopup.isKilled()) {
+      this.logPopup.close();
+      this.logPopup = undefined;
       return;
     }
     if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
@@ -1246,28 +1314,6 @@ export class GameplayScene extends Scene {
       this.testPopup.close();
       this.testPopup = undefined;
     }
-  }
-
-  /**
-   * Get the Y position for a sidebar panel by index (0-based).
-   * Panels: 0=State, 1=Ruler, 2=Research, 3=Military.
-   * Uses the measured height of stateDisplay for accurate stacking.
-   */
-  private getSidebarPanelY(index: number): number {
-    const baseY = LAYOUT.TOPBAR_HEIGHT + LAYOUT.SIDEBAR_PADDING;
-    if (index === 0) return baseY;
-
-    // Estimate single panel height from stateDisplay or fallback
-    const panelHeight = this.getStatePanelHeight();
-    return baseY + index * (panelHeight + LAYOUT.PANEL_GAP);
-  }
-
-  private getStatePanelHeight(): number {
-    const height = this.stateDisplay?.graphics.localBounds.height;
-    if (typeof height === 'number' && Number.isFinite(height) && height > 0) {
-      return height;
-    }
-    return 56;
   }
 
   private startManualBuildPlacement(buildingId: StateBuildingId): void {

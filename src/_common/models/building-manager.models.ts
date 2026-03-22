@@ -1,4 +1,5 @@
 import type { MapManager } from '../../managers/MapManager';
+import type { GameLogManager } from '../../managers/GameLogManager';
 import type { UnitRole } from './military.models';
 import type { SeededRandom } from '../random';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
@@ -84,6 +85,7 @@ export interface BuildingManagerOptions {
   mapManager?: MapManager;
   stateBridge: BuildingManagerStateBridge;
   rng?: SeededRandom;
+  logManager?: GameLogManager;
   initial?: {
     technologies?: TechnologyId[];
     builtBuildings?: Partial<Record<StateBuildingId, number | boolean>>;

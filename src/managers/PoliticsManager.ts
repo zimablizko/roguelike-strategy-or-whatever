@@ -15,6 +15,7 @@ import {
   getPoliticalRequestDefinition,
   politicalRequestDefinitions,
 } from '../data/politicalRequests';
+import type { GameLogManager } from './GameLogManager';
 
 /** Default starting reputation for all entities. */
 const DEFAULT_REPUTATION = 50;
@@ -48,11 +49,13 @@ export class PoliticsManager {
   private readonly isTechUnlocked: (techId: string) => boolean;
   private readonly getResource: (type: string) => number;
   private readonly getBuildingCount: (buildingId: string) => number;
+  private readonly logManager?: GameLogManager;
 
   constructor(options: PoliticsManagerOptions) {
     this.isTechUnlocked = options.isTechUnlocked;
     this.getResource = options.getResource;
     this.getBuildingCount = options.getBuildingCount;
+    this.logManager = options.logManager;
 
     if (options.initial) {
       for (const entry of options.initial.entities) {
@@ -173,6 +176,7 @@ export class PoliticsManager {
 
     this.activeRequests.splice(idx, 1);
     this.version++;
+    this.logManager?.addGood(`Request approved: ${def.title}.`);
     return true;
   }
 
@@ -194,6 +198,7 @@ export class PoliticsManager {
 
     this.activeRequests.splice(idx, 1);
     this.version++;
+    this.logManager?.addBad(`Request denied: ${def.title}.`);
     return true;
   }
 
@@ -270,6 +275,9 @@ export class PoliticsManager {
           });
           this.cooldowns.set(def.id, currentTurn);
           this.version++;
+          this.logManager?.addNeutral(
+            `New request from ${this.getEntityName(def.entityId)}: ${def.title}.`
+          );
           break;
         }
       }
@@ -287,6 +295,7 @@ export class PoliticsManager {
       if (currentTurn - instance.turnCreated >= def.expireTurns) {
         // Apply expire penalty
         this.adjustReputation(instance.entityId, EXPIRE_REPUTATION_PENALTY);
+        this.logManager?.addBad(`Request expired: ${def.title}.`);
         toRemove.push(instance.instanceId);
       }
     }
@@ -321,5 +330,9 @@ export class PoliticsManager {
       instanceSerial: this.instanceSerial,
       version: this.version,
     };
+  }
+
+  private getEntityName(entityId: PoliticalEntityId): string {
+    return this.entities.get(entityId)?.name ?? entityId;
   }
 }

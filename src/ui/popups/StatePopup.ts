@@ -453,6 +453,8 @@ export class StatePopup extends ScreenPopup {
       { label: 'Gold', key: 'gold', color: '#f5dd90' },
       { label: 'Wood', key: 'wood', color: '#c8a86e' },
       { label: 'Stone', key: 'stone', color: '#d2d5db' },
+      { label: 'Jewelry', key: 'jewelry', color: '#6fd9cf' },
+      { label: 'Iron Ore', key: 'ironOre', color: '#91a6b8' },
       { label: 'Wheat', key: 'wheat', color: '#e8d44d' },
       { label: 'Meat', key: 'meat', color: '#e87461' },
       { label: 'Bread', key: 'bread', color: '#d4a358' },

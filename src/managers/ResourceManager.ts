@@ -10,11 +10,26 @@ import type {
  * Single source of truth for resource state.
  */
 export class ResourceManager {
+  private static readonly EMPTY_STOCK: ResourceStock = {
+    gold: 0,
+    wood: 0,
+    stone: 0,
+    jewelry: 0,
+    ironOre: 0,
+    wheat: 0,
+    meat: 0,
+    bread: 0,
+    population: 0,
+  };
+
   private resources: ResourceStock;
   private resourcesVersion = 0;
 
   constructor(options: ResourceManagerOptions) {
-    this.resources = { ...options.initial };
+    this.resources = {
+      ...ResourceManager.EMPTY_STOCK,
+      ...options.initial,
+    };
   }
 
   // ============ Single-resource operations ============
@@ -140,15 +155,7 @@ export class ResourceManager {
    * Reset all resources to zero
    */
   resetResources(): void {
-    this.resources = {
-      gold: 0,
-      wood: 0,
-      stone: 0,
-      wheat: 0,
-      meat: 0,
-      bread: 0,
-      population: 0,
-    };
+    this.resources = { ...ResourceManager.EMPTY_STOCK };
     this.resourcesVersion++;
   }
 }

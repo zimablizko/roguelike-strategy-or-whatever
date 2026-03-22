@@ -11,6 +11,7 @@ import type {
   ActiveResearchState,
   CompletedResearchSummary,
 } from './research-manager.models';
+import type { GameLogSaveState } from './log.models';
 import type { ResearchId } from './researches.models';
 import type { ResourceStock } from './resource.models';
 import type { RulerHealth } from './ruler.models';
@@ -55,6 +56,7 @@ export interface GameSaveData {
   };
   military?: MilitarySaveState;
   politics?: PoliticsSaveState;
+  logs?: GameLogSaveState;
 }
 
 export interface SaveSlotSummary {

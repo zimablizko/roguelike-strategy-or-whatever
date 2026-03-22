@@ -24,6 +24,7 @@ import { PoliticsManager } from './PoliticsManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
+import type { GameLogManager } from './GameLogManager';
 
 export class TurnManager {
   private static readonly HOUSE_TAX_TECHNOLOGY_ID = 'eco-tax-collection';
@@ -101,6 +102,7 @@ export class TurnManager {
   private researchManager?: ResearchManager;
   private militaryManager?: MilitaryManager;
   private politicsManager?: PoliticsManager;
+  private logManager?: GameLogManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
   /** Tracks fallow field tiles awaiting recovery. Key: "x,y", value: turns remaining. */
@@ -117,6 +119,7 @@ export class TurnManager {
       researchManager?: ResearchManager;
       militaryManager?: MilitaryManager;
       politicsManager?: PoliticsManager;
+      logManager?: GameLogManager;
       initial?: {
         data?: TurnData;
         version?: number;
@@ -148,6 +151,7 @@ export class TurnManager {
     this.researchManager = options?.researchManager;
     this.militaryManager = options?.militaryManager;
     this.politicsManager = options?.politicsManager;
+    this.logManager = options?.logManager;
     this.rng = options?.rng ?? new SeededRandom();
     this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
     for (const entry of options?.initial?.emptyFieldQueue ?? []) {
@@ -169,6 +173,10 @@ export class TurnManager {
     this.turnData.turnNumber++;
     this.resetFocus();
     this.turnVersion++;
+    this.logManager?.setCurrentDate(
+      this.turnData.turnNumber,
+      this.getDateLabel()
+    );
 
     // Age increments once per year (every 360 days = 12 months, when January 1 starts).
     if ((this.turnData.turnNumber - 1) % 360 === 0) {
@@ -201,6 +209,9 @@ export class TurnManager {
       upkeepPaid = resourcesOk && foodOk;
       if (!upkeepPaid) {
         console.warn('Game Over: Not enough resources to continue!');
+        this.logManager?.addBad(
+          `Upkeep could not be paid on ${this.getDateLabel()}.`
+        );
       }
     }
 

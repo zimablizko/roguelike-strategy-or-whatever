@@ -331,6 +331,8 @@ export interface MilitaryManagerOptions {
   isTechnologyUnlocked: (techId: string) => boolean;
   /** Applies battle rewards to the game economy. */
   grantResources?: (resources: ResourceCost) => void;
+  /** Shared gameplay log manager. */
+  logManager?: import('../../managers/GameLogManager').GameLogManager;
   /** Restore from save data. */
   initial?: MilitarySaveState;
 }

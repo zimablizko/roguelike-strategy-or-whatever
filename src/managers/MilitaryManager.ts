@@ -29,6 +29,7 @@ import {
   getUnitBattleCommands,
   getUnitDefinition,
 } from '../data/military';
+import type { GameLogManager } from './GameLogManager';
 
 type UnitCountMap = Partial<Record<UnitRole, number>>;
 type BattleSnapshotEntry = {
@@ -61,12 +62,14 @@ export class MilitaryManager {
   private readonly getGarrisonCapacity: () => number;
   private readonly isTechUnlocked: (techId: string) => boolean;
   private readonly grantResources: (resources: ResourceCost) => void;
+  private readonly logManager?: GameLogManager;
 
   constructor(options: MilitaryManagerOptions) {
     this.getBarracksCapacity = options.getBarracksCapacity;
     this.getGarrisonCapacity = options.getGarrisonCapacity;
     this.isTechUnlocked = options.isTechnologyUnlocked;
     this.grantResources = options.grantResources ?? (() => {});
+    this.logManager = options.logManager;
 
     if (options.initial) {
       this.roster = options.initial.roster.map((stack) => ({
@@ -483,6 +486,7 @@ export class MilitaryManager {
       ),
     };
     this.version++;
+    this.logManager?.addNeutral(`Battle started: ${options.name}.`);
     return this.activeBattle;
   }
 
@@ -1638,6 +1642,16 @@ export class MilitaryManager {
       summaryLines,
     };
     this.activeBattle = undefined;
+
+    if (winner === 'player') {
+      this.logManager?.addGood(`Battle won: ${battle.name}.`);
+      return;
+    }
+    if (winner === 'enemy') {
+      this.logManager?.addBad(`Battle lost: ${battle.name}.`);
+      return;
+    }
+    this.logManager?.addNeutral(`Battle ended in a draw: ${battle.name}.`);
   }
 
   private calculateBattleRewards(battle: BattleState): ResourceCost {

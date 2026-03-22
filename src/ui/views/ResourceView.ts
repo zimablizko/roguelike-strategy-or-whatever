@@ -50,6 +50,8 @@ export class ResourceDisplay extends ScreenElement {
     gold: 'Gold: universal currency for trade, upkeep, and events.',
     wood: 'Wood: harvested from forests, used for construction.',
     stone: 'Stone: quarried from rocks, used for advanced construction.',
+    jewelry: 'Jewelry: luxury goods mined from rare deposits.',
+    ironOre: 'Iron Ore: refined metal stock mined from rich deposits.',
     wheat: 'Wheat: grown on fields, used by Bakeries to produce Bread.',
     meat: 'Meat: hunted from wildlife, consumed as food.',
     bread: 'Bread: baked from Wheat, consumed as food.',
@@ -130,6 +132,8 @@ export class ResourceDisplay extends ScreenElement {
       a.gold === b.gold &&
       a.wood === b.wood &&
       a.stone === b.stone &&
+      a.jewelry === b.jewelry &&
+      a.ironOre === b.ironOre &&
       a.wheat === b.wheat &&
       a.meat === b.meat &&
       a.bread === b.bread &&

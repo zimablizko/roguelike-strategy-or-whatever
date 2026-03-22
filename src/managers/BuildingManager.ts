@@ -33,6 +33,7 @@ import {
   rareResourceDefinitions,
   type RareResourceId,
 } from '../data/rareResources';
+import type { GameLogManager } from './GameLogManager';
 import { MapManager } from './MapManager';
 import type { MilitaryManager } from './MilitaryManager';
 import type { ResourceManager } from './ResourceManager';
@@ -48,6 +49,7 @@ export class BuildingManager {
   private buildingsVersion = 0;
   private unlockedTechnologies = new Set<TechnologyId>();
   private additionalOccupiedPopulationProvider: () => number = () => 0;
+  private readonly logManager?: GameLogManager;
   /** Tracks how many times each action has been used this turn. Key: "instanceId:actionId". */
   private actionUsesThisTurn = new Map<string, number>();
 
@@ -55,6 +57,7 @@ export class BuildingManager {
     this.mapManager = options.mapManager;
     this.stateBridge = options.stateBridge;
     this.rng = options.rng ?? new SeededRandom();
+    this.logManager = options.logManager;
     this.buildingCounts = createEmptyBuildingRecord();
     this.applyProgress(options.initial);
     this.ensureStartingCastle();
@@ -168,6 +171,10 @@ export class BuildingManager {
         instance.turnsRemaining--;
         if (instance.turnsRemaining === 0) {
           instance.turnsRemaining = undefined;
+          const definition = this.getBuildingDefinition(instance.buildingId);
+          if (definition) {
+            this.logManager?.addGood(`${definition.name} construction finished.`);
+          }
         }
         changed = true;
       }
@@ -247,6 +254,11 @@ export class BuildingManager {
         (item) => item.instanceId === progress.instanceId
       );
       if (instance) {
+        const buildingDefinition = this.getBuildingDefinition(progress.buildingId);
+        const buildingName = buildingDefinition?.name ?? 'Building';
+        this.logManager?.addGood(
+          `${this.getUnitPulseLabel(progress.unitId)} training completed at ${buildingName} (+${progress.unitCount}).`
+        );
         pulses.push(
           this.createUnitPulse(
             instance,
@@ -625,7 +637,13 @@ export class BuildingManager {
       return false;
     }
 
-    this.registerBuildingInstance(id, placement);
+    const created = this.registerBuildingInstance(id, placement);
+    const turnsRemaining = created.turnsRemaining ?? 0;
+    this.logManager?.addNeutral(
+      turnsRemaining > 0
+        ? `Construction started: ${definition.name} (${turnsRemaining} turns).`
+        : `${definition.name} has been built.`
+    );
     return true;
   }
 
@@ -654,7 +672,13 @@ export class BuildingManager {
       return false;
     }
 
-    this.registerBuildingInstance(id, placement);
+    const created = this.registerBuildingInstance(id, placement);
+    const turnsRemaining = created.turnsRemaining ?? 0;
+    this.logManager?.addNeutral(
+      turnsRemaining > 0
+        ? `Construction started: ${definition.name} (${turnsRemaining} turns).`
+        : `${definition.name} has been built.`
+    );
     return true;
   }
 
@@ -691,6 +715,12 @@ export class BuildingManager {
           militaryAction.maxUnits
         ),
       });
+      const queued = this.actionProgresses[this.actionProgresses.length - 1];
+      const buildingName =
+        this.getBuildingDefinition(buildingId)?.name ?? 'Building';
+      this.logManager?.addNeutral(
+        `${buildingName} started training ${queued.unitCount} ${this.getUnitPulseLabel(militaryAction.unitId)} (${militaryAction.duration} turns).`
+      );
       this.incrementActionUsage(instanceId, actionId);
       this.buildingsVersion++;
       return [];
@@ -1217,6 +1247,9 @@ export class BuildingManager {
     this.incrementActionUsage(farmInstanceId, 'sow-field');
     this.syncStateWithMapSummary();
     this.buildingsVersion++;
+    this.logManager?.addNeutral(
+      `A new field was sown at (${tileX}, ${tileY}).`
+    );
   }
 
   private syncStateWithMapSummary(): void {
@@ -1232,11 +1265,11 @@ export class BuildingManager {
     id: StateBuildingId,
     placement: PlacementCandidate,
     instant = false
-  ): void {
+  ): StateBuildingInstance {
     this.buildingInstanceSerial++;
     const definition = this.getBuildingDefinition(id);
     const buildingTime = !instant ? (definition?.buildingTime ?? 0) : 0;
-    this.buildingInstances.push({
+    const instance: StateBuildingInstance = {
       instanceId: `${id}-${this.buildingInstanceSerial}`,
       buildingId: id,
       x: placement.x,
@@ -1244,9 +1277,11 @@ export class BuildingManager {
       width: placement.width,
       height: placement.height,
       turnsRemaining: buildingTime > 0 ? buildingTime : undefined,
-    });
+    };
+    this.buildingInstances.push(instance);
     this.buildingCounts[id] += 1;
     this.buildingsVersion++;
+    return instance;
   }
 
   private incrementActionUsage(instanceId: string, actionId: string): void {

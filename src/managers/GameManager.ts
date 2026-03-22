@@ -9,6 +9,7 @@ import {
   BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
 } from '../data/military';
 import { BuildingManager } from './BuildingManager';
+import { GameLogManager } from './GameLogManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
 import { PoliticsManager } from './PoliticsManager';
@@ -28,6 +29,8 @@ export class GameManager {
       gold: 100,
       wood: 50,
       stone: 50,
+      jewelry: 0,
+      ironOre: 0,
       wheat: 0,
       meat: 50,
       bread: 50,
@@ -40,6 +43,7 @@ export class GameManager {
   rulerManager: RulerManager;
   stateManager: StateManager;
   buildingManager: BuildingManager;
+  logManager: GameLogManager;
   mapManager: MapManager;
   researchManager: ResearchManager;
   militaryManager: MilitaryManager;
@@ -57,6 +61,7 @@ export class GameManager {
     this.resourceManager = new ResourceManager({
       initial: saveData?.resources ?? this.playerData.resources,
     });
+    this.logManager = new GameLogManager(saveData?.logs);
 
     this.rulerManager = new RulerManager({
       rng: this.rng,
@@ -98,6 +103,7 @@ export class GameManager {
     this.buildingManager = new BuildingManager({
       mapManager: this.mapManager,
       rng: this.rng,
+      logManager: this.logManager,
       stateBridge: {
         getStateRef: () => this.stateManager.getStateRef(),
         applyMapSummary: (summary) =>
@@ -114,6 +120,7 @@ export class GameManager {
         : undefined,
     });
     this.researchManager = new ResearchManager(this.buildingManager, {
+      logManager: this.logManager,
       initial: saveData?.research
         ? {
             activeResearch: saveData.research.activeResearch,
@@ -134,6 +141,7 @@ export class GameManager {
       isTechnologyUnlocked: (techId: string) =>
         this.buildingManager.isTechnologyUnlocked(techId),
       grantResources: (resources) => this.resourceManager.addResources(resources),
+      logManager: this.logManager,
       initial: saveData?.military ?? undefined,
     });
     this.buildingManager.setAdditionalOccupiedPopulationProvider(() =>
@@ -149,6 +157,8 @@ export class GameManager {
             | 'gold'
             | 'wood'
             | 'stone'
+            | 'jewelry'
+            | 'ironOre'
             | 'wheat'
             | 'meat'
             | 'bread'
@@ -160,6 +170,7 @@ export class GameManager {
             typeof this.buildingManager.getBuildingCount
           >[0]
         ),
+      logManager: this.logManager,
       initial: saveData?.politics ?? undefined,
     });
 
@@ -236,6 +247,7 @@ export class GameManager {
       turn: turnData,
       military: this.militaryManager.getSaveState(),
       politics: this.politicsManager.getSaveState(),
+      logs: this.logManager.getSaveState(),
     };
   }
 }

@@ -2,6 +2,8 @@ export type ResourceType =
   | 'gold'
   | 'wood'
   | 'stone'
+  | 'jewelry'
+  | 'ironOre'
   | 'wheat'
   | 'meat'
   | 'bread'
