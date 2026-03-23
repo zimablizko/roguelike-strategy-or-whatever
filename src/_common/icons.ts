@@ -76,6 +76,7 @@ const RESOURCE_ICON_IDS: Partial<Record<ResourceType | 'food', IconId>> = {
   jewelry: 'jewelry',
   ironOre: 'ironOre',
   population: 'population',
+  politicalPower: 'dummy',
   wheat: 'wheat',
   meat: 'food',
   bread: 'food',

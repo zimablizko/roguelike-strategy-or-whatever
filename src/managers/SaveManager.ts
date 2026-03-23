@@ -238,7 +238,9 @@ export class SaveManager {
       typeof value.resources.wheat !== 'number' ||
       typeof value.resources.meat !== 'number' ||
       typeof value.resources.bread !== 'number' ||
-      typeof value.resources.population !== 'number'
+      typeof value.resources.population !== 'number' ||
+      (value.resources.politicalPower !== undefined &&
+        typeof value.resources.politicalPower !== 'number')
     ) {
       return false;
     }

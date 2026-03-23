@@ -37,6 +37,7 @@ export class GameManager {
       meat: 50,
       bread: 50,
       population: 10,
+      politicalPower: 0,
     },
   };
 
@@ -177,6 +178,7 @@ export class GameManager {
             | 'meat'
             | 'bread'
             | 'population'
+            | 'politicalPower'
         ),
       getBuildingCount: (buildingId: string) =>
         this.buildingManager.getBuildingCount(

@@ -57,6 +57,8 @@ export class ResourceDisplay extends ScreenElement {
     bread: 'Bread: baked from Wheat, consumed as food.',
     food: 'Food: total edible supplies (Meat + Bread). Consumed each turn.',
     population: 'Population: occupied / total workforce. Build Houses to grow.',
+    politicalPower:
+      'Political Power: influence reserved for major political decisions.',
   };
   private lastRendered: ResourceStock | undefined;
   private lastBuildingsVersion = -1;
@@ -103,6 +105,11 @@ export class ResourceDisplay extends ScreenElement {
         icon: getIconSprite('population', this.iconSize),
         label: 'Population',
       },
+      {
+        key: 'politicalPower',
+        icon: getIconSprite('dummy', this.iconSize),
+        label: 'Political Power',
+      },
     ];
   }
 
@@ -137,7 +144,8 @@ export class ResourceDisplay extends ScreenElement {
       a.wheat === b.wheat &&
       a.meat === b.meat &&
       a.bread === b.bread &&
-      a.population === b.population
+      a.population === b.population &&
+      a.politicalPower === b.politicalPower
     );
   }
 
@@ -236,6 +244,7 @@ export class ResourceDisplay extends ScreenElement {
         stone: '#7d8b96',
         food: '#c67f2f',
         population: '#a7bacb',
+        politicalPower: '#d69cf0',
       };
       const textColorKey = resourceTextColors[config.key];
       const valueColor = textColorKey

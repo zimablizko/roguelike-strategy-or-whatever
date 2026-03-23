@@ -714,6 +714,8 @@ export class RandomEventManager {
         return 'Bread';
       case 'population':
         return 'Population';
+      case 'politicalPower':
+        return 'Political Power';
       default:
         return resourceType;
     }

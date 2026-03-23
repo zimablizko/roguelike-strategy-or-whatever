@@ -1635,6 +1635,7 @@ export class GameplayScene extends Scene {
       meat: 50,
       bread: 50,
       population: 10,
+      politicalPower: 0,
     };
 
     for (const [resourceType, amount] of Object.entries(

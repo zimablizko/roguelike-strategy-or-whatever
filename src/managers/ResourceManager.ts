@@ -20,6 +20,7 @@ export class ResourceManager {
     meat: 0,
     bread: 0,
     population: 0,
+    politicalPower: 0,
   };
 
   private resources: ResourceStock;

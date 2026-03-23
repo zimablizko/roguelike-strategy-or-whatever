@@ -7,7 +7,8 @@ export type ResourceType =
   | 'wheat'
   | 'meat'
   | 'bread'
-  | 'population';
+  | 'population'
+  | 'politicalPower';
 
 /** Resource types that count as edible food for aggregate display. */
 export const FOOD_RESOURCE_TYPES: readonly ResourceType[] = [

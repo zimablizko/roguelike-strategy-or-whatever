@@ -459,6 +459,11 @@ export class StatePopup extends ScreenPopup {
       { label: 'Meat', key: 'meat', color: '#e87461' },
       { label: 'Bread', key: 'bread', color: '#d4a358' },
       { label: 'Population', key: 'population', color: '#e0c6f5' },
+      {
+        label: 'Political Power',
+        key: 'politicalPower',
+        color: '#d69cf0',
+      },
     ];
 
     let y = 0;
