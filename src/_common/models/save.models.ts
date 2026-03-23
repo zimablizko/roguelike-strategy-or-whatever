@@ -3,6 +3,7 @@ import type {
   StateBuildingInstance,
 } from './building-manager.models';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
+import type { GameSetupData } from './game-setup.models';
 import type { PlayerData } from './game.models';
 import type { MapData } from './map.models';
 import type { MilitarySaveState } from './military.models';
@@ -24,6 +25,7 @@ export type SaveSlotId = 1 | 2 | 3;
 export interface GameSaveData {
   version: 1;
   savedAt: number;
+  setup?: GameSetupData;
   playerData: PlayerData;
   rngState: number;
   map: MapData;
@@ -31,6 +33,7 @@ export interface GameSaveData {
   ruler: {
     name: string;
     age: number;
+    traits?: string[];
     focus: number;
     charisma: number;
     health: RulerHealth;
@@ -73,4 +76,5 @@ export interface SaveSlotSummary {
 export interface PendingGameLaunch {
   slot: SaveSlotId;
   mode: 'new' | 'continue';
+  setup?: GameSetupData;
 }

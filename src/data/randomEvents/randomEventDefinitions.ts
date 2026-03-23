@@ -297,4 +297,75 @@ export const randomEventDefinitions = {
       },
     ],
   },
+  'barbarian-invasion': {
+    id: 'barbarian-invasion',
+    title: 'Barbarian Invasion',
+    description:
+      'Scouts race in from the frontier with grim news: the clans beaten back during your conquest have gathered again and now descend upon the province in force.',
+    rarity: 'rare',
+    weight: 6,
+    cooldownTurns: 24,
+    conditions: {
+      requiredPrehistory: 'military-campaign',
+      minTurn: 10,
+    },
+    options: [
+      {
+        id: 'muster-the-host',
+        title: 'Muster the Host',
+        outcomeDescription:
+          'Call your troops to arms and meet the invasion in battle.',
+        requirements: {
+          minAvailableUnits: 4,
+        },
+        outcome: {
+          startBattle: {
+            name: 'Barbarian Invasion',
+            player: {
+              label: 'Defenders',
+              morale: 68,
+            },
+            enemy: {
+              label: 'Barbarians',
+              morale: 61,
+              units: { militia: 10, footman: 4, archer: 2 },
+            },
+            rewardMultiplier: 1.1,
+          },
+          resultText:
+            'The levy horns sound across the province and your banners gather to meet the invaders head-on.',
+          logSeverity: 'bad',
+        },
+      },
+      {
+        id: 'fortify-the-settlements',
+        title: 'Fortify the Settlements',
+        outcomeDescription:
+          'Spend 25 Wood and 15 Stone to harden roads, watchposts, and storehouses against the assault.',
+        requirements: {
+          minResources: { wood: 25, stone: 15 },
+        },
+        outcome: {
+          resourceEffects: { wood: -25, stone: -15 },
+          reputationEffects: { 'military-advisor': 2, 'common-folk': 1 },
+          resultText:
+            'Timber palisades rise in haste and the settlers brace behind fresh earthworks. The invasion breaks against prepared defenses.',
+          logSeverity: 'good',
+        },
+      },
+      {
+        id: 'yield-the-frontier',
+        title: 'Yield the Frontier',
+        outcomeDescription:
+          'Abandon exposed holdings and preserve the heartland. Lose 25 Gold and 20 Meat.',
+        outcome: {
+          resourceEffects: { gold: -25, meat: -20 },
+          reputationEffects: { 'common-folk': -2, 'military-advisor': -3 },
+          resultText:
+            'Outlying hamlets are stripped and evacuated. The core of the province survives, but the retreat carries a bitter political cost.',
+          logSeverity: 'bad',
+        },
+      },
+    ],
+  },
 } as const satisfies Record<string, RandomEventDefinition>;

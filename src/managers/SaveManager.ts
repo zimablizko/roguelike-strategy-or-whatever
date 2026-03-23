@@ -4,6 +4,7 @@ import type {
   SaveSlotId,
   SaveSlotSummary,
 } from '../_common/models/save.models';
+import type { GameSetupData } from '../_common/models/game-setup.models';
 import { GameManager } from './GameManager';
 import { TurnManager } from './TurnManager';
 
@@ -19,8 +20,8 @@ let pendingLaunch: PendingGameLaunch | undefined;
 export class SaveManager {
   static readonly SLOT_IDS = SLOT_IDS;
 
-  static queueNewGame(slot: SaveSlotId): void {
-    pendingLaunch = { slot, mode: 'new' };
+  static queueNewGame(slot: SaveSlotId, setup: GameSetupData): void {
+    pendingLaunch = { slot, mode: 'new', setup };
   }
 
   static queueContinue(slot: SaveSlotId): void {
@@ -197,6 +198,9 @@ export class SaveManager {
     if (typeof value.savedAt !== 'number') {
       return false;
     }
+    if (value.setup !== undefined && !this.isGameSetupData(value.setup)) {
+      return false;
+    }
 
     if (!this.isRecord(value.turn) || !this.isRecord(value.turn.data)) {
       return false;
@@ -206,6 +210,12 @@ export class SaveManager {
     }
 
     if (!this.isRecord(value.ruler) || typeof value.ruler.name !== 'string') {
+      return false;
+    }
+    if (
+      value.ruler.traits !== undefined &&
+      !this.isStringArray(value.ruler.traits)
+    ) {
       return false;
     }
     if (!this.isRecord(value.state) || typeof value.state.name !== 'string') {
@@ -267,5 +277,23 @@ export class SaveManager {
     }
 
     return true;
+  }
+
+  private static isGameSetupData(value: unknown): value is GameSetupData {
+    if (!this.isRecord(value)) {
+      return false;
+    }
+
+    return (
+      typeof value.mapSize === 'string' &&
+      typeof value.stateName === 'string' &&
+      typeof value.rulerName === 'string' &&
+      typeof value.prehistory === 'string' &&
+      (value.rulerTraits === undefined || this.isStringArray(value.rulerTraits))
+    );
+  }
+
+  private static isStringArray(value: unknown): value is string[] {
+    return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
   }
 }

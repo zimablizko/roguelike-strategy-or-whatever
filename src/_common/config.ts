@@ -8,7 +8,7 @@ export const CONFIG = {
   MAP_INITIAL_STATE_COVERAGE: 0.8,
   DEBUG: import.meta.env.DEV,
   DEBUG_OPTIONS: {
-    START_SCENE: 'gameplay',
+    START_SCENE: 'preparation',
     QUICK_RESEARCH: true,
   },
   /** Whether military threats spawn and resolve each turn. */

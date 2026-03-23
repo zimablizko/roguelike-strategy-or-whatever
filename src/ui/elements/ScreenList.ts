@@ -35,6 +35,11 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
   private hoveredIndex: number | null = null;
   private pressedIndex: number | null = null;
   private onItemActivate?: (item: TItem, index: number) => void;
+  private onItemHoverChange?: (args: {
+    item: TItem | undefined;
+    index: number | null;
+    anchorRect?: { x: number; y: number; width: number; height: number };
+  }) => void;
   private getItemLabel?: (item: TItem, index: number) => string;
   private isItemDisabled?: (item: TItem, index: number) => boolean;
   private isItemSelected?: (item: TItem, index: number) => boolean;
@@ -67,6 +72,7 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
     this.renderItem = options.renderItem;
 
     this.onItemActivate = options.onItemActivate;
+    this.onItemHoverChange = options.onItemHoverChange;
     this.getItemLabel = options.getItemLabel;
     this.isItemDisabled = options.isItemDisabled;
     this.isItemSelected = options.isItemSelected;
@@ -124,12 +130,18 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
         nextHoveredIndex !== this.hoveredIndex;
 
       this.isScrollbarHovered = hoverScrollbar;
+      const previousHoveredIndex = this.hoveredIndex;
       this.hoveredIndex = nextHoveredIndex;
+
+      if (previousHoveredIndex !== this.hoveredIndex) {
+        this.emitHoverChange();
+      }
 
       if (changed) this.flagRedraw();
     });
 
     this.on('pointerleave', () => {
+      const previousHoveredIndex = this.hoveredIndex;
       if (
         this.hoveredIndex !== null ||
         this.pressedIndex !== null ||
@@ -140,6 +152,9 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
         this.pressedIndex = null;
         this.isDraggingScrollbar = false;
         this.isScrollbarHovered = false;
+        if (previousHoveredIndex !== null) {
+          this.emitHoverChange();
+        }
         this.flagRedraw();
       }
     });
@@ -385,9 +400,14 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
   }
 
   setItems(items: TItem[]): void {
+    const hadHoveredItem = this.hoveredIndex !== null;
     this.items = items;
     this.recalculateContentHeight();
     this.clampScroll();
+    this.hoveredIndex = null;
+    if (hadHoveredItem) {
+      this.onItemHoverChange?.({ item: undefined, index: null });
+    }
     this.flagRedraw();
   }
 
@@ -438,6 +458,45 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
 
   private flagRedraw(): void {
     this.canvasGraphic?.flagDirty();
+  }
+
+  private emitHoverChange(): void {
+    if (!this.onItemHoverChange) {
+      return;
+    }
+
+    if (this.hoveredIndex === null) {
+      this.onItemHoverChange({ item: undefined, index: null });
+      return;
+    }
+
+    this.onItemHoverChange({
+      item: this.items[this.hoveredIndex],
+      index: this.hoveredIndex,
+      anchorRect: this.getItemAnchorRect(this.hoveredIndex),
+    });
+  }
+
+  private getItemAnchorRect(index: number): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const innerX = this.padding;
+    const innerY = this.padding;
+    const innerW = this.getInnerWidth();
+    const scrollbar = this.getScrollbarGeometry();
+    const contentW = scrollbar ? innerW - (scrollbar.trackW + 4) : innerW;
+    const rowSpan = this.itemHeight + this.gap;
+    const rowY = this.globalPos.y + innerY + index * rowSpan - this.scrollOffset;
+
+    return {
+      x: this.globalPos.x + innerX,
+      y: rowY,
+      width: contentW,
+      height: this.itemHeight,
+    };
   }
 
   private getLabel(item: TItem, index: number): string {
@@ -492,6 +551,10 @@ export class ScreenList<TItem = unknown> extends ScreenElement {
           y,
           width: contentW,
           height: this.itemHeight,
+          hovered: this.hoveredIndex === index,
+          pressed: this.pressedIndex === index,
+          selected: this.isSelected(index),
+          disabled: this.isDisabled(index),
         });
         continue;
       }

@@ -1,5 +1,6 @@
 import { clamp } from '../_common/math';
 import { SeededRandom } from '../_common/random';
+import { generateStateName } from '../data/gameSetup';
 import type { MapPlayerStateSummary } from '../_common/models/map.models';
 import type {
   StateData,
@@ -61,17 +62,7 @@ export class StateManager {
   }
 
   private generateState(initial?: StateManagerOptions['initial']): StateData {
-    const names = [
-      'Northmarch',
-      'Valeborn',
-      'Ironreach',
-      'Sunfield',
-      'Duskford',
-    ];
-    const name =
-      initial?.name ??
-      names[this.rng.randomInt(0, names.length - 1)] ??
-      'Unnamed State';
+    const name = initial?.name ?? generateStateName(this.rng);
 
     const tiles = this.generateTiles(initial?.tiles);
     const ocean = clamp(initial?.ocean ?? this.rng.randomInt(0, 18), 0);

@@ -9,15 +9,19 @@ import {
   vec,
 } from 'excalibur';
 import type { RulerData } from '../../_common/models/ruler.models';
+import type { RulerTraitDefinition } from '../../_common/models/ruler-traits.models';
 import { FONT_FAMILY } from '../../_common/text';
+import { resolveRulerTraits } from '../../data/traits';
 import type { RulerManager } from '../../managers/RulerManager';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenPopup } from '../elements/ScreenPopup';
+import type { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export interface RulerPopupOptions {
   x: number;
   y: number;
   rulerManager: RulerManager;
+  tooltipProvider: TooltipProvider;
   onClose?: () => void;
 }
 
@@ -27,12 +31,13 @@ export interface RulerPopupOptions {
  */
 export class RulerPopup extends ScreenPopup {
   private static readonly POPUP_WIDTH = 540;
-  private static readonly POPUP_HEIGHT = 340;
+  private static readonly POPUP_HEIGHT = 420;
   private static readonly COLUMN_GAP = 20;
   private static readonly DIVIDER_WIDTH = 2;
 
   constructor(options: RulerPopupOptions) {
     const ruler = options.rulerManager.getRulerRef();
+    const tooltipProvider = options.tooltipProvider;
 
     super({
       x: options.x,
@@ -46,7 +51,7 @@ export class RulerPopup extends ScreenPopup {
       closeOnBackplateClick: true,
       onClose: options.onClose,
       contentBuilder: (contentRoot) => {
-        this.buildContent(contentRoot, ruler);
+        this.buildContent(contentRoot, ruler, tooltipProvider);
       },
     });
   }
@@ -55,14 +60,15 @@ export class RulerPopup extends ScreenPopup {
 
   private buildContent(
     contentRoot: ScreenElement,
-    ruler: Readonly<RulerData>
+    ruler: Readonly<RulerData>,
+    tooltipProvider: TooltipProvider
   ): void {
     const totalW = RulerPopup.POPUP_WIDTH - 28; // account for popup padding
     const leftW = Math.floor((totalW - RulerPopup.COLUMN_GAP) * 0.5);
     const rightX = leftW + RulerPopup.COLUMN_GAP;
 
     // Left column: Stats
-    this.buildStatsColumn(contentRoot, ruler, leftW);
+    this.buildStatsColumn(contentRoot, ruler, leftW, tooltipProvider);
 
     // Vertical divider
     const dividerHeight = RulerPopup.POPUP_HEIGHT - 80;
@@ -88,7 +94,8 @@ export class RulerPopup extends ScreenPopup {
   private buildStatsColumn(
     root: ScreenElement,
     ruler: Readonly<RulerData>,
-    _columnWidth: number
+    columnWidth: number,
+    tooltipProvider: TooltipProvider
   ): void {
     const titleColor = Color.fromHex('#d4e6f1');
     const labelColor = Color.fromHex('#8fa8c0');
@@ -150,6 +157,25 @@ export class RulerPopup extends ScreenPopup {
         RulerPopup.healthColor(ruler.health)
       )
     );
+    y += lineH + 18;
+
+    root.addChild(RulerPopup.createText(0, y, 'Traits', 16, titleColor));
+    y += lineH + 2;
+
+    const traits = resolveRulerTraits(ruler.traits);
+    if (traits.length === 0) {
+      root.addChild(
+        RulerPopup.createText(0, y, 'No traits selected.', 13, labelColor)
+      );
+      return;
+    }
+
+    for (const trait of traits) {
+      root.addChild(
+        this.createTraitBlock(0, y, columnWidth - 8, trait, tooltipProvider)
+      );
+      y += 38;
+    }
   }
 
   // ─── Actions Column (right) ─────────────────────────────────────
@@ -246,5 +272,75 @@ export class RulerPopup extends ScreenPopup {
       })
     );
     return el;
+  }
+
+  private createTraitBlock(
+    x: number,
+    y: number,
+    width: number,
+    trait: RulerTraitDefinition,
+    tooltipProvider: TooltipProvider
+  ): ScreenElement {
+    const height = 30;
+    const block = new ScreenElement({ x, y });
+    const titleColor =
+      trait.polarity === 'positive'
+        ? Color.fromHex('#76d98f')
+        : Color.fromHex('#e08484');
+
+    block.pointer.useGraphicsBounds = true;
+    block.pointer.useColliderShape = false;
+    block.graphics.use(
+      new GraphicsGroup({
+        members: [
+          {
+            graphic: new Rectangle({
+              width,
+              height,
+              color: Color.fromHex('#17232d'),
+              strokeColor: Color.fromHex('#324453'),
+              lineWidth: 1,
+            }),
+            offset: vec(0, 0),
+          },
+          {
+            graphic: new Text({
+              text: trait.name,
+              font: new Font({
+                size: 14,
+                unit: FontUnit.Px,
+                color: titleColor,
+                family: FONT_FAMILY,
+              }),
+            }),
+            offset: vec(10, 7),
+          },
+        ],
+      })
+    );
+
+    block.on('pointerenter', () => {
+      tooltipProvider.show({
+        owner: block,
+        getAnchorRect: () => ({
+          x: block.globalPos.x,
+          y: block.globalPos.y,
+          width,
+          height,
+        }),
+        header: trait.name,
+        description: `${trait.description}\n\nEffect: ${trait.effectSummary}`,
+        width: 320,
+        placement: 'right',
+      });
+    });
+    block.on('pointerleave', () => {
+      tooltipProvider.hide(block);
+    });
+    block.on('prekill', () => {
+      tooltipProvider.hide(block);
+    });
+
+    return block;
   }
 }

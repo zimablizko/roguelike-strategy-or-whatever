@@ -89,6 +89,10 @@ export type ScreenListRenderItem<TItem> = (args: {
   y: number;
   width: number;
   height: number;
+  hovered: boolean;
+  pressed: boolean;
+  selected: boolean;
+  disabled: boolean;
 }) => void;
 
 export interface ScreenListOptions<TItem = unknown> {
@@ -107,6 +111,11 @@ export interface ScreenListOptions<TItem = unknown> {
   transparent?: boolean;
   renderItem?: ScreenListRenderItem<TItem>;
   onItemActivate?: (item: TItem, index: number) => void;
+  onItemHoverChange?: (args: {
+    item: TItem | undefined;
+    index: number | null;
+    anchorRect?: { x: number; y: number; width: number; height: number };
+  }) => void;
   getItemLabel?: (item: TItem, index: number) => string;
   isItemDisabled?: (item: TItem, index: number) => boolean;
   isItemSelected?: (item: TItem, index: number) => boolean;

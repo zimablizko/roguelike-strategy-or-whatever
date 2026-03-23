@@ -6,6 +6,7 @@ import type {
 } from './military.models';
 import type { PoliticalEntityId } from './politics.models';
 import type { ResourceType } from './resource.models';
+import type { StatePrehistoryId } from './game-setup.models';
 
 export type RandomEventRarity = 'common' | 'uncommon' | 'rare';
 
@@ -14,6 +15,7 @@ export type RandomEventSignalId = 'forest-chopped' | 'forest-restored';
 export interface RandomEventConditionSet {
   minTurn?: number;
   maxTurn?: number;
+  requiredPrehistory?: StatePrehistoryId;
   requiredTechnologies?: TechnologyId[];
   minResources?: Partial<Record<ResourceType, number>>;
   maxResources?: Partial<Record<ResourceType, number>>;
@@ -112,4 +114,3 @@ export interface RandomEventSaveState {
   lastRollTurn: number;
   version: number;
 }
-

@@ -12,6 +12,7 @@ import {
 import { CONFIG } from '../_common/config';
 import { getIconSprite } from '../_common/icons';
 import type { StateBuildingId } from '../_common/models/buildings.models';
+import type { GameSetupData } from '../_common/models/game-setup.models';
 import { FOOD_RESOURCE_TYPES } from '../_common/models/resource.models';
 import type { SaveSlotId } from '../_common/models/save.models';
 import type {
@@ -22,6 +23,12 @@ import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
+import {
+  createDefaultGameSetup,
+  introductionLoreDefinitions,
+  getMapSizeDefinition,
+  getStatePrehistoryDefinition,
+} from '../data/gameSetup';
 import {
   LAYOUT,
   SIDEBAR_LAYOUT,
@@ -34,6 +41,7 @@ import { ScreenPopup } from '../ui/elements/ScreenPopup';
 import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { BattlePopup } from '../ui/popups/BattlePopup';
 import { BattleResultPopup } from '../ui/popups/BattleResultPopup';
+import { IntroductionLorePopup } from '../ui/popups/IntroductionLorePopup';
 import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { LogPopup } from '../ui/popups/LogPopup';
 import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
@@ -72,6 +80,7 @@ export class GameplayScene extends Scene {
   private militaryPopup?: MilitaryPopup;
   private battlePopup?: BattlePopup;
   private battleResultPopup?: BattleResultPopup;
+  private introductionLorePopup?: IntroductionLorePopup;
   private randomEventPopup?: RandomEventPopup;
   private logPopup?: LogPopup;
   private selectedBuildingView?: SelectedBuildingView;
@@ -147,6 +156,7 @@ export class GameplayScene extends Scene {
     this.militaryPopup = undefined;
     this.battlePopup = undefined;
     this.battleResultPopup = undefined;
+    this.introductionLorePopup = undefined;
     this.randomEventPopup = undefined;
     this.logPopup = undefined;
     this.selectedBuildingView = undefined;
@@ -170,6 +180,7 @@ export class GameplayScene extends Scene {
     this.militaryPopup = undefined;
     this.battlePopup = undefined;
     this.battleResultPopup = undefined;
+    this.introductionLorePopup = undefined;
     this.randomEventPopup = undefined;
     this.logPopup = undefined;
     this.mapView = undefined;
@@ -187,30 +198,12 @@ export class GameplayScene extends Scene {
       launch?.mode === 'continue'
         ? SaveManager.loadFromSlot(selectedSlot)
         : undefined;
+    const newGameSetup = launch?.setup ?? createDefaultGameSetup();
 
     this.activeSaveSlot = selectedSlot;
     this.gameManager = slotSave
       ? new GameManager({ saveData: slotSave })
-      : new GameManager({
-          playerData: {
-            race: 'human',
-            resources: {
-              gold: 100,
-              wood: 50,
-              stone: 50,
-              jewelry: 0,
-              ironOre: 0,
-              wheat: 0,
-              meat: 50,
-              bread: 50,
-              population: 10,
-            },
-          },
-          map: {
-            width: 100,
-            height: 60,
-          },
-        });
+      : new GameManager(this.buildNewGameOptions(newGameSetup));
     this.resourceManager = this.gameManager.resourceManager;
     this.turnManager = new TurnManager(
       this.resourceManager,
@@ -246,8 +239,9 @@ export class GameplayScene extends Scene {
         `Game loaded from slot ${selectedSlot}.`
       );
     } else {
+      const prehistory = getStatePrehistoryDefinition(newGameSetup.prehistory);
       this.gameManager.logManager.addNeutral(
-        `A new reign begins in ${this.gameManager.stateManager.getStateRef().name}.`
+        `A new reign begins in ${this.gameManager.stateManager.getStateRef().name} under the ${prehistory.label.toLowerCase()} prehistory.`
       );
     }
 
@@ -269,7 +263,11 @@ export class GameplayScene extends Scene {
     this.addFocusDisplay();
     this.addQuickBuildView();
     this.addSelectedBuildingView();
-    this.showPendingRandomEventPopup(engine);
+    if (slotSave) {
+      this.showPendingRandomEventPopup(engine);
+    } else {
+      this.showIntroductionLorePopup(engine, newGameSetup);
+    }
 
     this.saveCurrentGame();
   }
@@ -467,6 +465,7 @@ export class GameplayScene extends Scene {
       x: engine.drawWidth / 2,
       y: engine.drawHeight / 2,
       rulerManager: this.gameManager.rulerManager,
+      tooltipProvider: this.tooltipProvider,
       onClose: () => {
         this.rulerPopup = undefined;
       },
@@ -1328,6 +1327,8 @@ export class GameplayScene extends Scene {
       (this.rulerPopup !== undefined && !this.rulerPopup.isKilled()) ||
       (this.researchPopup !== undefined && !this.researchPopup.isKilled()) ||
       (this.militaryPopup !== undefined && !this.militaryPopup.isKilled()) ||
+      (this.introductionLorePopup !== undefined &&
+        !this.introductionLorePopup.isKilled()) ||
       (this.randomEventPopup !== undefined && !this.randomEventPopup.isKilled()) ||
       (this.logPopup !== undefined && !this.logPopup.isKilled()) ||
       (this.battlePopup !== undefined && !this.battlePopup.isKilled()) ||
@@ -1337,6 +1338,14 @@ export class GameplayScene extends Scene {
   }
 
   private closeTopPopup(): void {
+    if (
+      this.introductionLorePopup &&
+      !this.introductionLorePopup.isKilled()
+    ) {
+      this.introductionLorePopup.close();
+      this.introductionLorePopup = undefined;
+      return;
+    }
     if (this.gameMenuPopup && !this.gameMenuPopup.isKilled()) {
       this.gameMenuPopup.close();
       this.gameMenuPopup = undefined;
@@ -1381,6 +1390,37 @@ export class GameplayScene extends Scene {
       this.testPopup.close();
       this.testPopup = undefined;
     }
+  }
+
+  private showIntroductionLorePopup(
+    engine: Engine,
+    setup: GameSetupData
+  ): void {
+    if (this.introductionLorePopup) {
+      this.introductionLorePopup.close();
+      this.introductionLorePopup = undefined;
+    }
+
+    const prehistory = getStatePrehistoryDefinition(setup.prehistory);
+    const loreDefinition =
+      introductionLoreDefinitions[setup.prehistory] ??
+      introductionLoreDefinitions['distant-colony'];
+    const stateName = this.gameManager.stateManager.getStateRef().name;
+    const rulerName = this.gameManager.rulerManager.getRulerRef().name;
+
+    const popup = new IntroductionLorePopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      title: loreDefinition.title,
+      body: `${stateName} now stands beneath the authority of ${rulerName}. ${prehistory.description} ${loreDefinition.body}`,
+      onClose: () => {
+        this.introductionLorePopup = undefined;
+        this.showPendingRandomEventPopup(engine);
+      },
+    });
+
+    this.introductionLorePopup = popup;
+    this.add(popup);
   }
 
   private startManualBuildPlacement(buildingId: StateBuildingId): void {
@@ -1578,5 +1618,51 @@ export class GameplayScene extends Scene {
     this.selectBuilding(latestInstance?.instanceId, true);
 
     this.cancelManualBuildPlacement();
+  }
+
+  private buildNewGameOptions(setup: GameSetupData): ConstructorParameters<
+    typeof GameManager
+  >[0] {
+    const mapSize = getMapSizeDefinition(setup.mapSize);
+    const prehistory = getStatePrehistoryDefinition(setup.prehistory);
+    const resources = {
+      gold: 100,
+      wood: 50,
+      stone: 50,
+      jewelry: 0,
+      ironOre: 0,
+      wheat: 0,
+      meat: 50,
+      bread: 50,
+      population: 10,
+    };
+
+    for (const [resourceType, amount] of Object.entries(
+      prehistory.startingResources ?? {}
+    )) {
+      const key = resourceType as keyof typeof resources;
+      resources[key] += amount ?? 0;
+    }
+
+    return {
+      setup,
+      playerData: {
+        race: 'human',
+        resources,
+      },
+      map: {
+        width: mapSize.width,
+        height: mapSize.height,
+      },
+      state: {
+        name: setup.stateName,
+      },
+      ruler: {
+        name: setup.rulerName,
+        traits: [...setup.rulerTraits],
+      },
+      startingTechnologies: prehistory.startingTechnologies,
+      startingUnits: prehistory.startingUnits?.map((unit) => ({ ...unit })),
+    };
   }
 }

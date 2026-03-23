@@ -1,4 +1,5 @@
 import { clamp } from '../_common/math';
+import { applyRulerTraitEffects, normalizeRulerTraitIds } from '../data/traits';
 import type {
   RulerData,
   RulerHealth,
@@ -6,6 +7,7 @@ import type {
 } from '../_common/models/ruler.models';
 import { RULER_HEALTH_LEVELS } from '../_common/models/ruler.models';
 import { SeededRandom } from '../_common/random';
+import { generateRulerName } from '../data/gameSetup';
 
 /**
  * Manages ruler state (name/age/portrait/focus/charisma/health).
@@ -14,14 +16,16 @@ import { SeededRandom } from '../_common/random';
 export class RulerManager {
   private ruler: RulerData;
   private readonly rng: SeededRandom;
+  private readonly applyTraitEffectsByDefault: boolean;
 
   constructor(options: RulerManagerOptions = {}) {
     this.rng = options.rng ?? new SeededRandom();
-    this.ruler = this.generateRuler(options.initial);
+    this.applyTraitEffectsByDefault = options.applyTraitEffects ?? true;
+    this.ruler = this.generateRuler(options.initial, this.applyTraitEffectsByDefault);
   }
 
   getRuler(): RulerData {
-    return { ...this.ruler };
+    return { ...this.ruler, traits: [...this.ruler.traits] };
   }
 
   /**
@@ -33,7 +37,7 @@ export class RulerManager {
   }
 
   regenerate(initial?: RulerManagerOptions['initial']): void {
-    this.ruler = this.generateRuler(initial);
+    this.ruler = this.generateRuler(initial, this.applyTraitEffectsByDefault);
   }
 
   incrementAge(): void {
@@ -71,12 +75,12 @@ export class RulerManager {
     return this.ruler.health;
   }
 
-  private generateRuler(initial?: RulerManagerOptions['initial']): RulerData {
-    const names = ['Aurelia', 'Cedric', 'Elowen', 'Rowan', 'Dorian', 'Lyra'];
-    const name =
-      initial?.name ??
-      names[this.rng.randomInt(0, names.length - 1)] ??
-      'Ruler';
+  private generateRuler(
+    initial?: RulerManagerOptions['initial'],
+    applyTraitEffects: boolean = true
+  ): RulerData {
+    const name = initial?.name ?? generateRulerName(this.rng);
+    const traits = normalizeRulerTraitIds(initial?.traits);
 
     const age = initial?.age ?? this.rng.randomInt(18, 55);
 
@@ -96,6 +100,23 @@ export class RulerManager {
     // Health: defaults to 'Good'
     const health: RulerHealth = initial?.health ?? 'Good';
 
-    return { name, age, portrait, focus, charisma, health };
+    if (!applyTraitEffects || traits.length === 0) {
+      return { name, age, portrait, traits, focus, charisma, health };
+    }
+
+    return {
+      name,
+      portrait,
+      traits,
+      ...applyRulerTraitEffects(
+        {
+          age,
+          focus,
+          charisma,
+          health,
+        },
+        traits
+      ),
+    };
   }
 }

@@ -2,6 +2,7 @@ import type {
   GameManagerOptions,
   PlayerData,
 } from '../_common/models/game.models';
+import type { GameSetupData } from '../_common/models/game-setup.models';
 import type { GameSaveData } from '../_common/models/save.models';
 import { SeededRandom } from '../_common/random';
 import {
@@ -50,10 +51,12 @@ export class GameManager {
   militaryManager: MilitaryManager;
   politicsManager: PoliticsManager;
   randomEventManager: RandomEventManager;
+  readonly setup?: GameSetupData;
   readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
     const saveData = options.saveData;
+    this.setup = saveData?.setup ?? options.setup;
     this.playerData =
       saveData?.playerData ??
       options.playerData ??
@@ -67,15 +70,17 @@ export class GameManager {
 
     this.rulerManager = new RulerManager({
       rng: this.rng,
+      applyTraitEffects: !saveData,
       initial: saveData?.ruler
         ? {
             name: saveData.ruler.name,
             age: saveData.ruler.age,
+            traits: saveData.ruler.traits,
             focus: saveData.ruler.focus,
             charisma: saveData.ruler.charisma,
             health: saveData.ruler.health,
           }
-        : undefined,
+        : options.ruler,
     });
 
     this.mapManager = new MapManager(
@@ -92,7 +97,7 @@ export class GameManager {
     this.stateManager = new StateManager({
       rng: this.rng,
       initial: {
-        name: saveData?.state.name,
+        name: saveData?.state.name ?? options.state?.name,
         tiles: {
           forest: playerState.tiles.forest,
           stone: playerState.tiles.stone,
@@ -119,7 +124,9 @@ export class GameManager {
             buildingInstanceSerial: saveData.buildings.instanceSerial,
             actionProgresses: saveData.buildings.actionProgresses,
           }
-        : undefined,
+        : {
+            technologies: options.startingTechnologies,
+          },
     });
     this.researchManager = new ResearchManager(this.buildingManager, {
       logManager: this.logManager,
@@ -146,6 +153,11 @@ export class GameManager {
       logManager: this.logManager,
       initial: saveData?.military ?? undefined,
     });
+    if (!saveData) {
+      for (const unit of options.startingUnits ?? []) {
+        this.militaryManager.addUnits(unit.unitId, unit.count, 'available');
+      }
+    }
     this.buildingManager.setAdditionalOccupiedPopulationProvider(() =>
       this.militaryManager.getPopulationUsage()
     );
@@ -183,6 +195,7 @@ export class GameManager {
       militaryManager: this.militaryManager,
       politicsManager: this.politicsManager,
       logManager: this.logManager,
+      setup: this.setup,
       initial: saveData?.randomEvents ?? undefined,
     });
     this.buildingManager.setTileChangeListener((change) =>
@@ -213,6 +226,15 @@ export class GameManager {
     return {
       version: 1,
       savedAt: Date.now(),
+      setup: this.setup
+        ? {
+            mapSize: this.setup.mapSize,
+            stateName: this.setup.stateName,
+            rulerName: this.setup.rulerName,
+            prehistory: this.setup.prehistory,
+            rulerTraits: [...(this.setup.rulerTraits ?? [])],
+          }
+        : undefined,
       playerData: {
         race: this.playerData.race,
         resources: this.resourceManager.getAllResources(),
@@ -231,6 +253,7 @@ export class GameManager {
       ruler: {
         name: ruler.name,
         age: ruler.age,
+        traits: [...ruler.traits],
         focus: ruler.focus,
         charisma: ruler.charisma,
         health: ruler.health,

@@ -1,5 +1,6 @@
 import type { ImageSource } from 'excalibur';
 import type { SeededRandom } from '../random';
+import type { RulerTraitId } from './ruler-traits.models';
 
 /** Verbal health rating for the ruler. */
 export type RulerHealth = 'Poor' | 'Fair' | 'Good' | 'Strong' | 'Excellent';
@@ -16,6 +17,7 @@ export type RulerData = {
   name: string;
   age: number;
   portrait?: ImageSource;
+  traits: RulerTraitId[];
   /** Determines max actions per turn. Average ~6 ±2. */
   focus: number;
   /** Communication effectiveness. Average ~10 ±2. */
@@ -27,4 +29,5 @@ export type RulerData = {
 export interface RulerManagerOptions {
   initial?: Partial<Omit<RulerData, 'portrait'>> & { portrait?: ImageSource };
   rng?: SeededRandom;
+  applyTraitEffects?: boolean;
 }

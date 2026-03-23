@@ -1,4 +1,5 @@
 import type { StateBuildingId, TechnologyId } from '../_common/models/buildings.models';
+import type { GameSetupData } from '../_common/models/game-setup.models';
 import type {
   UnitRole,
 } from '../_common/models/military.models';
@@ -46,6 +47,7 @@ export interface RandomEventManagerOptions {
   militaryManager: MilitaryManager;
   politicsManager: PoliticsManager;
   logManager?: GameLogManager;
+  setup?: GameSetupData;
   initial?: RandomEventSaveState;
 }
 
@@ -61,6 +63,7 @@ export class RandomEventManager {
   private readonly militaryManager: MilitaryManager;
   private readonly politicsManager: PoliticsManager;
   private readonly logManager?: GameLogManager;
+  private readonly setup?: GameSetupData;
 
   private focusBridge?: RandomEventFocusBridge;
   private cooldowns = new Map<string, number>();
@@ -77,6 +80,7 @@ export class RandomEventManager {
     this.militaryManager = options.militaryManager;
     this.politicsManager = options.politicsManager;
     this.logManager = options.logManager;
+    this.setup = options.setup;
 
     const initial = options.initial;
     if (!initial) {
@@ -397,6 +401,12 @@ export class RandomEventManager {
       return false;
     }
     if (conditions.maxTurn !== undefined && currentTurn > conditions.maxTurn) {
+      return false;
+    }
+    if (
+      conditions.requiredPrehistory !== undefined &&
+      this.setup?.prehistory !== conditions.requiredPrehistory
+    ) {
       return false;
     }
 

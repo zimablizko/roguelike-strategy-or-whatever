@@ -1,0 +1,16 @@
+export const stateNameSuffixes = [
+  'city',
+  'cross',
+  'ford',
+  'gate',
+  'grad',
+  'harbor',
+  'haven',
+  'hold',
+  'march',
+  'rest',
+  'rock',
+  'town',
+  'vale',
+  'watch',
+] as const;
