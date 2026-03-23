@@ -1,4 +1,4 @@
-import type { PoliticalRequestDefinition } from '../_common/models/politics.models';
+import type { PoliticalRequestDefinition } from '../../_common/models/politics.models';
 
 /**
  * All political request definitions.
@@ -6,7 +6,7 @@ import type { PoliticalRequestDefinition } from '../_common/models/politics.mode
  */
 export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] =
   [
-    // ─── Common Folk ───────────────────────────────────────────────
+    // Common Folk
     {
       id: 'folk-food-shortage',
       entityId: 'common-folk',
@@ -53,7 +53,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       expireTurns: 2,
     },
 
-    // ─── Economy Advisor ───────────────────────────────────────────
+    // Economy Advisor
     {
       id: 'econ-build-lumbermill',
       entityId: 'economy-advisor',
@@ -100,7 +100,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       expireTurns: 3,
     },
 
-    // ─── Military Advisor ──────────────────────────────────────────
+    // Military Advisor
     {
       id: 'mil-border-patrol',
       entityId: 'military-advisor',
@@ -134,7 +134,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       expireTurns: 4,
     },
 
-    // ─── Politics Advisor ──────────────────────────────────────────
+    // Politics Advisor
     {
       id: 'pol-diplomatic-envoy',
       entityId: 'politics-advisor',
@@ -181,10 +181,3 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       expireTurns: 4,
     },
   ];
-
-/** Look up a request definition by its id. */
-export function getPoliticalRequestDefinition(
-  id: string
-): PoliticalRequestDefinition | undefined {
-  return politicalRequestDefinitions.find((d) => d.id === id);
-}

@@ -458,6 +458,7 @@ export interface RandomEventOption {
   outcomeDescription: string;
   onSelect: () => void;
   disabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface RandomEventPopupOptions {

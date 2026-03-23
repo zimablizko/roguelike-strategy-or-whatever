@@ -12,27 +12,13 @@ import { reputationTierFromValue } from '../_common/models/politics.models';
 import type { ResourceType } from '../_common/models/resource.models';
 import type { SeededRandom } from '../_common/random';
 import {
+  DEFAULT_REPUTATION,
+  EXPIRE_REPUTATION_PENALTY,
   getPoliticalRequestDefinition,
+  politicalEntityDefinitions,
   politicalRequestDefinitions,
 } from '../data/politicalRequests';
 import type { GameLogManager } from './GameLogManager';
-
-/** Default starting reputation for all entities. */
-const DEFAULT_REPUTATION = 50;
-
-/** Reputation penalty for ignoring (letting expire) a request. */
-const EXPIRE_REPUTATION_PENALTY = -2;
-
-/** Entity display definitions (name mapping). */
-const ENTITY_DEFINITIONS: ReadonlyArray<{
-  id: PoliticalEntityId;
-  name: string;
-}> = [
-  { id: 'common-folk', name: 'Common Folk' },
-  { id: 'economy-advisor', name: 'Economy Advisor' },
-  { id: 'military-advisor', name: 'Military Advisor' },
-  { id: 'politics-advisor', name: 'Politics Advisor' },
-];
 
 /**
  * Single source of truth for political reputation, requests, and delegation state.
@@ -62,7 +48,8 @@ export class PoliticsManager {
         this.entities.set(entry.id, {
           id: entry.id,
           name:
-            ENTITY_DEFINITIONS.find((d) => d.id === entry.id)?.name ?? entry.id,
+            politicalEntityDefinitions.find((d) => d.id === entry.id)?.name ??
+            entry.id,
           reputation: clamp(entry.reputation, 0, 100),
         });
       }
@@ -78,7 +65,7 @@ export class PoliticsManager {
       this.instanceSerial = options.initial.instanceSerial;
       this.version = options.initial.version;
     } else {
-      for (const def of ENTITY_DEFINITIONS) {
+      for (const def of politicalEntityDefinitions) {
         this.entities.set(def.id, {
           id: def.id,
           name: def.name,
@@ -113,7 +100,7 @@ export class PoliticsManager {
 
   /** Get all entities in display order. */
   getEntities(): readonly PoliticalEntity[] {
-    return ENTITY_DEFINITIONS.map(
+    return politicalEntityDefinitions.map(
       (def) =>
         this.entities.get(def.id) ?? {
           id: def.id,

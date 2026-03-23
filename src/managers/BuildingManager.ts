@@ -1,5 +1,6 @@
 import { clamp } from '../_common/math';
 import type {
+  BuildingTileChange,
   BuildingActionProgress,
   BuildingManagerOptions,
   BuildingManagerStateBridge,
@@ -29,6 +30,7 @@ import {
   createEmptyBuildingRecord,
   stateBuildingDefinitions,
 } from '../data/buildings';
+import { getUnitDefinition } from '../data/military';
 import {
   rareResourceDefinitions,
   type RareResourceId,
@@ -50,6 +52,7 @@ export class BuildingManager {
   private unlockedTechnologies = new Set<TechnologyId>();
   private additionalOccupiedPopulationProvider: () => number = () => 0;
   private readonly logManager?: GameLogManager;
+  private onTileChanged?: (change: BuildingTileChange) => void;
   /** Tracks how many times each action has been used this turn. Key: "instanceId:actionId". */
   private actionUsesThisTurn = new Map<string, number>();
 
@@ -58,6 +61,7 @@ export class BuildingManager {
     this.stateBridge = options.stateBridge;
     this.rng = options.rng ?? new SeededRandom();
     this.logManager = options.logManager;
+    this.onTileChanged = options.onTileChanged;
     this.buildingCounts = createEmptyBuildingRecord();
     this.applyProgress(options.initial);
     this.ensureStartingCastle();
@@ -154,6 +158,12 @@ export class BuildingManager {
   setAdditionalOccupiedPopulationProvider(provider: (() => number) | undefined) {
     this.additionalOccupiedPopulationProvider = provider ?? (() => 0);
     this.buildingsVersion++;
+  }
+
+  setTileChangeListener(
+    listener: ((change: BuildingTileChange) => void) | undefined
+  ): void {
+    this.onTileChanged = listener;
   }
 
   /**
@@ -804,16 +814,25 @@ export class BuildingManager {
         if (!map || map.playerZoneId === null) return false;
         return map.zones[Math.floor(y)]?.[Math.floor(x)] === map.playerZoneId;
       },
-      mapSetTile: (
-        x: number,
-        y: number,
-        tile: import('../_common/models/map.models').MapTileType
-      ) => {
-        if (!this.mapManager) return;
-        this.mapManager.setTile(x, y, tile);
-        this.syncStateWithMapSummary();
-        this.buildingsVersion++;
-      },
+        mapSetTile: (
+          x: number,
+          y: number,
+          tile: import('../_common/models/map.models').MapTileType
+        ) => {
+          if (!this.mapManager) return;
+          const map = this.mapManager.getMapRef();
+          const from = map.tiles[Math.floor(y)]?.[Math.floor(x)];
+          this.mapManager.setTile(x, y, tile);
+          this.onTileChanged?.({
+            x: Math.floor(x),
+            y: Math.floor(y),
+            from,
+            to: tile,
+            source: 'building-action',
+          });
+          this.syncStateWithMapSummary();
+          this.buildingsVersion++;
+        },
     };
   }
 
@@ -1241,7 +1260,16 @@ export class BuildingManager {
     if (!this.mapManager) return;
     for (let dy = 0; dy <= 1; dy++) {
       for (let dx = 0; dx <= 1; dx++) {
+        const from =
+          this.mapManager.getMapRef().tiles[tileY + dy]?.[tileX + dx];
         this.mapManager.setTile(tileX + dx, tileY + dy, 'field');
+        this.onTileChanged?.({
+          x: tileX + dx,
+          y: tileY + dy,
+          from,
+          to: 'field',
+          source: 'field-placement',
+        });
       }
     }
     this.incrementActionUsage(farmInstanceId, 'sow-field');
@@ -1352,20 +1380,7 @@ export class BuildingManager {
   }
 
   private getUnitPulseLabel(unitId: UnitRole): string {
-    switch (unitId) {
-      case 'footman':
-        return 'Footmen';
-      case 'archer':
-        return 'Archers';
-      case 'militia':
-        return 'Militia';
-      case 'spy':
-        return 'Spies';
-      case 'engineer':
-        return 'Engineers';
-      default:
-        return unitId;
-    }
+    return getUnitDefinition(unitId)?.name ?? unitId;
   }
 
   private findBestPlacement(

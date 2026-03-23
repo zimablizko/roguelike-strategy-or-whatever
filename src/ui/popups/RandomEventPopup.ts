@@ -113,7 +113,11 @@ export class RandomEventPopup extends ScreenPopup {
       },
     });
     row.addChild(button);
-    this.bindTooltip(button, option.title, option.outcomeDescription);
+    const tooltipText =
+      option.disabled && option.disabledReason
+        ? `${option.disabledReason} ${option.outcomeDescription}`
+        : option.outcomeDescription;
+    this.bindTooltip(button, option.title, tooltipText);
     return row;
   }
 

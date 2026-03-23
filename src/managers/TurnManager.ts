@@ -1,5 +1,6 @@
 import { CONFIG } from '../_common/config';
 import type { StateBuildingId } from '../_common/models/buildings.models';
+import type { RandomEventPresentation } from '../_common/models/random-events.models';
 import type {
   ResourceCost,
   ResourceType,
@@ -21,6 +22,7 @@ import { BuildingManager } from './BuildingManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
 import { PoliticsManager } from './PoliticsManager';
+import { RandomEventManager } from './RandomEventManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -102,6 +104,7 @@ export class TurnManager {
   private researchManager?: ResearchManager;
   private militaryManager?: MilitaryManager;
   private politicsManager?: PoliticsManager;
+  private randomEventManager?: RandomEventManager;
   private logManager?: GameLogManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
@@ -119,6 +122,7 @@ export class TurnManager {
       researchManager?: ResearchManager;
       militaryManager?: MilitaryManager;
       politicsManager?: PoliticsManager;
+      randomEventManager?: RandomEventManager;
       logManager?: GameLogManager;
       initial?: {
         data?: TurnData;
@@ -151,6 +155,7 @@ export class TurnManager {
     this.researchManager = options?.researchManager;
     this.militaryManager = options?.militaryManager;
     this.politicsManager = options?.politicsManager;
+    this.randomEventManager = options?.randomEventManager;
     this.logManager = options?.logManager;
     this.rng = options?.rng ?? new SeededRandom();
     this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
@@ -177,6 +182,7 @@ export class TurnManager {
       this.turnData.turnNumber,
       this.getDateLabel()
     );
+    let pendingRandomEvent: RandomEventPresentation | undefined;
 
     // Age increments once per year (every 360 days = 12 months, when January 1 starts).
     if ((this.turnData.turnNumber - 1) % 360 === 0) {
@@ -193,6 +199,9 @@ export class TurnManager {
     this.politicsManager?.generateTurnRequests(
       this.turnData.turnNumber,
       this.rng
+    );
+    pendingRandomEvent = this.randomEventManager?.rollForTurn(
+      this.turnData.turnNumber
     );
 
     // Upkeep is paid at the beginning of each month (day 1 of any month after the first).
@@ -220,6 +229,7 @@ export class TurnManager {
       passiveIncomePulses: passiveIncome.pulses,
       actionPulses,
       completedResearch: researchUpdate?.completedResearch,
+      pendingRandomEvent,
       upkeepPaid,
     };
   }
@@ -339,6 +349,18 @@ export class TurnManager {
     return false;
   }
 
+  adjustFocus(delta: number): void {
+    const next = Math.max(
+      0,
+      Math.min(this.turnData.focus.max, this.turnData.focus.current + delta)
+    );
+    if (next === this.turnData.focus.current) {
+      return;
+    }
+    this.turnData.focus.current = next;
+    this.turnVersion++;
+  }
+
   resetFocus(): void {
     this.turnData.focus.current = this.turnData.focus.max;
     this.buildingManager.resetActionUsage();
@@ -378,7 +400,15 @@ export class TurnManager {
     for (const [key, turnsLeft] of this.emptyFieldRecovery) {
       if (turnsLeft <= 1) {
         const [x, y] = key.split(',').map(Number);
+        const from = this.mapManager.getMapRef().tiles[y]?.[x];
         this.mapManager.setTile(x, y, 'field');
+        this.randomEventManager?.recordTileChange({
+          x,
+          y,
+          from,
+          to: 'field',
+          source: 'turn-recovery',
+        });
         this.emptyFieldRecovery.delete(key);
         anyRecovered = true;
       } else {

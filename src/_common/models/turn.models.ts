@@ -1,3 +1,4 @@
+import type { RandomEventPresentation } from './random-events.models';
 import type { CompletedResearchSummary } from './research-manager.models';
 import type { ResourceType } from './resource.models';
 
@@ -23,6 +24,7 @@ export interface EndTurnResult {
   passiveIncomePulses: EndTurnIncomePulse[];
   actionPulses: EndTurnIncomePulse[];
   completedResearch?: CompletedResearchSummary;
+  pendingRandomEvent?: RandomEventPresentation;
   upkeepPaid: boolean;
 }
 

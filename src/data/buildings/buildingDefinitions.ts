@@ -1,24 +1,8 @@
 import type {
   BuildingActionContext,
-  BuildingPassiveIncome,
   StateBuildingDefinition,
-  StateBuildingId,
-} from '../_common/models/buildings.models';
-import type { MapTileType } from '../_common/models/map.models';
-
-// ─── Passive income config per building type ─────────────────────────
-
-export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
-  castle: [
-    { resourceType: 'gold', amount: 1 },
-    { resourceType: 'wood', amount: 1 },
-  ],
-  lumbermill: [{ resourceType: 'wood', amount: 1 }],
-  mine: [{ resourceType: 'stone', amount: 'random:1:3' }],
-  'hunters-hut': [{ resourceType: 'meat', amount: 'random:1:2' }],
-};
-
-// ─── Building definitions ────────────────────────────────────────────
+} from '../../_common/models/buildings.models';
+import type { MapTileType } from '../../_common/models/map.models';
 
 export const stateBuildingDefinitions = {
   castle: {
@@ -137,8 +121,6 @@ export const stateBuildingDefinitions = {
         },
         run: ({ buildingInstances, mapGetTile, mapSetTile, resources }) => {
           const RANGE = 3;
-
-          // Collect unique forest tiles in range, tracking min sq-dist to any lumbermill.
           const forestInRange = new Map<
             number,
             { x: number; y: number; distSq: number }
@@ -169,19 +151,16 @@ export const stateBuildingDefinitions = {
 
           if (forestInRange.size === 0) return;
 
-          // Sort by distance to find the nearest forest tile.
           const sorted = Array.from(forestInRange.values()).sort(
             (a, b) => a.distSq - b.distSq
           );
           const nearest = sorted[0];
 
-          // Convert nearest forest to plains.
           mapSetTile(nearest.x, nearest.y, 'plains');
 
-          // Yield: 3 Materials per in-range forest tile, with slight diminishing.
-          const N = sorted.length;
+          const forestCount = sorted.length;
           let totalYield = 0;
-          for (let i = 0; i < N; i++) {
+          for (let i = 0; i < forestCount; i++) {
             totalYield += Math.max(1, Math.round(3 * Math.pow(0.9, i)));
           }
           resources.addResource('wood', totalYield);
@@ -429,11 +408,9 @@ export const stateBuildingDefinitions = {
               }
             }
           }
-          // Each 2×2 block of field tiles counts as one field.
           const fieldBlockCount = Math.floor(fieldTiles.length / 4);
           const wheatGain = 3 * fieldBlockCount;
           resources.addResource('wheat', wheatGain);
-          // Convert harvested fields to fallow.
           for (const tile of fieldTiles) {
             mapSetTile(tile.x, tile.y, 'field-empty');
           }
@@ -541,14 +518,3 @@ export const stateBuildingDefinitions = {
     actions: [],
   },
 } as const satisfies Record<string, StateBuildingDefinition>;
-
-/** Helper to create an empty building count record. */
-export function createEmptyBuildingRecord(): Record<StateBuildingId, number> {
-  const record = {} as Record<StateBuildingId, number>;
-  for (const key of Object.keys(
-    stateBuildingDefinitions
-  ) as StateBuildingId[]) {
-    record[key] = 0;
-  }
-  return record;
-}

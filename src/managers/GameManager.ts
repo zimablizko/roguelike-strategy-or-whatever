@@ -13,6 +13,7 @@ import { GameLogManager } from './GameLogManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
 import { PoliticsManager } from './PoliticsManager';
+import { RandomEventManager } from './RandomEventManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
@@ -48,6 +49,7 @@ export class GameManager {
   researchManager: ResearchManager;
   militaryManager: MilitaryManager;
   politicsManager: PoliticsManager;
+  randomEventManager: RandomEventManager;
   readonly rng: SeededRandom;
 
   constructor(options: GameManagerOptions) {
@@ -174,6 +176,19 @@ export class GameManager {
       initial: saveData?.politics ?? undefined,
     });
 
+    this.randomEventManager = new RandomEventManager({
+      rng: this.rng,
+      resourceManager: this.resourceManager,
+      buildingManager: this.buildingManager,
+      militaryManager: this.militaryManager,
+      politicsManager: this.politicsManager,
+      logManager: this.logManager,
+      initial: saveData?.randomEvents ?? undefined,
+    });
+    this.buildingManager.setTileChangeListener((change) =>
+      this.randomEventManager.recordTileChange(change)
+    );
+
     if (saveData) {
       this.rng.setState(saveData.rngState);
     }
@@ -247,6 +262,7 @@ export class GameManager {
       turn: turnData,
       military: this.militaryManager.getSaveState(),
       politics: this.politicsManager.getSaveState(),
+      randomEvents: this.randomEventManager.getSaveState(),
       logs: this.logManager.getSaveState(),
     };
   }

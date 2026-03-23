@@ -1,36 +1,4 @@
-import type {
-  ResearchDefinition,
-  ResearchId,
-  ResearchTreeId,
-  TypedResearchDefinition,
-} from '../_common/models/researches.models';
-
-export const researchTreeInfo: Record<
-  ResearchTreeId,
-  {
-    name: string;
-    colorHex: string;
-  }
-> = {
-  economics: {
-    name: 'Economics',
-    colorHex: '#52b66f',
-  },
-  politics: {
-    name: 'Politics',
-    colorHex: '#4f86dc',
-  },
-  military: {
-    name: 'Military',
-    colorHex: '#cf5d5d',
-  },
-};
-
-export const researchTreeOrder: ResearchTreeId[] = [
-  'economics',
-  'politics',
-  'military',
-];
+import type { ResearchDefinition } from '../../_common/models/researches.models';
 
 export const researchDefinitions = {
   'eco-agriculture': {
@@ -203,17 +171,3 @@ export const researchDefinitions = {
     requiredResearches: ['mil-fortification-engineering', 'mil-siege-tactics'],
   },
 } as const satisfies Record<string, ResearchDefinition>;
-
-export function isResearchId(id: string): id is ResearchId {
-  return Object.prototype.hasOwnProperty.call(researchDefinitions, id);
-}
-
-export function getResearchDefinition(
-  id: ResearchId
-): TypedResearchDefinition | undefined {
-  return researchDefinitions[id] as TypedResearchDefinition | undefined;
-}
-
-export function getAllResearchDefinitions(): TypedResearchDefinition[] {
-  return Object.values(researchDefinitions) as TypedResearchDefinition[];
-}

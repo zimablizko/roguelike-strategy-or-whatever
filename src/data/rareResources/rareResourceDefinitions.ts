@@ -1,5 +1,5 @@
-import type { MapTileType } from '../_common/models/map.models';
-import type { RareResourceDefinition } from '../_common/models/rare-resource.models';
+import type { MapTileType } from '../../_common/models/map.models';
+import type { RareResourceDefinition } from '../../_common/models/rare-resource.models';
 
 export const rareResourceDefinitions = {
   'iron-ore': {

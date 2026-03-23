@@ -3,7 +3,7 @@ import type { GameLogManager } from '../../managers/GameLogManager';
 import type { UnitRole } from './military.models';
 import type { SeededRandom } from '../random';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
-import type { MapPlayerStateSummary } from './map.models';
+import type { MapPlayerStateSummary, MapTileType } from './map.models';
 import type { ResourceCost } from './resource.models';
 import type { StateData } from './state.models';
 
@@ -81,11 +81,20 @@ export interface BuildingManagerStateBridge {
   applyMapSummary(summary: MapPlayerStateSummary): void;
 }
 
+export interface BuildingTileChange {
+  x: number;
+  y: number;
+  from?: MapTileType;
+  to: MapTileType;
+  source: 'building-action' | 'field-placement' | 'turn-recovery';
+}
+
 export interface BuildingManagerOptions {
   mapManager?: MapManager;
   stateBridge: BuildingManagerStateBridge;
   rng?: SeededRandom;
   logManager?: GameLogManager;
+  onTileChanged?: (change: BuildingTileChange) => void;
   initial?: {
     technologies?: TechnologyId[];
     builtBuildings?: Partial<Record<StateBuildingId, number | boolean>>;

@@ -147,6 +147,7 @@ export class GameplayScene extends Scene {
     this.militaryPopup = undefined;
     this.battlePopup = undefined;
     this.battleResultPopup = undefined;
+    this.randomEventPopup = undefined;
     this.logPopup = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
@@ -169,6 +170,7 @@ export class GameplayScene extends Scene {
     this.militaryPopup = undefined;
     this.battlePopup = undefined;
     this.battleResultPopup = undefined;
+    this.randomEventPopup = undefined;
     this.logPopup = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
@@ -220,6 +222,7 @@ export class GameplayScene extends Scene {
         researchManager: this.gameManager.researchManager,
         militaryManager: this.gameManager.militaryManager,
         politicsManager: this.gameManager.politicsManager,
+        randomEventManager: this.gameManager.randomEventManager,
         logManager: this.gameManager.logManager,
         initial: slotSave?.turn
           ? {
@@ -230,6 +233,10 @@ export class GameplayScene extends Scene {
           : undefined,
       }
     );
+    this.gameManager.randomEventManager.setFocusBridge({
+      getFocusCurrent: () => this.turnManager.getTurnDataRef().focus.current,
+      adjustFocus: (delta) => this.turnManager.adjustFocus(delta),
+    });
     this.gameManager.logManager.setCurrentDate(
       this.turnManager.getTurnDataRef().turnNumber,
       this.turnManager.getDateLabel()
@@ -262,6 +269,7 @@ export class GameplayScene extends Scene {
     this.addFocusDisplay();
     this.addQuickBuildView();
     this.addSelectedBuildingView();
+    this.showPendingRandomEventPopup(engine);
 
     this.saveCurrentGame();
   }
@@ -583,6 +591,9 @@ export class GameplayScene extends Scene {
     if (!result.upkeepPaid) {
       engine.goToScene('game-over');
       return;
+    }
+    if (result.pendingRandomEvent) {
+      this.showPendingRandomEventPopup(engine);
     }
   }
 
@@ -1049,7 +1060,8 @@ export class GameplayScene extends Scene {
     config: Omit<
       RandomEventPopupOptions,
       'x' | 'y' | 'anchor' | 'tooltipProvider' | 'onClose'
-    >
+    >,
+    announceInLog = true
   ): void {
     if (this.randomEventPopup && !this.randomEventPopup.isKilled()) {
       this.randomEventPopup.close();
@@ -1068,8 +1080,66 @@ export class GameplayScene extends Scene {
     });
 
     this.randomEventPopup = popup;
-    this.gameManager.logManager.addNeutral(`Event: ${config.title}.`);
+    if (announceInLog) {
+      this.gameManager.logManager.addNeutral(`Event: ${config.title}.`);
+    }
     this.add(popup);
+  }
+
+  private showPendingRandomEventPopup(engine: Engine): void {
+    const pending =
+      this.gameManager.randomEventManager.getPendingEventPresentation();
+    if (!pending) {
+      return;
+    }
+
+    this.showRandomEventPopup(engine, {
+      title: pending.title,
+      description: pending.description,
+      options: pending.options.map((option) => ({
+        title: option.title,
+        outcomeDescription: option.outcomeDescription,
+        disabled: option.disabled,
+        disabledReason: option.disabledReason,
+        onSelect: () => {
+          const resolution =
+            this.gameManager.randomEventManager.resolvePendingEventOption(
+              option.id
+            );
+          if (!resolution) {
+            return;
+          }
+          this.saveCurrentGame();
+          if (!resolution.battleStarted) {
+            this.showRandomEventResolutionPopup(engine, resolution);
+          }
+        },
+      })),
+    });
+  }
+
+  private showRandomEventResolutionPopup(
+    engine: Engine,
+    resolution: {
+      title: string;
+      description: string;
+    }
+  ): void {
+    this.showRandomEventPopup(
+      engine,
+      {
+        title: `${resolution.title} Resolved`,
+        description: resolution.description,
+        options: [
+          {
+            title: 'Continue',
+            outcomeDescription: 'Resume the turn.',
+            onSelect: () => {},
+          },
+        ],
+      },
+      false
+    );
   }
 
   private showAngryPeasantsEvent(engine: Engine): void {
@@ -1215,6 +1285,7 @@ export class GameplayScene extends Scene {
       this.gameManager.researchManager.getResearchVersion();
     const militaryVersion = this.gameManager.militaryManager.getMilitaryVersion();
     const politicsVersion = this.gameManager.politicsManager.getVersion();
+    const randomEventVersion = this.gameManager.randomEventManager.getVersion();
     const logVersion = this.gameManager.logManager.getVersion();
     const turnVersion = this.turnManager.getTurnVersion();
     const rngState = this.gameManager.rng.getState();
@@ -1227,6 +1298,7 @@ export class GameplayScene extends Scene {
       researchVersion,
       militaryVersion,
       politicsVersion,
+      randomEventVersion,
       logVersion,
       turnVersion,
       rngState,
@@ -1273,11 +1345,6 @@ export class GameplayScene extends Scene {
     if (this.militaryPopup && !this.militaryPopup.isKilled()) {
       this.militaryPopup.close();
       this.militaryPopup = undefined;
-      return;
-    }
-    if (this.randomEventPopup && !this.randomEventPopup.isKilled()) {
-      this.randomEventPopup.close();
-      this.randomEventPopup = undefined;
       return;
     }
     if (this.logPopup && !this.logPopup.isKilled()) {
