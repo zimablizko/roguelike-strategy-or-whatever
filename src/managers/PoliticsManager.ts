@@ -62,6 +62,16 @@ export class PoliticsManager {
       for (const entry of options.initial.entityScheduledTurns ?? []) {
         this.entityScheduledTurns.set(entry.entityId, entry.scheduledTurn);
       }
+      for (const def of politicalEntityDefinitions) {
+        if (this.entities.has(def.id)) {
+          continue;
+        }
+        this.entities.set(def.id, {
+          id: def.id,
+          name: def.name,
+          reputation: DEFAULT_REPUTATION,
+        });
+      }
       this.instanceSerial = options.initial.instanceSerial;
       this.version = options.initial.version;
     } else {
@@ -86,10 +96,10 @@ export class PoliticsManager {
 
   /**
    * Returns the entity IDs that are currently active (eligible to generate requests).
-   * Common Folk are always active. Advisors require the Administration tech.
+   * Crown and Common Folk are always active. Advisors require the Administration tech.
    */
   getActiveEntityIds(): PoliticalEntityId[] {
-    const ids: PoliticalEntityId[] = ['common-folk'];
+    const ids: PoliticalEntityId[] = ['crown', 'common-folk'];
     if (this.isTechUnlocked('pol-clan-council')) {
       ids.push('economy-advisor', 'military-advisor', 'politics-advisor');
     }

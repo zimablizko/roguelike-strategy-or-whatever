@@ -49,7 +49,6 @@ import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
-import { FocusDisplay } from '../ui/views/FocusView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
 import { MilitaryStatusView } from '../ui/views/MilitaryStatusView';
@@ -260,7 +259,6 @@ export class GameplayScene extends Scene {
     this.addMilitaryStatusDisplay(engine);
     this.addLogView(engine);
     this.addButtons(engine);
-    this.addFocusDisplay();
     this.addQuickBuildView();
     this.addSelectedBuildingView();
     if (slotSave) {
@@ -497,19 +495,6 @@ export class GameplayScene extends Scene {
       new TurnDisplay({
         x: engine.drawWidth - LAYOUT.MARGIN,
         y: LAYOUT.TOPBAR_HEIGHT / 2,
-        turnManager: this.turnManager,
-      })
-    );
-  }
-
-  private addFocusDisplay() {
-    // Focus bar centered on the map viewport.
-    const mapCenterX =
-      LAYOUT.SIDEBAR_WIDTH + (CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH) / 2;
-    this.addHudElement(
-      new FocusDisplay({
-        x: mapCenterX,
-        y: LAYOUT.TOPBAR_HEIGHT + LAYOUT.MARGIN,
         turnManager: this.turnManager,
         tooltipProvider: this.tooltipProvider,
       })

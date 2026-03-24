@@ -6,6 +6,50 @@ import type { PoliticalRequestDefinition } from '../../_common/models/politics.m
  */
 export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] =
   [
+    // Crown
+    {
+      id: 'crown-royal-tribute',
+      entityId: 'crown',
+      title: 'Royal Tribute',
+      description:
+        'The sovereign court expects a formal tribute. Send 25 Gold to affirm loyalty and receive renewed royal authority.',
+      weight: 9,
+      cooldownTurns: 6,
+      condition: (ctx) => ctx.getResource('gold') >= 25,
+      approveRepChanges: { crown: 6 },
+      denyRepChanges: { crown: -4 },
+      approveResourceEffects: { gold: -25, politicalPower: 1 },
+      expireTurns: 3,
+    },
+    {
+      id: 'crown-oath-renewal',
+      entityId: 'crown',
+      title: 'Renew Oath of Fealty',
+      description:
+        'Dispatch envoys and gifts to renew your oath before the sovereign court. Costs 10 Gold and grants 1 Political Power.',
+      weight: 7,
+      cooldownTurns: 8,
+      condition: (ctx) => ctx.getResource('gold') >= 10,
+      approveRepChanges: { crown: 4, 'politics-advisor': 1 },
+      denyRepChanges: { crown: -3 },
+      approveResourceEffects: { gold: -10, politicalPower: 1 },
+      expireTurns: 4,
+    },
+    {
+      id: 'crown-muster-accounting',
+      entityId: 'crown',
+      title: 'Royal Muster Report',
+      description:
+        'The Crown demands an updated account of your levies and stores. Pay 5 Gold to satisfy royal auditors and preserve confidence.',
+      weight: 8,
+      cooldownTurns: 5,
+      condition: (ctx) => ctx.getResource('gold') >= 5,
+      approveRepChanges: { crown: 3, 'military-advisor': 1 },
+      denyRepChanges: { crown: -2 },
+      approveResourceEffects: { gold: -5 },
+      expireTurns: 3,
+    },
+
     // Common Folk
     {
       id: 'folk-food-shortage',
@@ -47,7 +91,7 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
         ctx.getResource('gold') >= 10 &&
         ctx.getResource('bread') >= 5 &&
         ctx.getResource('meat') >= 5,
-      approveRepChanges: { 'common-folk': 8, 'politics-advisor': 2 },
+      approveRepChanges: { 'common-folk': 8, 'politics-advisor': 2, crown: 1 },
       denyRepChanges: { 'common-folk': -4 },
       approveResourceEffects: { gold: -10, bread: -5, meat: -5 },
       expireTurns: 2,
@@ -145,8 +189,8 @@ export const politicalRequestDefinitions: readonly PoliticalRequestDefinition[] 
       cooldownTurns: 6,
       condition: (ctx) =>
         ctx.isTechUnlocked('pol-clan-council') && ctx.getResource('gold') >= 20,
-      approveRepChanges: { 'politics-advisor': 5 },
-      denyRepChanges: { 'politics-advisor': -2 },
+      approveRepChanges: { 'politics-advisor': 5, crown: 1 },
+      denyRepChanges: { 'politics-advisor': -2, crown: -1 },
       approveResourceEffects: { gold: -20 },
       expireTurns: 3,
     },

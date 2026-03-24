@@ -4,6 +4,7 @@ import type { ResourceCost } from './resource.models';
 
 /** Identifiers for political entities whose opinion the ruler must manage. */
 export type PoliticalEntityId =
+  | 'crown'
   | 'common-folk'
   | 'economy-advisor'
   | 'military-advisor'

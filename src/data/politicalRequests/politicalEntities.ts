@@ -5,6 +5,7 @@ export const politicalEntityDefinitions: ReadonlyArray<{
   id: PoliticalEntityId;
   name: string;
 }> = [
+  { id: 'crown', name: 'The Crown' },
   { id: 'common-folk', name: 'Common Folk' },
   { id: 'economy-advisor', name: 'Economy Advisor' },
   { id: 'military-advisor', name: 'Military Advisor' },

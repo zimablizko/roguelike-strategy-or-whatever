@@ -188,10 +188,13 @@ export class StatePopup extends ScreenPopup {
     const hasAdministration =
       this.buildingManager.isTechnologyUnlocked('pol-clan-council');
 
-    // Town Hall is always available; advisors unlock after Administration tech
+    // Town Hall is always available; Crown/Common Folk are always shown.
+    // Advisors unlock after Administration tech.
     const entities = hasAdministration
       ? allEntities
-      : allEntities.filter((e) => e.id === 'common-folk');
+      : allEntities.filter(
+          (e) => e.id === 'crown' || e.id === 'common-folk'
+        );
 
     // ─ Entity portraits row ─
     const contentWidth = L.width - L.padding * 2;
@@ -571,6 +574,8 @@ export class StatePopup extends ScreenPopup {
 
   private getShortEntityName(entityId: PoliticalEntityId): string {
     switch (entityId) {
+      case 'crown':
+        return 'Crown';
       case 'common-folk':
         return 'Folk';
       case 'economy-advisor':
