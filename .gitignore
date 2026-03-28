@@ -14,6 +14,8 @@ dist/
 *.njsproj
 *.sln
 *.sw?
+.agents/
+.claude/
 
 # OS files
 .DS_Store
