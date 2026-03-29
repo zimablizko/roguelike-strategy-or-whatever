@@ -1,9 +1,3 @@
-import {
-  getAllResearchDefinitions,
-  getResearchDefinition,
-  isResearchId,
-  researchTreeOrder,
-} from '../data/researches';
 import { CONFIG } from '../_common/config';
 import type {
   ActiveResearchState,
@@ -17,6 +11,12 @@ import type {
   ResearchTreeId,
   TypedResearchDefinition,
 } from '../_common/models/researches.models';
+import {
+  getAllResearchDefinitions,
+  getResearchDefinition,
+  isResearchId,
+  researchTreeOrder,
+} from '../data/researches';
 import { BuildingManager } from './BuildingManager';
 import type { GameLogManager } from './GameLogManager';
 
@@ -241,10 +241,21 @@ export class ResearchManager {
       this.bootstrapFromUnlockedTechnologies();
     }
 
+    if (CONFIG.DEBUG && CONFIG.DEBUG_OPTIONS.UNLOCK_ALL_RESEARCHES) {
+      for (const definition of getAllResearchDefinitions()) {
+        this.completedResearches.add(definition.id);
+        this.buildingManager.unlockTechnology(definition.id);
+      }
+      this.activeResearch = undefined;
+    }
+
     if (initial?.activeResearch && isResearchId(initial.activeResearch.id)) {
       this.activeResearch = {
         id: initial.activeResearch.id,
-        startedOnTurn: Math.max(1, Math.floor(initial.activeResearch.startedOnTurn)),
+        startedOnTurn: Math.max(
+          1,
+          Math.floor(initial.activeResearch.startedOnTurn)
+        ),
         totalTurns: Math.max(1, Math.floor(initial.activeResearch.totalTurns)),
         remainingTurns: Math.max(
           0,
@@ -302,7 +313,9 @@ export class ResearchManager {
       completedOnTurn: currentTurn,
     };
     this.latestCompletion = completedResearch;
-    this.logManager?.addGood(`Research completed: ${completedDefinition.name}.`);
+    this.logManager?.addGood(
+      `Research completed: ${completedDefinition.name}.`
+    );
     return completedResearch;
   }
 
@@ -346,6 +359,8 @@ export class ResearchManager {
 
     return definitions
       .slice()
-      .sort((a, b) => depthOf(a.id) - depthOf(b.id) || a.name.localeCompare(b.name));
+      .sort(
+        (a, b) => depthOf(a.id) - depthOf(b.id) || a.name.localeCompare(b.name)
+      );
   }
 }
