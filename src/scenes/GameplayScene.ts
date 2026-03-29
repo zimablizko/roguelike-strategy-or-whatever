@@ -58,6 +58,7 @@ import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
+import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
 import { StateDisplay } from '../ui/views/StateView';
 import { TurnDisplay } from '../ui/views/TurnView';
 
@@ -65,6 +66,8 @@ import { TurnDisplay } from '../ui/views/TurnView';
  * Main gameplay scene — manages the game world, UI, and turn lifecycle.
  */
 export class GameplayScene extends Scene {
+  private static readonly AUTO_TURN_DELAY_MS = 10_000;
+
   private gameManager!: GameManager;
   private resourceManager!: ResourceManager;
   private turnManager!: TurnManager;
@@ -93,6 +96,10 @@ export class GameplayScene extends Scene {
   };
   private activeSaveSlot?: SaveSlotId;
   private lastSavedSignature = '';
+  private autoTurnEnabled = false;
+  private autoTurnCountdownMs = 0;
+  private autoTurnCountdownTurnNumber?: number;
+  private autoTurnBaselineSignature?: string;
 
   onInitialize(_engine: Engine): void {
     // Set background color
@@ -105,7 +112,7 @@ export class GameplayScene extends Scene {
     this.resetGame(context.engine);
   }
 
-  onPreUpdate(engine: Engine): void {
+  onPreUpdate(engine: Engine, elapsedMs: number): void {
     this.syncBattleUi(engine);
 
     const quickBuildExpanded = this.quickBuildView?.isExpanded() ?? false;
@@ -137,6 +144,7 @@ export class GameplayScene extends Scene {
       this.performEndTurn(engine);
     }
 
+    this.updateAutoTurn(engine, elapsedMs);
     this.autoSaveIfDirty();
   }
 
@@ -166,6 +174,7 @@ export class GameplayScene extends Scene {
     this.placementOverlayCache = undefined;
     this.activeSaveSlot = undefined;
     this.lastSavedSignature = '';
+    this.clearAutoTurnCountdown();
   }
 
   private resetGame(engine: Engine): void {
@@ -190,6 +199,7 @@ export class GameplayScene extends Scene {
     this.pendingManualBuildBuildingId = undefined;
     this.pendingSowField = undefined;
     this.placementOverlayCache = undefined;
+    this.clearAutoTurnCountdown();
 
     const launch = SaveManager.consumePendingLaunch();
     const selectedSlot: SaveSlotId = launch?.slot ?? 1;
@@ -523,9 +533,11 @@ export class GameplayScene extends Scene {
     );
 
     // End Turn button in bottom-right of map area
+    const endTurnButtonX = engine.drawWidth - 170;
+    const endTurnButtonY = engine.drawHeight - 60;
     const endTurnButton = new ScreenButton({
-      x: engine.drawWidth - 170,
-      y: engine.drawHeight - 60,
+      x: endTurnButtonX,
+      y: endTurnButtonY,
       width: 150,
       height: 40,
       title: 'End Turn',
@@ -556,11 +568,24 @@ export class GameplayScene extends Scene {
       this.tooltipProvider.hide(endTurnButton);
     });
 
+    this.addHudElement(
+      new AutoTurnControlView({
+        x: endTurnButtonX - 56,
+        y: endTurnButtonY - 8,
+        enabledProvider: () => this.autoTurnEnabled,
+        progressProvider: () => this.getAutoTurnProgress(),
+        onToggle: () => {
+          this.toggleAutoTurn();
+        },
+        tooltipProvider: this.tooltipProvider,
+      })
+    );
     this.addHudElement(endTurnButton);
   }
 
   /** Execute end-of-turn logic (shared by button click and Space hotkey). */
   private performEndTurn(engine: Engine): void {
+    this.clearAutoTurnCountdown();
     const result = this.turnManager.endTurn();
     this.mapIncomeEffectsView?.addIncomePulses(result.passiveIncomePulses);
     this.mapIncomeEffectsView?.addIncomePulses(result.actionPulses);
@@ -571,7 +596,9 @@ export class GameplayScene extends Scene {
     }
     if (result.pendingRandomEvent) {
       this.showPendingRandomEventPopup(engine);
+      return;
     }
+    this.armAutoTurnForCurrentTurn();
   }
 
   private syncBattleUi(engine: Engine): void {
@@ -827,6 +854,7 @@ export class GameplayScene extends Scene {
     instanceId: string | undefined,
     syncMap: boolean
   ): void {
+    this.clearAutoTurnCountdown();
     this.selectedBuildingInstanceId = instanceId;
     this.selectedBuildingView?.setSelectedBuilding(instanceId);
     this.mapView?.setActionRangeHighlight(undefined);
@@ -836,6 +864,7 @@ export class GameplayScene extends Scene {
   }
 
   private selectField(tileX: number, tileY: number): void {
+    this.clearAutoTurnCountdown();
     this.selectedBuildingInstanceId = undefined;
     this.selectedBuildingView?.setSelectedField(tileX, tileY);
     this.mapView?.setActionRangeHighlight(undefined);
@@ -1261,6 +1290,87 @@ export class GameplayScene extends Scene {
     );
     SaveManager.saveToSlot(this.activeSaveSlot, save);
     this.lastSavedSignature = signatureOverride ?? this.buildSaveSignature();
+  }
+
+  private toggleAutoTurn(): void {
+    this.autoTurnEnabled = !this.autoTurnEnabled;
+    this.clearAutoTurnCountdown();
+  }
+
+  private getAutoTurnProgress(): number {
+    if (
+      !this.autoTurnEnabled ||
+      this.autoTurnCountdownMs <= 0 ||
+      this.autoTurnCountdownTurnNumber !==
+        this.turnManager.getTurnDataRef().turnNumber
+    ) {
+      return 0;
+    }
+
+    return this.autoTurnCountdownMs / GameplayScene.AUTO_TURN_DELAY_MS;
+  }
+
+  private armAutoTurnForCurrentTurn(): void {
+    if (!this.autoTurnEnabled || !this.canAutoTurnContinue()) {
+      this.clearAutoTurnCountdown();
+      return;
+    }
+
+    this.autoTurnCountdownTurnNumber = this.turnManager.getTurnDataRef().turnNumber;
+    this.autoTurnBaselineSignature = this.buildSaveSignature();
+    this.autoTurnCountdownMs = GameplayScene.AUTO_TURN_DELAY_MS;
+  }
+
+  private clearAutoTurnCountdown(): void {
+    this.autoTurnCountdownMs = 0;
+    this.autoTurnCountdownTurnNumber = undefined;
+    this.autoTurnBaselineSignature = undefined;
+  }
+
+  private updateAutoTurn(engine: Engine, elapsedMs: number): void {
+    if (!this.autoTurnEnabled || this.autoTurnCountdownMs <= 0) {
+      return;
+    }
+
+    const turnNumber = this.turnManager.getTurnDataRef().turnNumber;
+    if (this.autoTurnCountdownTurnNumber !== turnNumber) {
+      this.clearAutoTurnCountdown();
+      return;
+    }
+
+    if (!this.canAutoTurnContinue()) {
+      this.clearAutoTurnCountdown();
+      return;
+    }
+
+    if (!this.autoTurnBaselineSignature) {
+      this.clearAutoTurnCountdown();
+      return;
+    }
+
+    if (this.buildSaveSignature() !== this.autoTurnBaselineSignature) {
+      this.clearAutoTurnCountdown();
+      return;
+    }
+
+    this.autoTurnCountdownMs = Math.max(0, this.autoTurnCountdownMs - elapsedMs);
+    if (this.autoTurnCountdownMs > 0) {
+      return;
+    }
+
+    this.performEndTurn(engine);
+  }
+
+  private canAutoTurnContinue(): boolean {
+    return (
+      !this.hasOpenPopup() &&
+      !(this.quickBuildView?.isExpanded() ?? false) &&
+      !this.pendingManualBuildBuildingId &&
+      !this.pendingSowField &&
+      !this.gameManager.randomEventManager.getPendingEventPresentation() &&
+      !this.gameManager.militaryManager.getActiveBattle() &&
+      !this.gameManager.militaryManager.getLastBattleResult()
+    );
   }
 
   private buildSaveSignature(): string {

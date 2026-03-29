@@ -839,8 +839,7 @@ export class SelectedBuildingView extends ScreenElement {
       {
         mode: 'harvest',
         label: 'Harvest',
-        description:
-          `Harvest ${harvestCount} ready Field${harvestCount > 1 ? 's' : ''} nearby each turn.`,
+        description: `Harvest ${harvestCount} ready Field${harvestCount > 1 ? 's' : ''} nearby each turn.`,
         outcomes: [
           {
             label: 'Gains',
