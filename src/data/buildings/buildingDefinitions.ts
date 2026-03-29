@@ -48,12 +48,12 @@ export const stateBuildingDefinitions = {
     description:
       'Residential dwelling that shelters settlers and grows your workforce. With Tax Collection research: also generates gold each turn.',
     buildCost: {
-      gold: 25,
+      gold: 20,
       wood: 10,
     },
     costGrowth: 1.15,
     unique: false,
-    buildingTime: 2,
+    buildingTime: 3,
     populationProvided: 5,
     placementRule: {
       width: 2,
@@ -270,7 +270,7 @@ export const stateBuildingDefinitions = {
     },
     costGrowth: 1.2,
     unique: false,
-    buildingTime: 2,
+    buildingTime: 4,
     populationRequired: 3,
     placementRule: {
       width: 2,
