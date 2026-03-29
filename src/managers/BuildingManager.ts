@@ -1049,6 +1049,12 @@ export class BuildingManager {
             rawInstance.farmSowCooldown > 0
               ? rawInstance.farmSowCooldown
               : undefined,
+          lumbermillWorkMode: rawInstance.lumbermillWorkMode,
+          lumbermillCooldown:
+            typeof rawInstance.lumbermillCooldown === 'number' &&
+            rawInstance.lumbermillCooldown > 0
+              ? rawInstance.lumbermillCooldown
+              : undefined,
         });
         this.buildingCounts[rawInstance.buildingId] += 1;
       }
@@ -1452,10 +1458,197 @@ export class BuildingManager {
     return pulses;
   }
 
+  // ── Lumbermill work mode ──────────────────────────────────────────────
+
+  getLumbermillWorkMode(
+    instanceId: string
+  ): import('../_common/models/building-manager.models').LumbermillWorkMode {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    return instance?.lumbermillWorkMode ?? 'idle';
+  }
+
+  getLumbermillCooldown(instanceId: string): number {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    return instance?.lumbermillCooldown ?? 0;
+  }
+
+  setLumbermillWorkMode(
+    instanceId: string,
+    mode: import('../_common/models/building-manager.models').LumbermillWorkMode
+  ): void {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance || instance.buildingId !== 'lumbermill') return;
+    instance.lumbermillWorkMode = mode;
+    this.buildingsVersion++;
+  }
+
   /**
-   * Places a field automatically (no action usage tracking needed since it's
-   * passive). Used by the sow work mode.
+   * Returns the number of forest tiles within range of a specific lumbermill.
    */
+  getLumbermillForestCount(instanceId: string, range = 3): number {
+    if (!this.mapManager) return 0;
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance) return 0;
+    const map = this.mapManager.getMapRef();
+    let count = 0;
+    const minX = Math.max(0, instance.x - range);
+    const maxX = Math.min(
+      map.width - 1,
+      instance.x + instance.width - 1 + range
+    );
+    const minY = Math.max(0, instance.y - range);
+    const maxY = Math.min(
+      map.height - 1,
+      instance.y + instance.height - 1 + range
+    );
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        if (map.tiles[ty][tx] === 'forest') count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Processes automatic harvest/plant for all lumbermills each turn.
+   * Returns income pulses for lumber gains.
+   */
+  processLumbermillWorkModes(
+    resourceManager: ResourceManager
+  ): EndTurnIncomePulse[] {
+    const pulses: EndTurnIncomePulse[] = [];
+    const RANGE = 3;
+    const HARVEST_COOLDOWN = 3;
+    const PLANT_COOLDOWN = 5;
+    const PLANT_COST = 5;
+
+    for (const instance of this.buildingInstances) {
+      if (instance.buildingId !== 'lumbermill') continue;
+      if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
+        continue;
+
+      const mode = instance.lumbermillWorkMode ?? 'idle';
+
+      // Tick cooldown
+      if (
+        instance.lumbermillCooldown !== undefined &&
+        instance.lumbermillCooldown > 0
+      ) {
+        instance.lumbermillCooldown--;
+      }
+
+      if (mode === 'harvest') {
+        if ((instance.lumbermillCooldown ?? 0) <= 0) {
+          // Find nearest forest tile
+          const forest = this.findNearestTileForLumbermill(
+            instance,
+            RANGE,
+            'forest'
+          );
+          if (forest) {
+            if (this.mapManager) {
+              const from =
+                this.mapManager.getMapRef().tiles[forest.y]?.[forest.x];
+              this.mapManager.setTile(forest.x, forest.y, 'plains');
+              this.onTileChanged?.({
+                x: forest.x,
+                y: forest.y,
+                from,
+                to: 'plains',
+                source: 'building-action',
+              });
+            }
+            const yield_ = this.rng.randomInt(3, 5);
+            pulses.push({
+              tileX: instance.x + (instance.width - 1) / 2,
+              tileY: instance.y + (instance.height - 1) / 2,
+              resourceType: 'wood',
+              amount: yield_,
+            });
+            instance.lumbermillCooldown = HARVEST_COOLDOWN;
+          }
+        }
+      } else if (mode === 'plant') {
+        if ((instance.lumbermillCooldown ?? 0) <= 0) {
+          if (!resourceManager) continue;
+          if (resourceManager.getResource('gold') < PLANT_COST) continue;
+          const target = this.findNearestTileForLumbermill(
+            instance,
+            RANGE,
+            'plains',
+            'sand'
+          );
+          if (target) {
+            if (this.mapManager) {
+              const from =
+                this.mapManager.getMapRef().tiles[target.y]?.[target.x];
+              this.mapManager.setTile(target.x, target.y, 'forest');
+              this.onTileChanged?.({
+                x: target.x,
+                y: target.y,
+                from,
+                to: 'forest',
+                source: 'building-action',
+              });
+            }
+            resourceManager.addResource('gold', -PLANT_COST);
+            instance.lumbermillCooldown = PLANT_COOLDOWN;
+          }
+        }
+      }
+    }
+
+    if (pulses.length > 0) {
+      this.syncStateWithMapSummary();
+      this.buildingsVersion++;
+    }
+    return pulses;
+  }
+
+  /**
+   * Finds the nearest tile matching one of the given types within range of a lumbermill.
+   */
+  private findNearestTileForLumbermill(
+    instance: StateBuildingInstance,
+    range: number,
+    ...tileTypes: string[]
+  ): { x: number; y: number } | undefined {
+    if (!this.mapManager) return undefined;
+    const map = this.mapManager.getMapRef();
+    const cx = instance.x + instance.width / 2;
+    const cy = instance.y + instance.height / 2;
+    const minX = Math.max(0, instance.x - range);
+    const maxX = Math.min(
+      map.width - 1,
+      instance.x + instance.width - 1 + range
+    );
+    const minY = Math.max(0, instance.y - range);
+    const maxY = Math.min(
+      map.height - 1,
+      instance.y + instance.height - 1 + range
+    );
+    let best: { x: number; y: number; distSq: number } | undefined;
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        if (!tileTypes.includes(map.tiles[ty][tx])) continue;
+        const dx = tx + 0.5 - cx;
+        const dy = ty + 0.5 - cy;
+        const distSq = dx * dx + dy * dy;
+        if (!best || distSq < best.distSq) {
+          best = { x: tx, y: ty, distSq };
+        }
+      }
+    }
+    return best ? { x: best.x, y: best.y } : undefined;
+  }
   private placeFarmFieldAuto(tileX: number, tileY: number): void {
     if (!this.mapManager) return;
     for (let dy = 0; dy <= 1; dy++) {

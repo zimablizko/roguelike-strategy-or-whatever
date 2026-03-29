@@ -24,7 +24,7 @@ export const researchDefinitions = {
     tree: 'economics',
     name: 'Forestry',
     description:
-      'Systematic woodland management techniques. Unlocks Plant Trees action for Lumbermills.',
+      'Systematic woodland management techniques. Unlocks Plant Trees work mode for Lumbermills.',
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },

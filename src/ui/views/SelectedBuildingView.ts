@@ -12,7 +12,10 @@ import {
 } from 'excalibur';
 import { getResourceIcon } from '../../_common/icons';
 import { clamp } from '../../_common/math';
-import type { FarmWorkMode } from '../../_common/models/building-manager.models';
+import type {
+  FarmWorkMode,
+  LumbermillWorkMode,
+} from '../../_common/models/building-manager.models';
 import type {
   StateBuildingActionDefinition,
   TypedBuildingDefinition,
@@ -267,8 +270,12 @@ export class SelectedBuildingView extends ScreenElement {
     );
 
     const isFarm = definition.id === 'farm';
-    const visibleActions = isFarm ? [] : this.getVisibleActions(definition);
-    const rightColumnWidth = isFarm
+    const isLumbermill = definition.id === 'lumbermill';
+    const hasWorkMode = isFarm || isLumbermill;
+    const visibleActions = hasWorkMode
+      ? []
+      : this.getVisibleActions(definition);
+    const rightColumnWidth = hasWorkMode
       ? 188
       : this.resolveActionButtonWidth(visibleActions);
     const contentGap = 14;
@@ -299,7 +306,16 @@ export class SelectedBuildingView extends ScreenElement {
     const actionsStartY = 30;
     const actionRowGap = 38;
     const farmModeCount = 3;
-    const rightItemCount = isFarm ? farmModeCount : visibleActions.length;
+    const lumbermillModeCount = this.buildingManager.isTechnologyUnlocked(
+      'eco-forestry'
+    )
+      ? 3
+      : 2;
+    const rightItemCount = isFarm
+      ? farmModeCount
+      : isLumbermill
+        ? lumbermillModeCount
+        : visibleActions.length;
     const actionBottomY =
       actionsStartY +
       Math.max(0, rightItemCount * actionRowGap - (rightItemCount > 0 ? 4 : 0));
@@ -397,7 +413,7 @@ export class SelectedBuildingView extends ScreenElement {
 
     members.push(
       this.createTextMember(
-        isFarm ? 'Work Mode' : 'Actions',
+        hasWorkMode ? 'Work Mode' : 'Actions',
         14,
         Color.fromHex('#f0f4f8'),
         actionsTitleX,
@@ -409,6 +425,13 @@ export class SelectedBuildingView extends ScreenElement {
 
     if (isFarm) {
       this.createFarmWorkModeRows(
+        actionsTitleX,
+        actionsStartY,
+        rightColumnWidth,
+        selected.instanceId
+      );
+    } else if (isLumbermill) {
+      this.createLumbermillWorkModeRows(
         actionsTitleX,
         actionsStartY,
         rightColumnWidth,
@@ -785,48 +808,72 @@ export class SelectedBuildingView extends ScreenElement {
     instanceId: string
   ): void {
     const currentMode = this.buildingManager.getFarmWorkMode(instanceId);
+    const hasCropRotation = this.buildingManager.hasCropRotation();
+    const regrowTurns = hasCropRotation ? 6 : 12;
+    const harvestCount = hasCropRotation ? 2 : 1;
     const modes: Array<{
       mode: FarmWorkMode;
       label: string;
       description: string;
+      outcomes: TooltipOutcome[];
     }> = [
       {
         mode: 'idle',
         label: 'Idle',
         description: 'Farm does nothing this turn.',
+        outcomes: [],
       },
       {
         mode: 'sow',
         label: 'Sow Crops',
         description:
-          'Automatically cultivate a 2x2 Plains area near the Farm into a Field every 3 turns. Switches to Harvest when no space remains.',
+          'Cultivate a 2x2 Plains area near the Farm into a Field. Switches to Harvest when no space remains.',
+        outcomes: [
+          {
+            label: 'Cooldown',
+            value: '3 turns',
+            color: Color.fromHex('#a9bbcb'),
+          },
+        ],
       },
       {
         mode: 'harvest',
         label: 'Harvest',
         description:
-          'Automatically harvest a random ready Field nearby once per turn, yielding 8-10 Wheat. Harvested Fields regrow after 12 turns (6 with Crop Rotation).',
+          `Harvest ${harvestCount} ready Field${harvestCount > 1 ? 's' : ''} nearby each turn.`,
+        outcomes: [
+          {
+            label: 'Gains',
+            icon: this.getResourceIconLocal('wheat'),
+            value: '+8–10 Wheat',
+            color: Color.fromHex('#9fe6aa'),
+            inline: true,
+          },
+          {
+            label: 'Regrow',
+            value: `${regrowTurns} turns`,
+            color: Color.fromHex('#a9bbcb'),
+          },
+        ],
       },
     ];
 
     let y = startY;
-    for (const { mode, label, description } of modes) {
+    for (const { mode, label, description, outcomes } of modes) {
       const isActive = mode === currentMode;
       const activeColor = Color.fromHex('#1e5e30');
       const activeHover = Color.fromHex('#267538');
       const inactiveColor = Color.fromHex('#274158');
       const inactiveHover = Color.fromHex('#356083');
 
-      const displayLabel = isActive ? `● ${label}` : label;
-
       const row = new ActionElement({
         x: startX,
         y,
         width: rowWidth,
         height: 34,
-        title: displayLabel,
+        title: label,
         description,
-        outcomes: [],
+        outcomes,
         tooltipProvider: this.tooltipProvider,
         bgColor: isActive ? activeColor : inactiveColor,
         hoverBgColor: isActive ? activeHover : inactiveHover,
@@ -840,6 +887,108 @@ export class SelectedBuildingView extends ScreenElement {
         tooltipWidth: 260,
         onClick: () => {
           this.buildingManager.setFarmWorkMode(instanceId, mode);
+          this.lastBuildingsVersion = -1;
+        },
+      });
+
+      this.actionRows.push(row);
+      this.addChild(row);
+      y += 38;
+    }
+  }
+
+  private createLumbermillWorkModeRows(
+    startX: number,
+    startY: number,
+    rowWidth: number,
+    instanceId: string
+  ): void {
+    const currentMode = this.buildingManager.getLumbermillWorkMode(instanceId);
+    const hasForestry =
+      this.buildingManager.isTechnologyUnlocked('eco-forestry');
+    const modes: Array<{
+      mode: LumbermillWorkMode;
+      label: string;
+      description: string;
+      outcomes: TooltipOutcome[];
+    }> = [
+      {
+        mode: 'idle',
+        label: 'Idle',
+        description: 'Lumbermill does nothing this turn.',
+        outcomes: [],
+      },
+      {
+        mode: 'harvest',
+        label: 'Harvest Timber',
+        description: 'Cut the nearest Forest tile.',
+        outcomes: [
+          {
+            label: 'Gains',
+            icon: this.getResourceIconLocal('wood'),
+            value: '+3–5 Lumber',
+            color: Color.fromHex('#9fe6aa'),
+            inline: true,
+          },
+          {
+            label: 'Cooldown',
+            value: '3 turns',
+            color: Color.fromHex('#a9bbcb'),
+          },
+        ],
+      },
+    ];
+    if (hasForestry) {
+      modes.push({
+        mode: 'plant',
+        label: 'Plant Trees',
+        description: 'Plant a tree on the nearest Plains or Sand tile.',
+        outcomes: [
+          {
+            label: 'Costs',
+            icon: this.getResourceIconLocal('gold'),
+            value: '-5',
+            color: Color.fromHex('#e6c97a'),
+            inline: true,
+          },
+          {
+            label: 'Cooldown',
+            value: '5 turns',
+            color: Color.fromHex('#a9bbcb'),
+          },
+        ],
+      });
+    }
+
+    let y = startY;
+    for (const { mode, label, description, outcomes } of modes) {
+      const isActive = mode === currentMode;
+      const activeColor = Color.fromHex('#1e5e30');
+      const activeHover = Color.fromHex('#267538');
+      const inactiveColor = Color.fromHex('#274158');
+      const inactiveHover = Color.fromHex('#356083');
+
+      const row = new ActionElement({
+        x: startX,
+        y,
+        width: rowWidth,
+        height: 34,
+        title: label,
+        description,
+        outcomes,
+        tooltipProvider: this.tooltipProvider,
+        bgColor: isActive ? activeColor : inactiveColor,
+        hoverBgColor: isActive ? activeHover : inactiveHover,
+        pressedBgColor: isActive
+          ? Color.fromHex('#1a4d28')
+          : Color.fromHex('#2e5270'),
+        hoverBorderColor: isActive
+          ? Color.fromHex('#4caf73')
+          : Color.fromHex('#f1c40f'),
+        textColor: Color.White,
+        tooltipWidth: 260,
+        onClick: () => {
+          this.buildingManager.setLumbermillWorkMode(instanceId, mode);
           this.lastBuildingsVersion = -1;
         },
       });
@@ -902,11 +1051,6 @@ export class SelectedBuildingView extends ScreenElement {
     if (definition.id === 'farm') {
       const fieldCount = this.buildingManager.getFarmFieldCount(instanceId, 2);
       const mode = this.buildingManager.getFarmWorkMode(instanceId);
-      const modeLabels: Record<string, string> = {
-        idle: 'Idle',
-        sow: 'Sow Crops',
-        harvest: 'Harvest',
-      };
       rows.push({
         label: 'Fields:',
         segments: [
@@ -914,15 +1058,6 @@ export class SelectedBuildingView extends ScreenElement {
             value: `${fieldCount}`,
             resource: 'wheat',
             isPositive: fieldCount > 0,
-          },
-        ],
-      });
-      rows.push({
-        label: 'Work mode:',
-        segments: [
-          {
-            value: modeLabels[mode] ?? 'Idle',
-            isPositive: mode !== 'idle',
           },
         ],
       });
@@ -950,6 +1085,37 @@ export class SelectedBuildingView extends ScreenElement {
             {
               value: `Harvests ${harvestCount} field${harvestCount > 1 ? 's' : ''}/turn, 8-10 Wheat each`,
               isPositive: true,
+            },
+          ],
+          isDetail: true,
+        });
+      }
+    } else if (definition.id === 'lumbermill') {
+      const forestCount =
+        this.buildingManager.getLumbermillForestCount(instanceId);
+      const mode = this.buildingManager.getLumbermillWorkMode(instanceId);
+      rows.push({
+        label: 'Forests:',
+        segments: [
+          {
+            value: `${forestCount}`,
+            resource: 'wood',
+            isPositive: forestCount > 0,
+          },
+        ],
+      });
+      if (mode === 'harvest' || mode === 'plant') {
+        const cooldown = this.buildingManager.getLumbermillCooldown(instanceId);
+        const nextLabel = mode === 'harvest' ? 'Next harvest' : 'Next planting';
+        rows.push({
+          label: '',
+          segments: [
+            {
+              value:
+                cooldown > 0
+                  ? `${nextLabel} in ${cooldown} turn${cooldown === 1 ? '' : 's'}`
+                  : 'Ready',
+              isPositive: cooldown <= 0,
             },
           ],
           isDetail: true,
@@ -1036,30 +1202,13 @@ export class SelectedBuildingView extends ScreenElement {
   private getActionOutcomes(
     definition: TypedBuildingDefinition,
     action: StateBuildingActionDefinition,
-    instanceId: string
+    _instanceId: string
   ): TooltipOutcome[] {
     const state = this.stateManager.getStateRef();
     const buildingCount = Math.max(
       1,
       this.buildingManager.getBuildingCount(definition.id)
     );
-
-    // Lumbermill: compute preview yield from actual in-range forest tiles.
-    if (definition.id === 'lumbermill' && action.id === 'harvest-timber') {
-      const { forestCount, estimatedYield } =
-        this.buildingManager.getLumermillHarvestYieldPreview(instanceId);
-      if (forestCount === 0) {
-        return [];
-      }
-      return [
-        {
-          label: '',
-          icon: this.getResourceIconLocal('wood'),
-          value: `+${estimatedYield}`,
-          color: Color.fromHex('#9fe6aa'),
-        },
-      ];
-    }
 
     if (definition.id === 'castle' && action.id === 'call-to-arms') {
       return [
@@ -1139,16 +1288,6 @@ export class SelectedBuildingView extends ScreenElement {
     > = {
       mine: Math.max(1, Math.floor(state.tiles.stone / 4)) * buildingCount,
     };
-    if (definition.id === 'lumbermill' && action.id === 'plant-trees') {
-      return [
-        {
-          label: '',
-          icon: this.getResourceIconLocal('gold'),
-          value: '-10',
-          color: Color.fromHex('#e6c97a'),
-        },
-      ];
-    }
     const value = gainByBuilding[definition.id];
     if (value === undefined) {
       return [];

@@ -185,6 +185,17 @@ export class TurnManager {
     }
     actionPulses.push(...farmPulses);
 
+    // Process automatic lumbermill work modes (harvest / plant)
+    const lumbermillPulses = this.buildingManager.processLumbermillWorkModes(
+      this.resourceManager
+    );
+    for (const pulse of lumbermillPulses) {
+      if (pulse.resourceType && pulse.amount) {
+        this.resourceManager.addResource(pulse.resourceType, pulse.amount);
+      }
+    }
+    actionPulses.push(...lumbermillPulses);
+
     this.turnData.turnNumber++;
     this.resetFocus();
     this.turnVersion++;

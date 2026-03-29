@@ -8,6 +8,7 @@ import type { ResourceCost } from './resource.models';
 import type { StateData } from './state.models';
 
 export type FarmWorkMode = 'idle' | 'sow' | 'harvest';
+export type LumbermillWorkMode = 'idle' | 'harvest' | 'plant';
 
 export interface StateBuildingBuildStatus {
   buildable: boolean;
@@ -45,6 +46,10 @@ export interface StateBuildingInstance {
   farmWorkMode?: FarmWorkMode;
   /** Farm-only: turns remaining before the farm can sow another field. */
   farmSowCooldown?: number;
+  /** Lumbermill-only: current work mode. */
+  lumbermillWorkMode?: LumbermillWorkMode;
+  /** Lumbermill-only: turns remaining before next harvest/plant action. */
+  lumbermillCooldown?: number;
 }
 
 export interface BuildingActionProgress {
