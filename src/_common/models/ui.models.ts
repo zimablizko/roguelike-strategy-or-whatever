@@ -17,6 +17,7 @@ import type { TurnManager } from '../../managers/TurnManager';
 import type { ScreenPopup } from '../../ui/elements/ScreenPopup';
 import type { TooltipProvider } from '../../ui/tooltip/TooltipProvider';
 import type { MapView } from '../../ui/views/MapView';
+import type { SeededRandom } from '../random';
 import type {
   StateBuildingBuildStatus,
   StateBuildingMapOverlay,
@@ -25,9 +26,8 @@ import type {
   StateBuildingId,
   TypedBuildingDefinition,
 } from './buildings.models';
-import type { MapData } from './map.models';
+import type { MapData, MapTileType } from './map.models';
 import type { BattleResult } from './military.models';
-import type { SeededRandom } from '../random';
 import type { TypedResearchDefinition } from './researches.models';
 import type { ResourceType } from './resource.models';
 import type { TooltipOutcome } from './tooltip.models';
@@ -248,6 +248,8 @@ export interface SelectedBuildingViewOptions {
   resourceManager: ResourceManager;
   turnManager: TurnManager;
   tooltipProvider: TooltipProvider;
+  /** Returns the tile type at the given coordinates. */
+  mapTileProvider?: (x: number, y: number) => MapTileType | undefined;
   width?: number;
   height?: number;
   bottomMargin?: number;

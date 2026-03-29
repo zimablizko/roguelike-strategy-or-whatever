@@ -1,30 +1,29 @@
 import { ImageSource, Sprite, SpriteSheet } from 'excalibur';
-import type { StateBuildingId } from './models/buildings.models';
 
 /** Pixel size of each cell in the buildings spritesheet. */
 const CELL_SIZE = 48;
 
 /**
- * Layout map: building ID → { col, row } (0-indexed) in buildings-spritesheet.png.
+ * Layout map: sprite key → { col, row } (0-indexed) in buildings-spritesheet.png.
  *
  * Current grid (cell size 48×48 px):
  *
- *  row 0:  castle | house | lumbermill | hunters-hut | farm
+ *  row 0:  castle | house | lumbermill | hunters-hut | farm | field | field-empty
  *
- * To add a new building sprite: add a cell to the spritesheet and register it below.
+ * To add a new sprite: add a cell to the spritesheet and register it below.
  * Update `columns` / `rows` in the SpriteSheet grid if the sheet dimensions grow.
  */
-export const BUILDING_LAYOUT = {
+export const SPRITE_LAYOUT = {
   castle: { col: 0, row: 0 },
   house: { col: 1, row: 0 },
   lumbermill: { col: 2, row: 0 },
   'hunters-hut': { col: 3, row: 0 },
   farm: { col: 4, row: 0 },
-} as const satisfies Partial<
-  Record<StateBuildingId, { col: number; row: number }>
->;
+  field: { col: 5, row: 0 },
+  'field-empty': { col: 6, row: 0 },
+} as const;
 
-export type BuildingSpriteId = keyof typeof BUILDING_LAYOUT;
+export type SpriteId = keyof typeof SPRITE_LAYOUT;
 
 /** Single ImageSource for the whole buildings spritesheet. Register in the Excalibur Loader. */
 export const BuildingsSpritesheet = new ImageSource(
@@ -36,22 +35,22 @@ const buildingSheet = SpriteSheet.fromImageSource({
   image: BuildingsSpritesheet,
   grid: {
     rows: 1,
-    columns: 5,
+    columns: 7,
     spriteWidth: CELL_SIZE,
     spriteHeight: CELL_SIZE,
   },
 });
 
 /**
- * Returns a new, independently resizable Sprite for the given building at `size` px,
- * or `undefined` if the building has no sprite defined.
+ * Returns a new, independently resizable Sprite for the given key at `size` px,
+ * or `undefined` if the key has no sprite defined.
  */
 export function getBuildingSprite(
-  buildingId: StateBuildingId,
+  spriteId: string,
   size: number = CELL_SIZE
 ): Sprite | undefined {
-  if (!(buildingId in BUILDING_LAYOUT)) return undefined;
-  const { col, row } = BUILDING_LAYOUT[buildingId as BuildingSpriteId];
+  if (!(spriteId in SPRITE_LAYOUT)) return undefined;
+  const { col, row } = SPRITE_LAYOUT[spriteId as SpriteId];
   const base = buildingSheet.getSprite(col, row);
   if (!base) return undefined;
   const sprite = base.clone();

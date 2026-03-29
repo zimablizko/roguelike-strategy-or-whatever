@@ -107,7 +107,7 @@ export class ResourceDisplay extends ScreenElement {
       },
       {
         key: 'politicalPower',
-        icon: getIconSprite('dummy', this.iconSize),
+        icon: getIconSprite('politicalPower', this.iconSize),
         label: 'Political Power',
       },
     ];

@@ -11,8 +11,8 @@ import {
   type WheelEvent,
 } from 'excalibur';
 import {
-  BUILDING_LAYOUT,
   BuildingsSpritesheet,
+  SPRITE_LAYOUT,
 } from '../../_common/buildings-sprites';
 import { ICON_LAYOUT, IconsSpritesheet } from '../../_common/icons';
 import type { MapData, MapTileType } from '../../_common/models/map.models';
@@ -100,6 +100,7 @@ export class MapView extends Actor {
   private hoveredRareResourceKey?: string;
   private hoveredFieldKey?: string;
   private selectedBuildingInstanceId?: string;
+  private selectedFieldTile?: { x: number; y: number };
   private buildPlacementPreviewTile?: { x: number; y: number };
   private buildPlacementPreviewValid = false;
   /** Tile keys (y * map.width + x) to highlight as an action range overlay. */
@@ -377,120 +378,137 @@ export class MapView extends Actor {
 
   private drawFieldLabels(ctx: CanvasRenderingContext2D): void {
     const offset = this.mapBorderPx;
-    const labelFontSize = Math.max(22, Math.floor(this.tileSize * 0.9));
-    const minLabelFontSize = Math.max(12, Math.floor(this.tileSize * 0.35));
-    const labelPaddingX = 10;
+    const borderWidth = Math.max(2, Math.floor(this.tileSize * 0.06));
+    const sheetImg = BuildingsSpritesheet.image;
+    const CELL = 48;
+
+    const drawFieldBlock = (
+      x: number,
+      y: number,
+      tileType: 'field' | 'field-empty',
+      label: string,
+      textColor: string
+    ): void => {
+      const blockLeft = offset + x * this.tileSize;
+      const blockTop = offset + y * this.tileSize;
+      const blockWidth = this.tileSize * 2;
+      const blockHeight = this.tileSize * 2;
+
+      // Check if this field block is selected
+      const sel = this.selectedFieldTile;
+      const selected =
+        sel !== undefined &&
+        sel.x >= x &&
+        sel.x <= x + 1 &&
+        sel.y >= y &&
+        sel.y <= y + 1;
+
+      // Border
+      ctx.strokeStyle = selected
+        ? 'rgba(245, 196, 15, 0.98)'
+        : 'rgba(34, 35, 37, 0.96)';
+      ctx.lineWidth = selected ? borderWidth + 2 : borderWidth;
+      ctx.strokeRect(
+        blockLeft + borderWidth / 2,
+        blockTop + borderWidth / 2,
+        Math.max(0, blockWidth - borderWidth),
+        Math.max(0, blockHeight - borderWidth)
+      );
+
+      const layout = SPRITE_LAYOUT[tileType];
+      if (layout && sheetImg) {
+        const padding = Math.max(
+          2,
+          Math.floor(Math.min(blockWidth, blockHeight) * 0.05)
+        );
+        ctx.drawImage(
+          sheetImg,
+          layout.col * CELL,
+          layout.row * CELL,
+          CELL,
+          CELL,
+          blockLeft + padding,
+          blockTop + padding,
+          blockWidth - padding * 2,
+          blockHeight - padding * 2
+        );
+      } else {
+        // Fallback: text label
+        const labelFontSize = Math.max(28, Math.floor(this.tileSize * 1.1));
+        const minLabelFontSize = Math.max(14, Math.floor(this.tileSize * 0.42));
+        const labelPaddingX = 12;
+        const centerX = blockLeft + blockWidth / 2;
+        const centerY = blockTop + blockHeight / 2;
+        const maxLabelWidth = blockWidth - labelPaddingX * 2;
+
+        let fittedFontSize = labelFontSize;
+        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        while (
+          fittedFontSize > minLabelFontSize &&
+          ctx.measureText(label).width > maxLabelWidth
+        ) {
+          fittedFontSize -= 1;
+          ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
+        }
+
+        const labelWidth = Math.min(
+          maxLabelWidth,
+          Math.max(
+            this.tileSize * 1.5,
+            ctx.measureText(label).width + labelPaddingX * 2
+          )
+        );
+        const labelHeight = fittedFontSize + 16;
+
+        ctx.fillStyle = 'rgba(12, 16, 22, 0.84)';
+        ctx.fillRect(
+          centerX - labelWidth / 2,
+          centerY - labelHeight / 2,
+          labelWidth,
+          labelHeight
+        );
+        ctx.fillStyle = textColor;
+        ctx.fillText(label, centerX, centerY + 1);
+      }
+    };
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Draw ready field labels.
-    const readyLabel = 'Fld';
-    for (let y = 0; y < this.map.height - 1; y++) {
-      for (let x = 0; x < this.map.width - 1; x++) {
-        // Only label the top-left corner of each 2×2 field block.
-        if (
-          this.map.tiles[y][x] !== 'field' ||
-          this.map.tiles[y][x + 1] !== 'field' ||
-          this.map.tiles[y + 1][x] !== 'field' ||
-          this.map.tiles[y + 1][x + 1] !== 'field'
-        ) {
-          continue;
+    const visited = new Set<string>();
+
+    const findAndDrawBlocks = (
+      tileType: 'field' | 'field-empty',
+      label: string,
+      textColor: string
+    ): void => {
+      for (let y = 0; y < this.map.height - 1; y++) {
+        for (let x = 0; x < this.map.width - 1; x++) {
+          const key = `${x},${y}`;
+          if (visited.has(key)) continue;
+          if (
+            this.map.tiles[y][x] !== tileType ||
+            this.map.tiles[y][x + 1] !== tileType ||
+            this.map.tiles[y + 1][x] !== tileType ||
+            this.map.tiles[y + 1][x + 1] !== tileType
+          ) {
+            continue;
+          }
+          // Mark all 4 tiles as visited
+          visited.add(key);
+          visited.add(`${x + 1},${y}`);
+          visited.add(`${x},${y + 1}`);
+          visited.add(`${x + 1},${y + 1}`);
+          drawFieldBlock(x, y, tileType, label, textColor);
         }
-        if (
-          (y > 0 && this.map.tiles[y - 1][x] === 'field') ||
-          (x > 0 && this.map.tiles[y][x - 1] === 'field')
-        ) {
-          continue;
-        }
-
-        const blockLeft = offset + x * this.tileSize;
-        const blockTop = offset + y * this.tileSize;
-        const blockWidth = this.tileSize * 2;
-        const blockHeight = this.tileSize * 2;
-        const centerX = blockLeft + blockWidth / 2;
-        const centerY = blockTop + blockHeight / 2;
-        const maxLabelWidth = blockWidth - labelPaddingX * 2;
-
-        let fittedFontSize = labelFontSize;
-        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
-        while (
-          fittedFontSize > minLabelFontSize &&
-          ctx.measureText(readyLabel).width > maxLabelWidth
-        ) {
-          fittedFontSize -= 1;
-          ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
-        }
-
-        const labelWidth =
-          ctx.measureText(readyLabel).width + labelPaddingX * 2;
-        const labelHeight = fittedFontSize + 14;
-
-        ctx.fillStyle = 'rgba(12, 16, 22, 0.76)';
-        ctx.fillRect(
-          centerX - labelWidth / 2,
-          centerY - labelHeight / 2,
-          labelWidth,
-          labelHeight
-        );
-        ctx.fillStyle = '#f5efe2';
-        ctx.fillText(readyLabel, centerX, centerY + 1);
       }
-    }
+    };
 
-    // Draw fallow field labels.
-    const fallowLabel = 'Fal';
-    for (let y = 0; y < this.map.height - 1; y++) {
-      for (let x = 0; x < this.map.width - 1; x++) {
-        // Only label the top-left corner of each 2×2 fallow block.
-        if (
-          this.map.tiles[y][x] !== 'field-empty' ||
-          this.map.tiles[y][x + 1] !== 'field-empty' ||
-          this.map.tiles[y + 1][x] !== 'field-empty' ||
-          this.map.tiles[y + 1][x + 1] !== 'field-empty'
-        ) {
-          continue;
-        }
-        if (
-          (y > 0 && this.map.tiles[y - 1][x] === 'field-empty') ||
-          (x > 0 && this.map.tiles[y][x - 1] === 'field-empty')
-        ) {
-          continue;
-        }
+    // Draw ready field sprites/labels.
+    findAndDrawBlocks('field', 'Fld', '#f5efe2');
 
-        const blockLeft = offset + x * this.tileSize;
-        const blockTop = offset + y * this.tileSize;
-        const blockWidth = this.tileSize * 2;
-        const blockHeight = this.tileSize * 2;
-        const centerX = blockLeft + blockWidth / 2;
-        const centerY = blockTop + blockHeight / 2;
-        const maxLabelWidth = blockWidth - labelPaddingX * 2;
-
-        let fittedFontSize = labelFontSize;
-        ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
-        while (
-          fittedFontSize > minLabelFontSize &&
-          ctx.measureText(fallowLabel).width > maxLabelWidth
-        ) {
-          fittedFontSize -= 1;
-          ctx.font = `700 ${fittedFontSize}px "Trebuchet MS", sans-serif`;
-        }
-
-        const labelWidth =
-          ctx.measureText(fallowLabel).width + labelPaddingX * 2;
-        const labelHeight = fittedFontSize + 14;
-
-        ctx.fillStyle = 'rgba(30, 22, 10, 0.65)';
-        ctx.fillRect(
-          centerX - labelWidth / 2,
-          centerY - labelHeight / 2,
-          labelWidth,
-          labelHeight
-        );
-        ctx.fillStyle = '#b09a68';
-        ctx.fillText(fallowLabel, centerX, centerY + 1);
-      }
-    }
+    // Draw fallow field sprites/labels.
+    findAndDrawBlocks('field-empty', 'Fal', '#888070');
   }
 
   private drawBuildings(ctx: CanvasRenderingContext2D): void {
@@ -545,7 +563,7 @@ export class MapView extends Actor {
 
       // --- Sprite rendering (for buildings with a defined spritesheet cell) ---
       const buildingLayout =
-        BUILDING_LAYOUT[overlay.buildingId as keyof typeof BUILDING_LAYOUT];
+        SPRITE_LAYOUT[overlay.buildingId as keyof typeof SPRITE_LAYOUT];
       const sheetImg = BuildingsSpritesheet.image;
       // Shared geometry used by both sprite and badge paths.
       const centerX = left + width / 2;
@@ -863,7 +881,13 @@ export class MapView extends Actor {
               evt.screenPos.x,
               evt.screenPos.y
             );
-            if (tile && this.map.tiles[tile.y]?.[tile.x] === 'field') {
+            if (
+              tile &&
+              (this.map.tiles[tile.y]?.[tile.x] === 'field' ||
+                this.map.tiles[tile.y]?.[tile.x] === 'field-empty')
+            ) {
+              this.selectedBuildingInstanceId = undefined;
+              this.rebuildCachedMapCanvas();
               this.onFieldTileSelected?.(tile.x, tile.y);
             } else if (
               this.isScreenPointInsidePlayableMap(
@@ -1038,12 +1062,24 @@ export class MapView extends Actor {
     }
 
     this.selectedBuildingInstanceId = instanceId;
+    this.selectedFieldTile = undefined;
     this.onBuildingSelected?.(instanceId);
     this.rebuildCachedMapCanvas();
   }
 
   setSelectedBuilding(instanceId: string | undefined): void {
     this.selectBuilding(instanceId);
+  }
+
+  setSelectedField(tileX: number, tileY: number): void {
+    this.selectedFieldTile = { x: tileX, y: tileY };
+    this.selectedBuildingInstanceId = undefined;
+    this.rebuildCachedMapCanvas();
+  }
+
+  clearSelectedField(): void {
+    this.selectedFieldTile = undefined;
+    this.rebuildCachedMapCanvas();
   }
 
   /**
@@ -1127,7 +1163,8 @@ export class MapView extends Actor {
           this.tooltipProvider.show({
             owner: this,
             getAnchorRect: () => this.getTileAnchorRect(tileX, tileY),
-            description: 'Field\n+3 Wheat on harvest for the nearby Farm.',
+            description:
+              'Field\nProduces 8–10 Wheat when harvested by a nearby Farm.',
             width: 200,
           });
         }
@@ -1263,7 +1300,10 @@ export class MapView extends Actor {
     return this.getTileFromScreenPosition(screenX, screenY) !== undefined;
   }
 
-  private isScreenPointInsideViewport(screenX: number, screenY: number): boolean {
+  private isScreenPointInsideViewport(
+    screenX: number,
+    screenY: number
+  ): boolean {
     return (
       screenX >= this.vpLeft &&
       screenX <= this.vpLeft + this.vpWidth &&

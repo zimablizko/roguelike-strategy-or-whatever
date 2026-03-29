@@ -37,12 +37,12 @@ export const researchDefinitions = {
     turns: 3,
     requiredResearches: ['eco-agriculture'],
   },
-  'eco-crop-harvesting': {
-    id: 'eco-crop-harvesting',
+  'eco-crop-rotation': {
+    id: 'eco-crop-rotation',
     tree: 'economics',
-    name: 'Crop Harvesting',
+    name: 'Crop Rotation',
     description:
-      'Advanced rotation techniques let Farms gather ready Fields for Wheat. Each harvest yields 3 Wheat per field; harvested Fields lie fallow for 3 turns before regrowing.',
+      'Advanced field management techniques. Farms in Harvest mode gather 2 fields at once. Field regrow period reduced from 12 to 6 turns.',
     turns: 4,
     requiredResearches: ['eco-forestry'],
   },
@@ -52,7 +52,7 @@ export const researchDefinitions = {
     name: 'Trade Caravans',
     description: 'Organized caravan networks connecting distant settlements.',
     turns: 4,
-    requiredResearches: ['eco-crop-harvesting', 'eco-mining'],
+    requiredResearches: ['eco-crop-rotation', 'eco-mining'],
   },
   'pol-clan-council': {
     id: 'pol-clan-council',

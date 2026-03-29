@@ -1,11 +1,13 @@
-import type { MapManager } from '../../managers/MapManager';
 import type { GameLogManager } from '../../managers/GameLogManager';
-import type { UnitRole } from './military.models';
+import type { MapManager } from '../../managers/MapManager';
 import type { SeededRandom } from '../random';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { MapPlayerStateSummary, MapTileType } from './map.models';
+import type { UnitRole } from './military.models';
 import type { ResourceCost } from './resource.models';
 import type { StateData } from './state.models';
+
+export type FarmWorkMode = 'idle' | 'sow' | 'harvest';
 
 export interface StateBuildingBuildStatus {
   buildable: boolean;
@@ -39,6 +41,10 @@ export interface StateBuildingInstance {
    * undefined (or 0) means the building is fully operational.
    */
   turnsRemaining?: number;
+  /** Farm-only: current work mode. */
+  farmWorkMode?: FarmWorkMode;
+  /** Farm-only: turns remaining before the farm can sow another field. */
+  farmSowCooldown?: number;
 }
 
 export interface BuildingActionProgress {

@@ -306,7 +306,7 @@ export const stateBuildingDefinitions = {
     shortName: 'Frm',
     name: 'Farm',
     description:
-      'A farming commune on fertile plains. With Crop Harvesting research: manually harvest ready Fields for +3 Wheat per field.',
+      'A farming commune on fertile plains. Set a work mode: Sow Crops to automatically cultivate adjacent Fields (1 field every 3 turns), or Harvest to gather Wheat from ready Fields each turn.',
     buildCost: {
       gold: 20,
       wood: 20,
@@ -323,100 +323,7 @@ export const stateBuildingDefinitions = {
     placementDescription: 'Requires 2x2 free Plains area.',
     requiredTechnologies: ['eco-agriculture'],
     getStats: (_state: unknown, _count: number) => [],
-    actions: [
-      {
-        id: 'sow-field',
-        name: 'Sow Field',
-        description:
-          "Cultivate a 2x2 Plains area near the Farm into a Field, boosting this Farm's Wheat yield when harvested.",
-        requiresTilePlacement: true,
-        canRun: ({ buildingInstances, mapGetTile, isInPlayerZone }) => {
-          const RANGE = 2;
-          for (const inst of buildingInstances) {
-            const minTlX = inst.x - RANGE;
-            const maxTlX = inst.x + inst.width + RANGE - 2;
-            const minTlY = inst.y - RANGE;
-            const maxTlY = inst.y + inst.height + RANGE - 2;
-            for (let ty = minTlY; ty <= maxTlY; ty++) {
-              for (let tx = minTlX; tx <= maxTlX; tx++) {
-                if (
-                  mapGetTile(tx, ty) === 'plains' &&
-                  mapGetTile(tx + 1, ty) === 'plains' &&
-                  mapGetTile(tx, ty + 1) === 'plains' &&
-                  mapGetTile(tx + 1, ty + 1) === 'plains' &&
-                  isInPlayerZone(tx, ty) &&
-                  isInPlayerZone(tx + 1, ty) &&
-                  isInPlayerZone(tx, ty + 1) &&
-                  isInPlayerZone(tx + 1, ty + 1)
-                ) {
-                  return { activatable: true };
-                }
-              }
-            }
-          }
-          return {
-            activatable: false,
-            reason: 'No free 2x2 Plains area in vicinity.',
-          };
-        },
-        run: () => {},
-      },
-      {
-        id: 'gather-harvest',
-        name: 'Gather Harvest',
-        description:
-          'Immediately harvest all ready Fields near this Farm: gain 3 Wheat per field. Harvested Fields go fallow for 3 turns before regrowing.',
-        canRun: ({ buildingInstances, mapGetTile, isTechnologyUnlocked }) => {
-          if (!isTechnologyUnlocked('eco-crop-harvesting')) {
-            return {
-              activatable: false,
-              reason: 'Requires Crop Harvesting technology.',
-            };
-          }
-          const RANGE = 2;
-          for (const inst of buildingInstances) {
-            const minX = inst.x - RANGE;
-            const maxX = inst.x + inst.width - 1 + RANGE;
-            const minY = inst.y - RANGE;
-            const maxY = inst.y + inst.height - 1 + RANGE;
-            for (let ty = minY; ty <= maxY; ty++) {
-              for (let tx = minX; tx <= maxX; tx++) {
-                if (mapGetTile(tx, ty) === 'field') {
-                  return { activatable: true };
-                }
-              }
-            }
-          }
-          return {
-            activatable: false,
-            reason: 'No ready Fields nearby.',
-          };
-        },
-        run: ({ buildingInstances, mapGetTile, mapSetTile, resources }) => {
-          const RANGE = 2;
-          const fieldTiles: Array<{ x: number; y: number }> = [];
-          for (const inst of buildingInstances) {
-            const minX = inst.x - RANGE;
-            const maxX = inst.x + inst.width - 1 + RANGE;
-            const minY = inst.y - RANGE;
-            const maxY = inst.y + inst.height - 1 + RANGE;
-            for (let ty = minY; ty <= maxY; ty++) {
-              for (let tx = minX; tx <= maxX; tx++) {
-                if (mapGetTile(tx, ty) === 'field') {
-                  fieldTiles.push({ x: tx, y: ty });
-                }
-              }
-            }
-          }
-          const fieldBlockCount = Math.floor(fieldTiles.length / 4);
-          const wheatGain = 3 * fieldBlockCount;
-          resources.addResource('wheat', wheatGain);
-          for (const tile of fieldTiles) {
-            mapSetTile(tile.x, tile.y, 'field-empty');
-          }
-        },
-      },
-    ],
+    actions: [],
   },
   barracks: {
     id: 'barracks',

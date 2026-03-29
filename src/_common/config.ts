@@ -10,7 +10,7 @@ export const CONFIG = {
   DEBUG_OPTIONS: {
     START_SCENE: 'preparation',
     QUICK_RESEARCH: true,
-    UNLOCK_ALL_RESEARCHES: true,
+    UNLOCK_ALL_RESEARCHES: false,
   },
   /** Whether military threats spawn and resolve each turn. */
   MILITARY_THREATS_ENABLED: false,

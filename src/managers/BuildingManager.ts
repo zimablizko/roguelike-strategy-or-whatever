@@ -1,10 +1,10 @@
 import { clamp } from '../_common/math';
 import type {
-  BuildingTileChange,
   BuildingActionProgress,
   BuildingManagerOptions,
   BuildingManagerStateBridge,
   BuildingMapCell,
+  BuildingTileChange,
   PlacementCandidate,
   StateBuildingActionStatus,
   StateBuildingBuildStatus,
@@ -155,7 +155,9 @@ export class BuildingManager {
     return this.buildingsVersion;
   }
 
-  setAdditionalOccupiedPopulationProvider(provider: (() => number) | undefined) {
+  setAdditionalOccupiedPopulationProvider(
+    provider: (() => number) | undefined
+  ) {
     this.additionalOccupiedPopulationProvider = provider ?? (() => 0);
     this.buildingsVersion++;
   }
@@ -183,7 +185,9 @@ export class BuildingManager {
           instance.turnsRemaining = undefined;
           const definition = this.getBuildingDefinition(instance.buildingId);
           if (definition) {
-            this.logManager?.addGood(`${definition.name} construction finished.`);
+            this.logManager?.addGood(
+              `${definition.name} construction finished.`
+            );
           }
         }
         changed = true;
@@ -258,13 +262,19 @@ export class BuildingManager {
 
       changed = true;
       if (militaryManager) {
-        militaryManager.addUnits(progress.unitId, progress.unitCount, 'available');
+        militaryManager.addUnits(
+          progress.unitId,
+          progress.unitCount,
+          'available'
+        );
       }
       const instance = this.buildingInstances.find(
         (item) => item.instanceId === progress.instanceId
       );
       if (instance) {
-        const buildingDefinition = this.getBuildingDefinition(progress.buildingId);
+        const buildingDefinition = this.getBuildingDefinition(
+          progress.buildingId
+        );
         const buildingName = buildingDefinition?.name ?? 'Building';
         this.logManager?.addGood(
           `${this.getUnitPulseLabel(progress.unitId)} training completed at ${buildingName} (+${progress.unitCount}).`
@@ -708,7 +718,10 @@ export class BuildingManager {
       return null;
     }
 
-    const militaryAction = this.getMilitaryActionDefinition(buildingId, actionId);
+    const militaryAction = this.getMilitaryActionDefinition(
+      buildingId,
+      actionId
+    );
     if (militaryAction) {
       if (!resources.spendResources(militaryAction.cost)) {
         return null;
@@ -814,25 +827,25 @@ export class BuildingManager {
         if (!map || map.playerZoneId === null) return false;
         return map.zones[Math.floor(y)]?.[Math.floor(x)] === map.playerZoneId;
       },
-        mapSetTile: (
-          x: number,
-          y: number,
-          tile: import('../_common/models/map.models').MapTileType
-        ) => {
-          if (!this.mapManager) return;
-          const map = this.mapManager.getMapRef();
-          const from = map.tiles[Math.floor(y)]?.[Math.floor(x)];
-          this.mapManager.setTile(x, y, tile);
-          this.onTileChanged?.({
-            x: Math.floor(x),
-            y: Math.floor(y),
-            from,
-            to: tile,
-            source: 'building-action',
-          });
-          this.syncStateWithMapSummary();
-          this.buildingsVersion++;
-        },
+      mapSetTile: (
+        x: number,
+        y: number,
+        tile: import('../_common/models/map.models').MapTileType
+      ) => {
+        if (!this.mapManager) return;
+        const map = this.mapManager.getMapRef();
+        const from = map.tiles[Math.floor(y)]?.[Math.floor(x)];
+        this.mapManager.setTile(x, y, tile);
+        this.onTileChanged?.({
+          x: Math.floor(x),
+          y: Math.floor(y),
+          from,
+          to: tile,
+          source: 'building-action',
+        });
+        this.syncStateWithMapSummary();
+        this.buildingsVersion++;
+      },
     };
   }
 
@@ -900,7 +913,10 @@ export class BuildingManager {
       };
     }
 
-    const militaryAction = this.getMilitaryActionDefinition(buildingId, actionId);
+    const militaryAction = this.getMilitaryActionDefinition(
+      buildingId,
+      actionId
+    );
     if (militaryAction) {
       const siblingProgress = this.actionProgresses.find(
         (item) =>
@@ -939,7 +955,10 @@ export class BuildingManager {
       }
 
       if (resources) {
-        const missing = this.getMissingResources(militaryAction.cost, resources);
+        const missing = this.getMissingResources(
+          militaryAction.cost,
+          resources
+        );
         const missingEntries = Object.entries(missing);
         if (missingEntries.length > 0) {
           return {
@@ -1023,6 +1042,12 @@ export class BuildingManager {
             typeof rawInstance.turnsRemaining === 'number' &&
             rawInstance.turnsRemaining > 0
               ? rawInstance.turnsRemaining
+              : undefined,
+          farmWorkMode: rawInstance.farmWorkMode,
+          farmSowCooldown:
+            typeof rawInstance.farmSowCooldown === 'number' &&
+            rawInstance.farmSowCooldown > 0
+              ? rawInstance.farmSowCooldown
               : undefined,
         });
         this.buildingCounts[rawInstance.buildingId] += 1;
@@ -1278,6 +1303,250 @@ export class BuildingManager {
     this.logManager?.addNeutral(
       `A new field was sown at (${tileX}, ${tileY}).`
     );
+  }
+
+  // ─── Farm work mode ───────────────────────────────────────────
+
+  getFarmWorkMode(
+    instanceId: string
+  ): import('../_common/models/building-manager.models').FarmWorkMode {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    return instance?.farmWorkMode ?? 'idle';
+  }
+
+  getFarmSowCooldown(instanceId: string): number {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    return instance?.farmSowCooldown ?? 0;
+  }
+
+  setFarmWorkMode(
+    instanceId: string,
+    mode: import('../_common/models/building-manager.models').FarmWorkMode
+  ): void {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance || instance.buildingId !== 'farm') return;
+    instance.farmWorkMode = mode;
+    this.buildingsVersion++;
+  }
+
+  /**
+   * Returns true when Crop Rotation research is completed, enabling
+   * double-harvest and reduced regrow time.
+   */
+  hasCropRotation(): boolean {
+    return this.isTechnologyUnlocked('eco-crop-rotation');
+  }
+
+  /**
+   * Processes automatic sow/harvest for all farms each turn.
+   * Returns income pulses for harvest wheat gains.
+   */
+  processFarmWorkModes(excludeTiles?: Set<string>): EndTurnIncomePulse[] {
+    const pulses: EndTurnIncomePulse[] = [];
+    const hasCropRotation = this.hasCropRotation();
+    const FIELD_RANGE = 2;
+    const SOW_COOLDOWN = 3;
+
+    for (const instance of this.buildingInstances) {
+      if (instance.buildingId !== 'farm') continue;
+      if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
+        continue;
+
+      const mode = instance.farmWorkMode ?? 'idle';
+
+      // Always tick sow cooldown
+      if (
+        instance.farmSowCooldown !== undefined &&
+        instance.farmSowCooldown > 0
+      ) {
+        instance.farmSowCooldown--;
+      }
+
+      if (mode === 'sow') {
+        // Attempt to sow one field if cooldown is ready
+        if ((instance.farmSowCooldown ?? 0) <= 0) {
+          const placements = this.getAvailableFieldPlacements(
+            instance.instanceId,
+            FIELD_RANGE
+          );
+          if (placements.length > 0) {
+            // Pick the closest placement to the farm center
+            const cx = instance.x + instance.width / 2;
+            const cy = instance.y + instance.height / 2;
+            placements.sort((a, b) => {
+              const da =
+                (a.x + 1 - cx) * (a.x + 1 - cx) +
+                (a.y + 1 - cy) * (a.y + 1 - cy);
+              const db =
+                (b.x + 1 - cx) * (b.x + 1 - cx) +
+                (b.y + 1 - cy) * (b.y + 1 - cy);
+              return da - db;
+            });
+            const chosen = placements[0];
+            this.placeFarmFieldAuto(chosen.x, chosen.y);
+            instance.farmSowCooldown = SOW_COOLDOWN;
+          } else {
+            // No more space — auto-switch to harvest
+            instance.farmWorkMode = 'harvest';
+          }
+        }
+      } else if (mode === 'harvest') {
+        // Harvest random ready field(s) near this farm
+        const harvestCount = hasCropRotation ? 2 : 1;
+        const readyFields = this.getReadyFieldsNearFarm(
+          instance,
+          FIELD_RANGE,
+          excludeTiles
+        );
+        if (readyFields.length > 0) {
+          // Shuffle and pick up to harvestCount 2×2 blocks
+          const blocks = this.groupFieldBlocks(readyFields);
+          const toHarvest = Math.min(harvestCount, blocks.length);
+          // Shuffle blocks
+          for (let i = blocks.length - 1; i > 0; i--) {
+            const j = this.rng.randomInt(0, i);
+            [blocks[i], blocks[j]] = [blocks[j], blocks[i]];
+          }
+          let totalWheat = 0;
+          for (let i = 0; i < toHarvest; i++) {
+            const block = blocks[i];
+            const yield_ = this.rng.randomInt(8, 10);
+            totalWheat += yield_;
+            for (const tile of block) {
+              if (this.mapManager) {
+                const from =
+                  this.mapManager.getMapRef().tiles[tile.y]?.[tile.x];
+                this.mapManager.setTile(tile.x, tile.y, 'field-empty');
+                this.onTileChanged?.({
+                  x: tile.x,
+                  y: tile.y,
+                  from,
+                  to: 'field-empty',
+                  source: 'building-action',
+                });
+              }
+            }
+          }
+          if (totalWheat > 0) {
+            pulses.push({
+              tileX: instance.x + (instance.width - 1) / 2,
+              tileY: instance.y + (instance.height - 1) / 2,
+              resourceType: 'wheat',
+              amount: totalWheat,
+            });
+          }
+        }
+      }
+    }
+
+    if (pulses.length > 0) {
+      this.syncStateWithMapSummary();
+      this.buildingsVersion++;
+    }
+    return pulses;
+  }
+
+  /**
+   * Places a field automatically (no action usage tracking needed since it's
+   * passive). Used by the sow work mode.
+   */
+  private placeFarmFieldAuto(tileX: number, tileY: number): void {
+    if (!this.mapManager) return;
+    for (let dy = 0; dy <= 1; dy++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        const from =
+          this.mapManager.getMapRef().tiles[tileY + dy]?.[tileX + dx];
+        this.mapManager.setTile(tileX + dx, tileY + dy, 'field');
+        this.onTileChanged?.({
+          x: tileX + dx,
+          y: tileY + dy,
+          from,
+          to: 'field',
+          source: 'field-placement',
+        });
+      }
+    }
+    this.syncStateWithMapSummary();
+    this.buildingsVersion++;
+  }
+
+  private getReadyFieldsNearFarm(
+    instance: StateBuildingInstance,
+    range: number,
+    excludeTiles?: Set<string>
+  ): Array<{ x: number; y: number }> {
+    if (!this.mapManager) return [];
+    const map = this.mapManager.getMapRef();
+    const result: Array<{ x: number; y: number }> = [];
+    const minX = Math.max(0, instance.x - range);
+    const maxX = Math.min(
+      map.width - 1,
+      instance.x + instance.width - 1 + range
+    );
+    const minY = Math.max(0, instance.y - range);
+    const maxY = Math.min(
+      map.height - 1,
+      instance.y + instance.height - 1 + range
+    );
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        if (
+          map.tiles[ty][tx] === 'field' &&
+          !excludeTiles?.has(`${tx},${ty}`)
+        ) {
+          result.push({ x: tx, y: ty });
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Groups individual field tiles into 2×2 blocks for harvest purposes.
+   * Each block contains exactly 4 tiles forming a contiguous 2×2 area.
+   */
+  private groupFieldBlocks(
+    tiles: Array<{ x: number; y: number }>
+  ): Array<Array<{ x: number; y: number }>> {
+    const tileSet = new Set(tiles.map((t) => `${t.x},${t.y}`));
+    const used = new Set<string>();
+    const blocks: Array<Array<{ x: number; y: number }>> = [];
+
+    for (const tile of tiles) {
+      const key = `${tile.x},${tile.y}`;
+      if (used.has(key)) continue;
+
+      // Check if this tile is the top-left corner of a 2×2 block
+      const r = `${tile.x + 1},${tile.y}`;
+      const b = `${tile.x},${tile.y + 1}`;
+      const br = `${tile.x + 1},${tile.y + 1}`;
+      if (
+        tileSet.has(r) &&
+        tileSet.has(b) &&
+        tileSet.has(br) &&
+        !used.has(r) &&
+        !used.has(b) &&
+        !used.has(br)
+      ) {
+        used.add(key);
+        used.add(r);
+        used.add(b);
+        used.add(br);
+        blocks.push([
+          tile,
+          { x: tile.x + 1, y: tile.y },
+          { x: tile.x, y: tile.y + 1 },
+          { x: tile.x + 1, y: tile.y + 1 },
+        ]);
+      }
+    }
+    return blocks;
   }
 
   private syncStateWithMapSummary(): void {
@@ -1609,5 +1878,4 @@ export class BuildingManager {
       y: castle.y + (castle.height - 1) / 2,
     };
   }
-
 }

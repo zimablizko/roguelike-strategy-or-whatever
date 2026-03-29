@@ -19,16 +19,16 @@ import type {
   MapBuildPlacementOverlay,
   RandomEventPopupOptions,
 } from '../_common/models/ui.models';
+import {
+  createDefaultGameSetup,
+  getMapSizeDefinition,
+  getStatePrehistoryDefinition,
+  introductionLoreDefinitions,
+} from '../data/gameSetup';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
 import { SaveManager } from '../managers/SaveManager';
 import { TurnManager } from '../managers/TurnManager';
-import {
-  createDefaultGameSetup,
-  introductionLoreDefinitions,
-  getMapSizeDefinition,
-  getStatePrehistoryDefinition,
-} from '../data/gameSetup';
 import {
   LAYOUT,
   SIDEBAR_LAYOUT,
@@ -38,21 +38,21 @@ import { UI_Z } from '../ui/constants/ZLayers';
 import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenPopup } from '../ui/elements/ScreenPopup';
-import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { BattlePopup } from '../ui/popups/BattlePopup';
 import { BattleResultPopup } from '../ui/popups/BattleResultPopup';
+import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { IntroductionLorePopup } from '../ui/popups/IntroductionLorePopup';
-import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { LogPopup } from '../ui/popups/LogPopup';
+import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
+import { LogView } from '../ui/views/LogView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
 import { MilitaryStatusView } from '../ui/views/MilitaryStatusView';
-import { LogView } from '../ui/views/LogView';
 import { QuickBuildView } from '../ui/views/QuickBuildView';
 import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
@@ -287,14 +287,7 @@ export class GameplayScene extends Scene {
         this.selectBuilding(instanceId, false);
       },
       onFieldTileSelected: (tileX, tileY) => {
-        const farm =
-          this.gameManager.buildingManager.getFarmInstanceForFieldTile(
-            tileX,
-            tileY
-          );
-        if (farm) {
-          this.selectBuilding(farm.instanceId, true);
-        }
+        this.selectField(tileX, tileY);
       },
       fallowFieldInfo: (tileX, tileY) =>
         this.turnManager.getEmptyFieldTurnsLeft(tileX, tileY),
@@ -764,6 +757,8 @@ export class GameplayScene extends Scene {
       resourceManager: this.resourceManager,
       turnManager: this.turnManager,
       tooltipProvider: this.tooltipProvider,
+      mapTileProvider: (x, y) =>
+        this.gameManager.mapManager.getMapRef().tiles[y]?.[x],
       mapViewportLeft: LAYOUT.SIDEBAR_WIDTH,
       mapViewportWidth: CONFIG.GAME_WIDTH - LAYOUT.SIDEBAR_WIDTH,
       onActionPulses: (pulses) => {
@@ -838,6 +833,13 @@ export class GameplayScene extends Scene {
     if (syncMap) {
       this.mapView?.setSelectedBuilding(instanceId);
     }
+  }
+
+  private selectField(tileX: number, tileY: number): void {
+    this.selectedBuildingInstanceId = undefined;
+    this.selectedBuildingView?.setSelectedField(tileX, tileY);
+    this.mapView?.setActionRangeHighlight(undefined);
+    this.mapView?.setSelectedField(tileX, tileY);
   }
 
   private showGameMenuPopup(engine: Engine): void {
@@ -1267,7 +1269,8 @@ export class GameplayScene extends Scene {
       this.gameManager.buildingManager.getBuildingsVersion();
     const researchVersion =
       this.gameManager.researchManager.getResearchVersion();
-    const militaryVersion = this.gameManager.militaryManager.getMilitaryVersion();
+    const militaryVersion =
+      this.gameManager.militaryManager.getMilitaryVersion();
     const politicsVersion = this.gameManager.politicsManager.getVersion();
     const randomEventVersion = this.gameManager.randomEventManager.getVersion();
     const logVersion = this.gameManager.logManager.getVersion();
@@ -1314,7 +1317,8 @@ export class GameplayScene extends Scene {
       (this.militaryPopup !== undefined && !this.militaryPopup.isKilled()) ||
       (this.introductionLorePopup !== undefined &&
         !this.introductionLorePopup.isKilled()) ||
-      (this.randomEventPopup !== undefined && !this.randomEventPopup.isKilled()) ||
+      (this.randomEventPopup !== undefined &&
+        !this.randomEventPopup.isKilled()) ||
       (this.logPopup !== undefined && !this.logPopup.isKilled()) ||
       (this.battlePopup !== undefined && !this.battlePopup.isKilled()) ||
       (this.battleResultPopup !== undefined &&
@@ -1323,10 +1327,7 @@ export class GameplayScene extends Scene {
   }
 
   private closeTopPopup(): void {
-    if (
-      this.introductionLorePopup &&
-      !this.introductionLorePopup.isKilled()
-    ) {
+    if (this.introductionLorePopup && !this.introductionLorePopup.isKilled()) {
       this.introductionLorePopup.close();
       this.introductionLorePopup = undefined;
       return;
@@ -1605,9 +1606,9 @@ export class GameplayScene extends Scene {
     this.cancelManualBuildPlacement();
   }
 
-  private buildNewGameOptions(setup: GameSetupData): ConstructorParameters<
-    typeof GameManager
-  >[0] {
+  private buildNewGameOptions(
+    setup: GameSetupData
+  ): ConstructorParameters<typeof GameManager>[0] {
     const mapSize = getMapSizeDefinition(setup.mapSize);
     const prehistory = getStatePrehistoryDefinition(setup.prehistory);
     const resources = {

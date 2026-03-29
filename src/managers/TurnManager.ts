@@ -19,6 +19,7 @@ import {
   type RareResourceId,
 } from '../data/rareResources';
 import { BuildingManager } from './BuildingManager';
+import type { GameLogManager } from './GameLogManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
 import { PoliticsManager } from './PoliticsManager';
@@ -26,7 +27,6 @@ import { RandomEventManager } from './RandomEventManager';
 import { ResearchManager } from './ResearchManager';
 import { ResourceManager } from './ResourceManager';
 import { RulerManager } from './RulerManager';
-import type { GameLogManager } from './GameLogManager';
 
 export class TurnManager {
   private static readonly HOUSE_TAX_TECHNOLOGY_ID = 'eco-tax-collection';
@@ -169,11 +169,21 @@ export class TurnManager {
 
   endTurn(): EndTurnResult {
     const passiveIncome = this.applyPassiveBuildingIncome();
-    this.processFieldRecovery();
+    const recoveredTiles = this.processFieldRecovery();
     this.buildingManager.advanceBuildingConstruction();
     const actionPulses = this.buildingManager.advanceBuildingActionProgress(
       this.militaryManager
     );
+
+    // Process automatic farm work modes (sow / harvest)
+    const farmPulses =
+      this.buildingManager.processFarmWorkModes(recoveredTiles);
+    for (const pulse of farmPulses) {
+      if (pulse.resourceType && pulse.amount) {
+        this.resourceManager.addResource(pulse.resourceType, pulse.amount);
+      }
+    }
+    actionPulses.push(...farmPulses);
 
     this.turnData.turnNumber++;
     this.resetFocus();
@@ -368,11 +378,13 @@ export class TurnManager {
 
   /**
    * Discovers newly emptied field tiles, advances the recovery countdown, and
-   * restores tiles that have completed their 3-turn fallow period.
+   * restores tiles that have completed their fallow period.
+   * Default regrow: 12 turns. With Crop Rotation research: 6 turns.
    */
-  private processFieldRecovery(): void {
-    if (!this.mapManager) return;
+  private processFieldRecovery(): Set<string> {
+    if (!this.mapManager) return new Set();
     const map = this.mapManager.getMapRef();
+    const regrowTime = this.buildingManager.hasCropRotation() ? 6 : 12;
 
     // Register newly discovered field-empty tiles.
     for (let y = 0; y < map.height; y++) {
@@ -382,7 +394,7 @@ export class TurnManager {
           map.tiles[y][x] === 'field-empty' &&
           !this.emptyFieldRecovery.has(key)
         ) {
-          this.emptyFieldRecovery.set(key, 3);
+          this.emptyFieldRecovery.set(key, regrowTime);
         }
       }
     }
@@ -397,6 +409,7 @@ export class TurnManager {
 
     // Decrement counters and recover zero-remaining tiles.
     let anyRecovered = false;
+    const recoveredTiles = new Set<string>();
     for (const [key, turnsLeft] of this.emptyFieldRecovery) {
       if (turnsLeft <= 1) {
         const [x, y] = key.split(',').map(Number);
@@ -410,6 +423,7 @@ export class TurnManager {
           source: 'turn-recovery',
         });
         this.emptyFieldRecovery.delete(key);
+        recoveredTiles.add(key);
         anyRecovered = true;
       } else {
         this.emptyFieldRecovery.set(key, turnsLeft - 1);
@@ -419,6 +433,7 @@ export class TurnManager {
     if (anyRecovered) {
       this.buildingManager.notifyMapChanged();
     }
+    return recoveredTiles;
   }
 
   private applyPassiveBuildingIncome(): {
