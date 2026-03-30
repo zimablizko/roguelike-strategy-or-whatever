@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:smoke": "playwright test",
+    "test:smoke:headed": "playwright test --headed",
     "preview": "vite preview",
     "deploy": "npm run build && node deploy.js"
   },
@@ -15,6 +17,7 @@
     "excalibur": "^0.32.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"

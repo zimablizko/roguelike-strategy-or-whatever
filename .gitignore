@@ -5,6 +5,8 @@ package-lock.json
 # Build output
 dist/
 *.local
+playwright-report/
+test-results/
 
 # Editor directories and files
 .vscode/
@@ -14,9 +16,9 @@ dist/
 *.njsproj
 *.sln
 *.sw?
-.agents/
 .claude/
 
 # OS files
 .DS_Store
 Thumbs.db
+.agents/skills/test-game-smoke/artifacts/*

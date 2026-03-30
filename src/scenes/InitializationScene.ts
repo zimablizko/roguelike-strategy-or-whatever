@@ -17,6 +17,7 @@ import type {
   SaveSlotSummary,
 } from '../_common/models/save.models';
 import { SeededRandom } from '../_common/random';
+import { createGameTestBridge } from '../_common/testing/gameTestBridge';
 import { FONT_FAMILY, wrapText } from '../_common/text';
 import {
   createDefaultGameSetup,
@@ -44,6 +45,7 @@ import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 export class InitializationScene extends Scene {
   private selectedSlot: SaveSlotId = 1;
   private readonly setupRng = new SeededRandom();
+  private readonly testBridge = createGameTestBridge();
   private setup: GameSetupData = createDefaultGameSetup(this.setupRng);
   private tooltipProvider?: TooltipProvider;
 
@@ -53,7 +55,15 @@ export class InitializationScene extends Scene {
   }
 
   onActivate(): void {
+    this.testBridge.reportScene('preparation');
+    this.testBridge.setControl('startPreparationGame', () => {
+      this.startSelectedSlot(this.engine);
+    });
     this.render(this.engine);
+  }
+
+  onDeactivate(): void {
+    this.testBridge.setControl('startPreparationGame', undefined);
   }
 
   onPreUpdate(engine: Engine): void {
@@ -62,14 +72,7 @@ export class InitializationScene extends Scene {
     }
 
     if (engine.input.keyboard.wasPressed(Keys.Enter)) {
-      const summaries = SaveManager.getSlotSummaries();
-      const selected = summaries.find((s) => s.slot === this.selectedSlot);
-      if (selected?.used) {
-        SaveManager.queueContinue(this.selectedSlot);
-      } else {
-        SaveManager.queueNewGame(this.selectedSlot, { ...this.setup });
-      }
-      engine.goToScene('gameplay');
+      this.startSelectedSlot(engine);
     }
 
     if (engine.input.keyboard.wasPressed(Keys.Delete)) {
@@ -507,12 +510,7 @@ export class InitializationScene extends Scene {
       hoverBgColor: Color.fromHex('#6c8b4a'),
       clickedBgColor: Color.fromHex('#455b30'),
       onClick: () => {
-        if (slotUsed) {
-          SaveManager.queueContinue(this.selectedSlot);
-        } else {
-          SaveManager.queueNewGame(this.selectedSlot, { ...this.setup });
-        }
-        engine.goToScene('gameplay');
+        this.startSelectedSlot(engine);
       },
     });
     this.add(primaryButton);
@@ -924,6 +922,19 @@ export class InitializationScene extends Scene {
       return hovered ? 'rgba(129, 64, 64, 0.95)' : 'rgba(104, 51, 51, 0.95)';
     }
     return hovered ? 'rgba(76, 45, 45, 0.9)' : 'rgba(55, 33, 33, 0.9)';
+  }
+
+  private startSelectedSlot(engine: Engine): void {
+    const summaries = SaveManager.getSlotSummaries();
+    const selected = summaries.find((summary) => summary.slot === this.selectedSlot);
+
+    if (selected?.used) {
+      SaveManager.queueContinue(this.selectedSlot);
+    } else {
+      SaveManager.queueNewGame(this.selectedSlot, { ...this.setup });
+    }
+
+    engine.goToScene('gameplay');
   }
 }
 

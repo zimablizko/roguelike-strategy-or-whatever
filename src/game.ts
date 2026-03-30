@@ -1,6 +1,7 @@
 import { Color, DisplayMode, Engine } from 'excalibur';
 import { CONFIG } from './_common/config';
 import { loader } from './_common/resources';
+import { createGameTestBridge } from './_common/testing/gameTestBridge';
 import { FONT_FAMILY } from './_common/text';
 import {
   GameOverScene,
@@ -14,6 +15,7 @@ import {
  */
 export class Game {
   private engine: Engine;
+  private readonly testBridge = createGameTestBridge();
 
   constructor() {
     this.engine = new Engine({
@@ -34,6 +36,8 @@ export class Game {
         location.reload();
       },
     });
+
+    this.installSceneTracking();
   }
 
   /**
@@ -75,5 +79,21 @@ export class Game {
    */
   getEngine(): Engine {
     return this.engine;
+  }
+
+  private installSceneTracking(): void {
+    const trackedEngine = this.engine as Engine & {
+      goToScene: (sceneName: string, ...args: unknown[]) => Promise<void>;
+    };
+    const originalGoToScene = trackedEngine.goToScene.bind(this.engine);
+
+    trackedEngine.goToScene = async (
+      sceneName: string,
+      ...args: unknown[]
+    ) => {
+      const result = await originalGoToScene(sceneName, ...args);
+      this.testBridge.reportScene(sceneName);
+      return result;
+    };
   }
 }

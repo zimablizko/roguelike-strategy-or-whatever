@@ -1,0 +1,4 @@
+interface:
+  display_name: "Game Smoke Test"
+  short_description: "Launch dev build and test the core game flow"
+  default_prompt: "Use $test-game-smoke to launch the local game, walk the preparation-to-gameplay flow, inspect runtime errors, and fix any obvious breakage."

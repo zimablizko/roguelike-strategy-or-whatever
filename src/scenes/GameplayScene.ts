@@ -19,6 +19,7 @@ import type {
   MapBuildPlacementOverlay,
   RandomEventPopupOptions,
 } from '../_common/models/ui.models';
+import { createGameTestBridge } from '../_common/testing/gameTestBridge';
 import {
   createDefaultGameSetup,
   getMapSizeDefinition,
@@ -70,6 +71,7 @@ export class GameplayScene extends Scene {
 
   private gameManager!: GameManager;
   private resourceManager!: ResourceManager;
+  private readonly testBridge = createGameTestBridge();
   private turnManager!: TurnManager;
   private tooltipProvider!: TooltipProvider;
   private mapView?: MapView;
@@ -109,6 +111,7 @@ export class GameplayScene extends Scene {
   onActivate(context: SceneActivationContext): void {
     // Excalibur Scenes are initialized once, then re-activated many times.
     // Reset state on activation so starting a new game gets fresh defaults.
+    this.testBridge.reportScene('gameplay');
     this.resetGame(context.engine);
   }
 
