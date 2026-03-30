@@ -149,7 +149,7 @@ export class ResearchStatusView extends InteractivePanelElement {
     // Section label
     members.push({
       graphic: new Text({
-        text: '📚 RESEARCH',
+        text: '📚 RESEARCH [R]',
         font: new Font({
           size: labelSize,
           unit: FontUnit.Px,

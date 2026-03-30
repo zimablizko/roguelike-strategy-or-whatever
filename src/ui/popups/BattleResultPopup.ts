@@ -1,10 +1,10 @@
 import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
-import type { BattleResultPopupOptions } from '../../_common/models/ui.models';
-import { FONT_FAMILY } from '../../_common/text';
 import { getResourceIcon } from '../../_common/icons';
-import { getUnitDefinition } from '../../data/military';
 import type { UnitRole } from '../../_common/models/military.models';
 import type { ResourceType } from '../../_common/models/resource.models';
+import type { BattleResultPopupOptions } from '../../_common/models/ui.models';
+import { FONT_FAMILY } from '../../_common/text';
+import { getUnitDefinition } from '../../data/military';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenPopup } from '../elements/ScreenPopup';
 
@@ -19,7 +19,7 @@ export class BattleResultPopup extends ScreenPopup {
       title: 'Battle Result',
       z: UI_Z.statePopup + 3,
       backplateStyle: 'gray',
-      closeOnBackplateClick: false,
+      closeOnBackplateClick: true,
       bgColor: Color.fromHex('#171d25'),
       headerColor: Color.fromHex('#2f2020'),
       onClose: options.onClose,
@@ -42,7 +42,9 @@ export class BattleResultPopup extends ScreenPopup {
               : Color.fromHex('#f0d48a');
 
         let y = 0;
-        root.addChild(this.createLine(0, y, result.name, 22, Color.fromHex('#f4e7d0')));
+        root.addChild(
+          this.createLine(0, y, result.name, 22, Color.fromHex('#f4e7d0'))
+        );
         y += 34;
         root.addChild(this.createLine(0, y, winnerText, 28, winnerColor));
         y += 38;
@@ -57,7 +59,9 @@ export class BattleResultPopup extends ScreenPopup {
         );
         y += 36;
 
-        root.addChild(this.createLine(0, y, 'Casualties', 18, Color.fromHex('#f4e7d0')));
+        root.addChild(
+          this.createLine(0, y, 'Casualties', 18, Color.fromHex('#f4e7d0'))
+        );
         y += 28;
         root.addChild(
           this.createLine(
@@ -100,13 +104,17 @@ export class BattleResultPopup extends ScreenPopup {
         );
         y += 36;
 
-        root.addChild(this.createLine(0, y, 'Rewards', 18, Color.fromHex('#f4e7d0')));
+        root.addChild(
+          this.createLine(0, y, 'Rewards', 18, Color.fromHex('#f4e7d0'))
+        );
         y += 30;
         const rewardEntries = Object.entries(result.rewards).filter(
           ([, amount]) => (amount ?? 0) > 0
         );
         if (rewardEntries.length === 0) {
-          root.addChild(this.createLine(0, y, 'None', 14, Color.fromHex('#d7e1ea')));
+          root.addChild(
+            this.createLine(0, y, 'None', 14, Color.fromHex('#d7e1ea'))
+          );
           y += 24;
         } else {
           let rewardX = 0;
@@ -128,10 +136,14 @@ export class BattleResultPopup extends ScreenPopup {
           y += 30;
         }
 
-        root.addChild(this.createLine(0, y, 'Summary', 18, Color.fromHex('#f4e7d0')));
+        root.addChild(
+          this.createLine(0, y, 'Summary', 18, Color.fromHex('#f4e7d0'))
+        );
         y += 30;
         for (const line of result.summaryLines.slice(0, 5)) {
-          root.addChild(this.createLine(0, y, line, 14, Color.fromHex('#d7e1ea')));
+          root.addChild(
+            this.createLine(0, y, line, 14, Color.fromHex('#d7e1ea'))
+          );
           y += 22;
         }
       },

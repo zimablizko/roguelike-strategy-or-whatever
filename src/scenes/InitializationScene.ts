@@ -2,6 +2,7 @@ import {
   Color,
   Engine,
   Font,
+  Keys,
   Label,
   Rectangle,
   Scene,
@@ -9,10 +10,8 @@ import {
   TextAlign,
   vec,
 } from 'excalibur';
+import type { GameSetupData } from '../_common/models/game-setup.models';
 import type { RulerTraitDefinition } from '../_common/models/ruler-traits.models';
-import type {
-  GameSetupData,
-} from '../_common/models/game-setup.models';
 import type {
   SaveSlotId,
   SaveSlotSummary,
@@ -55,6 +54,43 @@ export class InitializationScene extends Scene {
 
   onActivate(): void {
     this.render(this.engine);
+  }
+
+  onPreUpdate(engine: Engine): void {
+    if (engine.input.keyboard.wasPressed(Keys.Escape)) {
+      engine.goToScene('main-menu');
+    }
+
+    if (engine.input.keyboard.wasPressed(Keys.Enter)) {
+      const summaries = SaveManager.getSlotSummaries();
+      const selected = summaries.find((s) => s.slot === this.selectedSlot);
+      if (selected?.used) {
+        SaveManager.queueContinue(this.selectedSlot);
+      } else {
+        SaveManager.queueNewGame(this.selectedSlot, { ...this.setup });
+      }
+      engine.goToScene('gameplay');
+    }
+
+    if (engine.input.keyboard.wasPressed(Keys.Delete)) {
+      const deleted = SaveManager.deleteSlot(this.selectedSlot);
+      if (deleted) {
+        this.render(engine);
+      }
+    }
+
+    if (engine.input.keyboard.wasPressed(Keys.Digit1)) {
+      this.selectedSlot = 1;
+      this.render(engine);
+    }
+    if (engine.input.keyboard.wasPressed(Keys.Digit2)) {
+      this.selectedSlot = 2;
+      this.render(engine);
+    }
+    if (engine.input.keyboard.wasPressed(Keys.Digit3)) {
+      this.selectedSlot = 3;
+      this.render(engine);
+    }
   }
 
   private render(engine: Engine): void {
@@ -119,8 +155,7 @@ export class InitializationScene extends Scene {
     this.add(title);
 
     const subtitle = new Label({
-      text:
-        'Choose an empty save slot to begin a new realm, or select an occupied slot to continue.',
+      text: 'Choose an empty save slot to begin a new realm, or select an occupied slot to continue.',
       x: engine.drawWidth / 2,
       y: 60,
       font: new Font({
@@ -368,7 +403,6 @@ export class InitializationScene extends Scene {
       ]);
       this.add(button);
     }
-
   }
 
   private addRulerSettings(
@@ -468,7 +502,7 @@ export class InitializationScene extends Scene {
       y: engine.drawHeight - 66,
       width: 190,
       height: 46,
-      title: slotUsed ? 'Continue Save' : 'Start New Game',
+      title: slotUsed ? 'Continue Save [Enter]' : 'Start New Game [Enter]',
       idleBgColor: Color.fromHex('#58733d'),
       hoverBgColor: Color.fromHex('#6c8b4a'),
       clickedBgColor: Color.fromHex('#455b30'),
@@ -488,7 +522,7 @@ export class InitializationScene extends Scene {
       y: engine.drawHeight - 66,
       width: 190,
       height: 46,
-      title: 'Delete Save',
+      title: 'Delete Save [Del]',
       idleBgColor: Color.fromHex('#7a2b2b'),
       hoverBgColor: Color.fromHex('#943434'),
       clickedBgColor: Color.fromHex('#5e2121'),
@@ -511,7 +545,7 @@ export class InitializationScene extends Scene {
         y: engine.drawHeight - 66,
         width: 190,
         height: 46,
-        title: 'Back to Menu',
+        title: 'Back to Menu [Esc]',
         onClick: () => {
           engine.goToScene('main-menu');
         },
@@ -815,7 +849,9 @@ export class InitializationScene extends Scene {
 
       this.setup = {
         ...this.setup,
-        rulerTraits: selectedTraitIds.filter((selectedId) => selectedId !== traitId),
+        rulerTraits: selectedTraitIds.filter(
+          (selectedId) => selectedId !== traitId
+        ),
       };
       this.render(this.engine);
       return;
@@ -832,7 +868,8 @@ export class InitializationScene extends Scene {
       const positiveLimit =
         getPositiveRulerTraitSelectionLimit(selectedTraitIds);
       if (
-        countRulerTraitsByPolarity(selectedTraitIds, 'positive') >= positiveLimit
+        countRulerTraitsByPolarity(selectedTraitIds, 'positive') >=
+        positiveLimit
       ) {
         return;
       }

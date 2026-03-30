@@ -113,7 +113,7 @@ export class RulerDisplay extends InteractivePanelElement {
     // Section label
     members.push({
       graphic: new Text({
-        text: '👑 RULER',
+        text: '👑 RULER [X]',
         font: new Font({
           size: labelSize,
           unit: FontUnit.Px,

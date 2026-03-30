@@ -49,6 +49,7 @@ import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
+import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
 import { LogView } from '../ui/views/LogView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
@@ -58,7 +59,6 @@ import { ResearchStatusView } from '../ui/views/ResearchStatusView';
 import { ResourceDisplay } from '../ui/views/ResourceView';
 import { RulerDisplay } from '../ui/views/RulerView';
 import { SelectedBuildingView } from '../ui/views/SelectedBuildingView';
-import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
 import { StateDisplay } from '../ui/views/StateView';
 import { TurnDisplay } from '../ui/views/TurnView';
 
@@ -116,20 +116,43 @@ export class GameplayScene extends Scene {
     this.syncBattleUi(engine);
 
     const quickBuildExpanded = this.quickBuildView?.isExpanded() ?? false;
+
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.S)) {
+      this.showStatePopup(engine);
+    }
+
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.F)) {
       this.mapView?.focusOnPlayerState();
     }
 
-    if (engine.input.keyboard.wasPressed(Keys.R)) {
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.X)) {
+      this.showRulerPopup(engine);
+    }
+
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.R)) {
       this.showResearchPopup(engine);
     }
 
-    if (engine.input.keyboard.wasPressed(Keys.M) && !quickBuildExpanded) {
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.T)) {
       this.showMilitaryPopup(engine);
     }
 
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.H)) {
+      this.showLogPopup(engine);
+    }
+
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.M)) {
+      this.showGameMenuPopup(engine);
+    }
+
+    if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.D)) {
+      this.showDebugMenu(engine);
+    }
+
     if (engine.input.keyboard.wasPressed(Keys.Esc)) {
-      if (this.pendingManualBuildBuildingId || this.pendingSowField) {
+      if (quickBuildExpanded) {
+        this.quickBuildView?.collapse();
+      } else if (this.pendingManualBuildBuildingId || this.pendingSowField) {
         this.cancelManualBuildPlacement();
       } else {
         this.closeTopPopup();
@@ -137,9 +160,9 @@ export class GameplayScene extends Scene {
     }
 
     if (
+      !quickBuildExpanded &&
       engine.input.keyboard.wasPressed(Keys.Space) &&
-      !this.hasOpenPopup() &&
-      !quickBuildExpanded
+      !this.hasOpenPopup()
     ) {
       this.performEndTurn(engine);
     }
@@ -244,9 +267,7 @@ export class GameplayScene extends Scene {
       this.turnManager.getDateLabel()
     );
     if (slotSave) {
-      this.gameManager.logManager.addNeutral(
-        `Game loaded from slot ${selectedSlot}.`
-      );
+      // Loaded from existing save — no log entry needed.
     } else {
       const prehistory = getStatePrehistoryDefinition(newGameSetup.prehistory);
       this.gameManager.logManager.addNeutral(
@@ -505,14 +526,19 @@ export class GameplayScene extends Scene {
   }
 
   private addButtons(engine: Engine) {
+    const btnGap = 8;
+    const btnWidth = (SIDEBAR_LAYOUT.panelWidth - btnGap) / 2;
+    const btnHeight = 30;
+    const btnY = (LAYOUT.TOPBAR_HEIGHT - btnHeight) / 2;
+
     // Game Menu button in top-left (topbar, within sidebar width)
     this.addHudElement(
       new ScreenButton({
-        x: LAYOUT.SIDEBAR_PADDING,
-        y: (LAYOUT.TOPBAR_HEIGHT - 30) / 2,
-        width: 80,
-        height: 30,
-        title: 'Menu',
+        x: SIDEBAR_LAYOUT.panelX,
+        y: btnY,
+        width: btnWidth,
+        height: btnHeight,
+        title: 'Menu [M]',
         onClick: () => {
           this.showGameMenuPopup(engine);
         },
@@ -521,11 +547,11 @@ export class GameplayScene extends Scene {
 
     this.addHudElement(
       new ScreenButton({
-        x: LAYOUT.SIDEBAR_PADDING + 88,
-        y: (LAYOUT.TOPBAR_HEIGHT - 30) / 2,
-        width: 80,
-        height: 30,
-        title: 'Debug',
+        x: SIDEBAR_LAYOUT.panelX + btnWidth + btnGap,
+        y: btnY,
+        width: btnWidth,
+        height: btnHeight,
+        title: 'Debug [D]',
         onClick: () => {
           this.showDebugMenu(engine);
         },
@@ -533,14 +559,15 @@ export class GameplayScene extends Scene {
     );
 
     // End Turn button in bottom-right of map area
-    const endTurnButtonX = engine.drawWidth - 170;
+    const endTurnButtonWidth = 180;
+    const endTurnButtonX = engine.drawWidth - endTurnButtonWidth - 20;
     const endTurnButtonY = engine.drawHeight - 60;
     const endTurnButton = new ScreenButton({
       x: endTurnButtonX,
       y: endTurnButtonY,
-      width: 150,
+      width: endTurnButtonWidth,
       height: 40,
-      title: 'End Turn',
+      title: 'End Turn [Space]',
       onClick: () => {
         this.performEndTurn(engine);
       },
@@ -572,6 +599,7 @@ export class GameplayScene extends Scene {
       new AutoTurnControlView({
         x: endTurnButtonX - 56,
         y: endTurnButtonY - 8,
+        progressWidth: endTurnButtonWidth,
         enabledProvider: () => this.autoTurnEnabled,
         progressProvider: () => this.getAutoTurnProgress(),
         onToggle: () => {
@@ -663,7 +691,7 @@ export class GameplayScene extends Scene {
       width: SIDEBAR_LAYOUT.panelWidth,
       height: SIDEBAR_STACK.getLogHeight(engine.drawHeight),
       logManager: this.gameManager.logManager,
-      onOpenHistory: () => this.showLogPopup(engine),
+      onClick: () => this.showLogPopup(engine),
     });
     this.addHudElement(view);
   }
@@ -1294,7 +1322,11 @@ export class GameplayScene extends Scene {
 
   private toggleAutoTurn(): void {
     this.autoTurnEnabled = !this.autoTurnEnabled;
-    this.clearAutoTurnCountdown();
+    if (this.autoTurnEnabled) {
+      this.armAutoTurnForCurrentTurn();
+    } else {
+      this.clearAutoTurnCountdown();
+    }
   }
 
   private getAutoTurnProgress(): number {
@@ -1316,7 +1348,8 @@ export class GameplayScene extends Scene {
       return;
     }
 
-    this.autoTurnCountdownTurnNumber = this.turnManager.getTurnDataRef().turnNumber;
+    this.autoTurnCountdownTurnNumber =
+      this.turnManager.getTurnDataRef().turnNumber;
     this.autoTurnBaselineSignature = this.buildSaveSignature();
     this.autoTurnCountdownMs = GameplayScene.AUTO_TURN_DELAY_MS;
   }
@@ -1353,7 +1386,10 @@ export class GameplayScene extends Scene {
       return;
     }
 
-    this.autoTurnCountdownMs = Math.max(0, this.autoTurnCountdownMs - elapsedMs);
+    this.autoTurnCountdownMs = Math.max(
+      0,
+      this.autoTurnCountdownMs - elapsedMs
+    );
     if (this.autoTurnCountdownMs > 0) {
       return;
     }

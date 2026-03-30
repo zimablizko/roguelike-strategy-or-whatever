@@ -70,7 +70,8 @@ export class MilitaryStatusView extends InteractivePanelElement {
       (sum, count) => sum + (count ?? 0),
       0
     );
-    const activeMusters = this.buildingManager.getBuildingActionProgresses().length;
+    const activeMusters =
+      this.buildingManager.getBuildingActionProgresses().length;
 
     let headerText: string;
     let headerColor: Color;
@@ -150,7 +151,7 @@ export class MilitaryStatusView extends InteractivePanelElement {
     // Section label
     members.push({
       graphic: new Text({
-        text: '⚔ MILITARY',
+        text: '⚔ MILITARY [T]',
         font: new Font({
           size: labelSize,
           unit: FontUnit.Px,

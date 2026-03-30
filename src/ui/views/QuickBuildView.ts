@@ -82,7 +82,7 @@ export class QuickBuildView extends ScreenElement {
       y: 0,
       width: this.toggleWidth,
       height: this.toggleHeight,
-      title: 'Build',
+      title: 'Build [B]',
       onClick: () => {
         this.toggleExpanded();
       },
@@ -148,6 +148,13 @@ export class QuickBuildView extends ScreenElement {
 
   isExpanded(): boolean {
     return this.expanded;
+  }
+
+  collapse(): void {
+    if (this.expanded) {
+      this.expanded = false;
+      this.invalidateRender();
+    }
   }
 
   private refresh(force: boolean): void {

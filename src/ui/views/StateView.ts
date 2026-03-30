@@ -112,7 +112,7 @@ export class StateDisplay extends InteractivePanelElement {
     // Section label
     members.push({
       graphic: new Text({
-        text: '🏛 STATE',
+        text: '🏛 STATE [S]',
         font: new Font({
           size: labelSize,
           unit: FontUnit.Px,

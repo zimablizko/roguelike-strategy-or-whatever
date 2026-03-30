@@ -175,7 +175,7 @@ export class ResourceDisplay extends ScreenElement {
 
     const padding = 8;
     const iconTextGap = 4;
-    const itemWidth = this.iconSize + iconTextGap + 40; // icon + gap + text space
+    const itemWidth = this.iconSize + iconTextGap + 52; // icon + gap + text space
     const totalWidth =
       padding * 2 +
       this.resourceConfigs.length * itemWidth +
