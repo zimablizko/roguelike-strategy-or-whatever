@@ -21,7 +21,7 @@ export const STATE_POPUP_LAYOUT = {
   /** Height of the entity row (icon + label). */
   entityRowHeight: 80,
   /** Height of each request card in the list. */
-  requestCardHeight: 70,
+  requestCardHeight: 90,
   /** Gap between request cards. */
   requestCardGap: 6,
 } as const;

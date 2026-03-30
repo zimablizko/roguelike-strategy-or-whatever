@@ -6,6 +6,7 @@ import {
   ScreenElement,
   Text,
 } from 'excalibur';
+import { getResourceIcon } from '../../_common/icons';
 import type {
   PoliticalEntity,
   PoliticalEntityId,
@@ -14,8 +15,9 @@ import type {
 } from '../../_common/models/politics.models';
 import { reputationTierFromValue } from '../../_common/models/politics.models';
 import type { ResourceType } from '../../_common/models/resource.models';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type { StatePopupOptions } from '../../_common/models/ui.models';
-import { FONT_FAMILY } from '../../_common/text';
+import { FONT_FAMILY, wrapText } from '../../_common/text';
 import { getPoliticalRequestDefinition } from '../../data/politicalRequests';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { PoliticsManager } from '../../managers/PoliticsManager';
@@ -192,9 +194,7 @@ export class StatePopup extends ScreenPopup {
     // Advisors unlock after Administration tech.
     const entities = hasAdministration
       ? allEntities
-      : allEntities.filter(
-          (e) => e.id === 'crown' || e.id === 'common-folk'
-        );
+      : allEntities.filter((e) => e.id === 'crown' || e.id === 'common-folk');
 
     // ─ Entity portraits row ─
     const contentWidth = L.width - L.padding * 2;
@@ -360,6 +360,9 @@ export class StatePopup extends ScreenPopup {
     const def = getPoliticalRequestDefinition(request.definitionId);
     if (!def) return;
 
+    const btnWidth = 72;
+    const btnHeight = 24;
+
     const cardBg = new ScreenElement({ x, y });
     cardBg.graphics.use(
       new Rectangle({
@@ -382,25 +385,30 @@ export class StatePopup extends ScreenPopup {
       )
     );
 
-    // Description
-    const descText =
-      def.description.length > 80
-        ? def.description.substring(0, 77) + '...'
-        : def.description;
-    root.addChild(
-      StatePopup.createLine(
-        x + 10,
-        y + 26,
-        descText,
-        11,
-        Color.fromHex('#8fa8c0')
-      )
-    );
+    // Multiline description
+    const descFontSize = 11;
+    const descMaxWidth = width - btnWidth * 2 - 50;
+    const descLines = wrapText(def.description, descMaxWidth, descFontSize);
+    const maxDescLines = 3;
+    for (let i = 0; i < Math.min(descLines.length, maxDescLines); i++) {
+      let lineText = descLines[i];
+      if (i === maxDescLines - 1 && descLines.length > maxDescLines) {
+        lineText = lineText.replace(/\.?\s*$/, '...');
+      }
+      root.addChild(
+        StatePopup.createLine(
+          x + 10,
+          y + 28 + i * 14,
+          lineText,
+          descFontSize,
+          Color.fromHex('#8fa8c0')
+        )
+      );
+    }
 
     // Approve button
-    const btnWidth = 72;
-    const btnHeight = 24;
-    const btnY = y + 42;
+    const btnY = y + STATE_POPUP_LAYOUT.requestCardHeight - btnHeight - 8;
+    const canAfford = this.canAffordRequest(def.approveResourceEffects);
     const approveBtn = new ScreenButton({
       x: width - btnWidth * 2 - 20,
       y: btnY,
@@ -420,8 +428,18 @@ export class StatePopup extends ScreenPopup {
         });
       },
     });
+    if (!canAfford) {
+      approveBtn.toggle(false);
+    }
     root.addChild(approveBtn);
     this.requestButtons.push(approveBtn);
+
+    // Approve tooltip
+    const approveOutcomes = this.buildEffectsOutcomes(
+      def.approveResourceEffects,
+      def.approveRepChanges
+    );
+    this.bindRequestTooltip(approveBtn, 'Approve', approveOutcomes);
 
     // Deny button
     const denyBtn = new ScreenButton({
@@ -439,6 +457,123 @@ export class StatePopup extends ScreenPopup {
     });
     root.addChild(denyBtn);
     this.requestButtons.push(denyBtn);
+
+    // Deny tooltip
+    const denyOutcomes = this.buildEffectsOutcomes(
+      undefined,
+      def.denyRepChanges
+    );
+    this.bindRequestTooltip(denyBtn, 'Deny', denyOutcomes);
+  }
+
+  private bindRequestTooltip(
+    button: ScreenButton,
+    header: string,
+    outcomes: TooltipOutcome[]
+  ): void {
+    button.on('pointerenter', () => {
+      this.tooltipProvider.show({
+        owner: button,
+        getAnchorRect: () => ({
+          x: button.globalPos.x,
+          y: button.globalPos.y,
+          width: button.buttonWidth,
+          height: button.buttonHeight,
+        }),
+        header,
+        description: '',
+        outcomes,
+        width: 280,
+        placement: 'top',
+      });
+    });
+    button.on('pointerleave', () => this.tooltipProvider.hide(button));
+    button.on('prekill', () => this.tooltipProvider.hide(button));
+  }
+
+  private buildEffectsOutcomes(
+    resourceEffects?: Partial<Record<ResourceType, number>>,
+    repChanges?: Partial<Record<PoliticalEntityId, number>>
+  ): TooltipOutcome[] {
+    const negatives: TooltipOutcome[] = [];
+    const positives: TooltipOutcome[] = [];
+    const negColor = Color.fromHex('#e05252');
+    const posColor = Color.fromHex('#52b66f');
+
+    if (resourceEffects) {
+      for (const [res, amount] of Object.entries(resourceEffects)) {
+        if (!amount) continue;
+        const resType = res as ResourceType;
+        const icon = getResourceIcon(resType);
+        if (amount < 0) {
+          negatives.push({
+            label: '',
+            value: String(amount),
+            icon,
+            color: negColor,
+            iconAfter: true,
+          });
+        } else {
+          positives.push({
+            label: '',
+            value: `+${amount}`,
+            icon,
+            color: posColor,
+            iconAfter: true,
+          });
+        }
+      }
+    }
+
+    if (repChanges) {
+      for (const [entityId, amount] of Object.entries(repChanges)) {
+        if (!amount) continue;
+        const name = this.getShortEntityName(entityId as PoliticalEntityId);
+        const magnitude = StatePopup.getRepChangeMagnitude(amount);
+        if (amount < 0) {
+          negatives.push({
+            label: '',
+            value: `${name} reputation ${magnitude} (${amount})`,
+            color: negColor,
+          });
+        } else {
+          positives.push({
+            label: '',
+            value: `${name} reputation ${magnitude} (+${amount})`,
+            color: posColor,
+          });
+        }
+      }
+    }
+
+    if (!negatives.length && !positives.length) {
+      return [
+        { label: '', value: 'No effects', color: Color.fromHex('#8fa8c0') },
+      ];
+    }
+
+    return [...negatives, ...positives];
+  }
+
+  private static getRepChangeMagnitude(amount: number): string {
+    const abs = Math.abs(amount);
+    const direction = amount > 0 ? 'increase' : 'decrease';
+    if (abs <= 2) return `minor ${direction}`;
+    if (abs <= 5) return `${direction}`;
+    return `major ${direction}`;
+  }
+
+  private canAffordRequest(
+    effects?: Partial<Record<ResourceType, number>>
+  ): boolean {
+    if (!effects) return true;
+    for (const [res, amount] of Object.entries(effects)) {
+      if (amount && amount < 0) {
+        const available = this.resourceManager.getResource(res as ResourceType);
+        if (available < Math.abs(amount)) return false;
+      }
+    }
+    return true;
   }
 
   // ─── Storage Tab ─────────────────────────────────────────────────

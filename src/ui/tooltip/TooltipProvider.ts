@@ -122,11 +122,10 @@ export class TooltipProvider extends ScreenElement {
         })
       : undefined;
 
-    const lines = this.wrapTextToWidth(
-      request.description,
-      maxTextWidth,
-      textColor
-    );
+    const descriptionText = request.description.trim();
+    const lines = descriptionText
+      ? this.wrapTextToWidth(descriptionText, maxTextWidth, textColor)
+      : [];
     const textGraphics = lines.map(
       (line) =>
         new Text({
@@ -623,7 +622,7 @@ export class TooltipProvider extends ScreenElement {
     );
 
     return {
-      items: [{ iconSprite, textGraphic, width }],
+      items: [{ iconSprite, textGraphic, width, iconAfter: outcome.iconAfter }],
       width,
       height,
     };
