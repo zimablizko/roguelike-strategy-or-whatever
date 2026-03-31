@@ -6,7 +6,7 @@ import {
   ScreenElement,
   Text,
 } from 'excalibur';
-import { getResourceIcon } from '../../_common/icons';
+import { getIconSprite, getResourceIcon } from '../../_common/icons';
 import type {
   PoliticalEntity,
   PoliticalEntityId,
@@ -50,6 +50,7 @@ export class StatePopup extends ScreenPopup {
   private requestButtons: ScreenButton[] = [];
   private lastPoliticsVersion = -1;
   private lastResourceVersion = -1;
+  private lastTurnVersion = -1;
 
   constructor(options: StatePopupOptions) {
     super({
@@ -85,12 +86,15 @@ export class StatePopup extends ScreenPopup {
     if (this.activeTab === 'town-hall' || this.activeTab === 'storage') {
       const polVer = this.politicsManager.getVersion();
       const resVer = this.resourceManager.getResourcesVersion();
+      const turnVer = this.turnManager.getTurnVersion();
       if (
         polVer !== this.lastPoliticsVersion ||
-        resVer !== this.lastResourceVersion
+        resVer !== this.lastResourceVersion ||
+        (this.activeTab === 'town-hall' && turnVer !== this.lastTurnVersion)
       ) {
         this.lastPoliticsVersion = polVer;
         this.lastResourceVersion = resVer;
+        this.lastTurnVersion = turnVer;
         this.renderActiveTab();
       }
     }
@@ -385,6 +389,19 @@ export class StatePopup extends ScreenPopup {
       )
     );
 
+    const expiryLabel = this.getRequestExpiryLabel(request, def.expireTurns);
+    if (expiryLabel) {
+      root.addChild(
+        StatePopup.createLine(
+          x + 10,
+          y + STATE_POPUP_LAYOUT.requestCardHeight - 18,
+          expiryLabel,
+          10,
+          Color.fromHex('#f5c179')
+        )
+      );
+    }
+
     // Multiline description
     const descFontSize = 11;
     const descMaxWidth = width - btnWidth * 2 - 50;
@@ -408,7 +425,8 @@ export class StatePopup extends ScreenPopup {
 
     // Approve button
     const btnY = y + STATE_POPUP_LAYOUT.requestCardHeight - btnHeight - 8;
-    const canAfford = this.canAffordRequest(def.approveResourceEffects);
+    const canApprove = this.canAffordRequest(def.approveResourceEffects);
+    const canDeny = this.canTakeRequestDecision();
     const approveBtn = new ScreenButton({
       x: width - btnWidth * 2 - 20,
       y: btnY,
@@ -428,7 +446,7 @@ export class StatePopup extends ScreenPopup {
         });
       },
     });
-    if (!canAfford) {
+    if (!canApprove) {
       approveBtn.toggle(false);
     }
     root.addChild(approveBtn);
@@ -437,7 +455,8 @@ export class StatePopup extends ScreenPopup {
     // Approve tooltip
     const approveOutcomes = this.buildEffectsOutcomes(
       def.approveResourceEffects,
-      def.approveRepChanges
+      def.approveRepChanges,
+      PoliticsManager.REQUEST_DECISION_FOCUS_COST
     );
     this.bindRequestTooltip(approveBtn, 'Approve', approveOutcomes);
 
@@ -455,13 +474,17 @@ export class StatePopup extends ScreenPopup {
         this.politicsManager.denyRequest(request.instanceId);
       },
     });
+    if (!canDeny) {
+      denyBtn.toggle(false);
+    }
     root.addChild(denyBtn);
     this.requestButtons.push(denyBtn);
 
     // Deny tooltip
     const denyOutcomes = this.buildEffectsOutcomes(
       undefined,
-      def.denyRepChanges
+      def.denyRepChanges,
+      PoliticsManager.REQUEST_DECISION_FOCUS_COST
     );
     this.bindRequestTooltip(denyBtn, 'Deny', denyOutcomes);
   }
@@ -493,12 +516,23 @@ export class StatePopup extends ScreenPopup {
 
   private buildEffectsOutcomes(
     resourceEffects?: Partial<Record<ResourceType, number>>,
-    repChanges?: Partial<Record<PoliticalEntityId, number>>
+    repChanges?: Partial<Record<PoliticalEntityId, number>>,
+    focusCost = 0
   ): TooltipOutcome[] {
     const negatives: TooltipOutcome[] = [];
     const positives: TooltipOutcome[] = [];
     const negColor = Color.fromHex('#e05252');
     const posColor = Color.fromHex('#52b66f');
+
+    if (focusCost > 0) {
+      negatives.push({
+        label: '',
+        value: String(-focusCost),
+        icon: getIconSprite('focus', 18),
+        color: negColor,
+        iconAfter: true,
+      });
+    }
 
     if (resourceEffects) {
       for (const [res, amount] of Object.entries(resourceEffects)) {
@@ -566,6 +600,9 @@ export class StatePopup extends ScreenPopup {
   private canAffordRequest(
     effects?: Partial<Record<ResourceType, number>>
   ): boolean {
+    if (!this.canTakeRequestDecision()) {
+      return false;
+    }
     if (!effects) return true;
     for (const [res, amount] of Object.entries(effects)) {
       if (amount && amount < 0) {
@@ -576,7 +613,30 @@ export class StatePopup extends ScreenPopup {
     return true;
   }
 
+  private canTakeRequestDecision(): boolean {
+    return (
+      this.turnManager.getTurnDataRef().focus.current >=
+      PoliticsManager.REQUEST_DECISION_FOCUS_COST
+    );
+  }
+
   // ─── Storage Tab ─────────────────────────────────────────────────
+
+  private getRequestExpiryLabel(
+    request: PoliticalRequestInstance,
+    expireTurns?: number
+  ): string | undefined {
+    if (!expireTurns) {
+      return undefined;
+    }
+
+    const currentTurn = this.turnManager.getTurnDataRef().turnNumber;
+    const turnsLeft = Math.max(
+      0,
+      expireTurns - (currentTurn - request.turnCreated)
+    );
+    return `Expires in ${turnsLeft} ${turnsLeft === 1 ? 'turn' : 'turns'}`;
+  }
 
   private populateStorage(root: ScreenElement): void {
     const resources = this.resourceManager.getAllResources();

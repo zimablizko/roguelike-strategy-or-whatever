@@ -24,6 +24,8 @@ import type { GameLogManager } from './GameLogManager';
  * Single source of truth for political reputation, requests, and delegation state.
  */
 export class PoliticsManager {
+  static readonly REQUEST_DECISION_FOCUS_COST = 1;
+
   private entities: Map<PoliticalEntityId, PoliticalEntity> = new Map();
   private activeRequests: PoliticalRequestInstance[] = [];
   private cooldowns: Map<string, number> = new Map();
@@ -35,12 +37,16 @@ export class PoliticsManager {
   private readonly isTechUnlocked: (techId: string) => boolean;
   private readonly getResource: (type: string) => number;
   private readonly getBuildingCount: (buildingId: string) => number;
+  private getFocusCurrent?: () => number;
+  private spendFocus?: (amount: number) => boolean;
   private readonly logManager?: GameLogManager;
 
   constructor(options: PoliticsManagerOptions) {
     this.isTechUnlocked = options.isTechUnlocked;
     this.getResource = options.getResource;
     this.getBuildingCount = options.getBuildingCount;
+    this.getFocusCurrent = options.getFocusCurrent;
+    this.spendFocus = options.spendFocus;
     this.logManager = options.logManager;
 
     if (options.initial) {
@@ -145,6 +151,25 @@ export class PoliticsManager {
     return this.activeRequests;
   }
 
+  setDecisionFocusBridge(
+    bridge:
+      | {
+          getFocusCurrent: () => number;
+          spendFocus: (amount: number) => boolean;
+        }
+      | undefined
+  ): void {
+    this.getFocusCurrent = bridge?.getFocusCurrent;
+    this.spendFocus = bridge?.spendFocus;
+  }
+
+  canTakeRequestDecision(): boolean {
+    return (
+      (this.getFocusCurrent?.() ?? 0) >=
+      PoliticsManager.REQUEST_DECISION_FOCUS_COST
+    );
+  }
+
   /** Approve a request by its instance id. Returns true if found and processed. */
   approveRequest(
     instanceId: number,
@@ -158,6 +183,11 @@ export class PoliticsManager {
     const instance = this.activeRequests[idx];
     const def = getPoliticalRequestDefinition(instance.definitionId);
     if (!def) return false;
+    if (!this.canTakeRequestDecision()) return false;
+    if (!this.canAffordResourceEffects(def.approveResourceEffects)) return false;
+    if (!this.spendFocus?.(PoliticsManager.REQUEST_DECISION_FOCUS_COST)) {
+      return false;
+    }
 
     // Apply reputation changes
     for (const [entityId, delta] of Object.entries(def.approveRepChanges)) {
@@ -187,6 +217,10 @@ export class PoliticsManager {
     const instance = this.activeRequests[idx];
     const def = getPoliticalRequestDefinition(instance.definitionId);
     if (!def) return false;
+    if (!this.canTakeRequestDecision()) return false;
+    if (!this.spendFocus?.(PoliticsManager.REQUEST_DECISION_FOCUS_COST)) {
+      return false;
+    }
 
     // Apply reputation changes
     for (const [entityId, delta] of Object.entries(def.denyRepChanges)) {
@@ -196,6 +230,20 @@ export class PoliticsManager {
     this.activeRequests.splice(idx, 1);
     this.version++;
     this.logManager?.addBad(`Request denied: ${def.title}.`);
+    return true;
+  }
+
+  private canAffordResourceEffects(
+    effects?: Partial<Record<ResourceType, number>>
+  ): boolean {
+    if (!effects) return true;
+    for (const [resourceType, amount] of Object.entries(effects)) {
+      if (amount && amount < 0) {
+        if (this.getResource(resourceType) < Math.abs(amount)) {
+          return false;
+        }
+      }
+    }
     return true;
   }
 

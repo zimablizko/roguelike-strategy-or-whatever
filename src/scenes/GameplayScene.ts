@@ -265,6 +265,10 @@ export class GameplayScene extends Scene {
       getFocusCurrent: () => this.turnManager.getTurnDataRef().focus.current,
       adjustFocus: (delta) => this.turnManager.adjustFocus(delta),
     });
+    this.gameManager.politicsManager.setDecisionFocusBridge({
+      getFocusCurrent: () => this.turnManager.getTurnDataRef().focus.current,
+      spendFocus: (amount) => this.turnManager.spendFocus(amount),
+    });
     this.gameManager.logManager.setCurrentDate(
       this.turnManager.getTurnDataRef().turnNumber,
       this.turnManager.getDateLabel()

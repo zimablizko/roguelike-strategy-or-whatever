@@ -143,6 +143,8 @@ export interface PoliticsManagerOptions {
   isTechUnlocked: (techId: string) => boolean;
   getResource: (type: string) => number;
   getBuildingCount: (buildingId: string) => number;
+  getFocusCurrent?: () => number;
+  spendFocus?: (amount: number) => boolean;
   logManager?: import('../../managers/GameLogManager').GameLogManager;
   initial?: PoliticsSaveState;
 }
