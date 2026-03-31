@@ -9,6 +9,7 @@ export interface ResearchDefinition {
   description: string;
   turns: number;
   requiredResearches: TechnologyId[];
+  requiredResearchesOneOf?: TechnologyId[];
 }
 
 export type ResearchId = keyof typeof import('../../data/researches').researchDefinitions;

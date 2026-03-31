@@ -104,6 +104,7 @@ export interface BuildingManagerOptions {
   mapManager?: MapManager;
   stateBridge: BuildingManagerStateBridge;
   rng?: SeededRandom;
+  currentTurnProvider?: () => number;
   logManager?: GameLogManager;
   onTileChanged?: (change: BuildingTileChange) => void;
   initial?: {

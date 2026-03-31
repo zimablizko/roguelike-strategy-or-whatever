@@ -20,7 +20,7 @@ import type {
   ResearchPopupOptions,
   TreeNodeLayout,
 } from '../../_common/models/ui.models';
-import { FONT_FAMILY, measureTextWidth } from '../../_common/text';
+import { FONT_FAMILY, measureTextWidth, wrapText } from '../../_common/text';
 import { isResearchId, researchTreeInfo } from '../../data/researches';
 import { ResearchManager } from '../../managers/ResearchManager';
 import { TurnManager } from '../../managers/TurnManager';
@@ -363,7 +363,7 @@ export class ResearchPopup extends ScreenPopup {
     const clipBottom =
       RESEARCH_POPUP_LAYOUT.treeDrawTop + RESEARCH_TREE_DRAW.height;
     for (const layout of layouts) {
-      for (const requiredId of layout.definition.requiredResearches) {
+      for (const requiredId of this.getLinkedPrerequisiteIds(layout.definition)) {
         if (!isResearchId(requiredId)) {
           continue;
         }
@@ -403,9 +403,6 @@ export class ResearchPopup extends ScreenPopup {
       const activeThis = this.researchManager.isActive(definition.id);
       const startStatus = this.researchManager.canStartResearch(definition.id);
       const startable = startStatus.startable;
-      const shortDescription = this.getShortNodeDescription(
-        definition.description
-      );
 
       let statusText = `Turns: ${definition.turns}`;
       let statusColor = Color.fromHex('#cfd9e2');
@@ -441,25 +438,15 @@ export class ResearchPopup extends ScreenPopup {
         y: renderY,
         title: definition.name,
         subtitle: statusText,
-        shortDescription,
         statusColor,
         backgroundColor,
         borderColor,
       });
       this.attachResearchTooltip(card, definition, statusText, statusColor);
-      root.addChild(card);
-
       if (startable) {
-        const startButton = new ScreenButton({
-          x: layout.x + RESEARCH_POPUP_LAYOUT.nodeWidth - 68,
-          y: renderY + 8,
-          width: 60,
-          height: 22,
-          title: 'Start',
-          onClick: () => this.startResearch(definition.id),
-        });
-        root.addChild(startButton);
+        this.attachHoverStartButton(card, definition.id);
       }
+      root.addChild(card);
     }
   }
 
@@ -528,7 +515,10 @@ export class ResearchPopup extends ScreenPopup {
       const parentIds = definition.requiredResearches.filter(
         (required) => isResearchId(required) && definitionsById.has(required)
       ) as ResearchId[];
-      if (parentIds.length === 0) {
+      const oneOfParentIds = (definition.requiredResearchesOneOf ?? []).filter(
+        (required) => isResearchId(required) && definitionsById.has(required)
+      ) as ResearchId[];
+      if (parentIds.length === 0 && oneOfParentIds.length === 0) {
         depthCache.set(id, 0);
         return 0;
       }
@@ -537,43 +527,113 @@ export class ResearchPopup extends ScreenPopup {
       for (const parentId of parentIds) {
         maxDepth = Math.max(maxDepth, depthOf(parentId) + 1);
       }
+      if (oneOfParentIds.length > 0) {
+        const minOneOfDepth = oneOfParentIds.reduce(
+          (minDepth, parentId) => Math.min(minDepth, depthOf(parentId) + 1),
+          Number.POSITIVE_INFINITY
+        );
+        maxDepth = Math.max(maxDepth, minOneOfDepth);
+      }
       depthCache.set(id, maxDepth);
       return maxDepth;
     };
 
-    const grouped = new Map<number, TypedResearchDefinition[]>();
+    const rootCache = new Map<ResearchId, ResearchId>();
+    const rootOf = (id: ResearchId): ResearchId => {
+      const cached = rootCache.get(id);
+      if (cached) {
+        return cached;
+      }
+
+      const definition = definitionsById.get(id);
+      if (!definition) {
+        rootCache.set(id, id);
+        return id;
+      }
+
+      const parentIds = this.getLinkedPrerequisiteIds(definition).filter(
+        (required) => isResearchId(required) && definitionsById.has(required)
+      ) as ResearchId[];
+      if (parentIds.length === 0) {
+        rootCache.set(id, id);
+        return id;
+      }
+
+      const rootId = rootOf(parentIds[0]);
+      rootCache.set(id, rootId);
+      return rootId;
+    };
+
+    const grouped = new Map<ResearchId, Map<number, TypedResearchDefinition[]>>();
     for (const definition of definitions) {
+      const rootId = rootOf(definition.id);
       const depth = depthOf(definition.id);
-      const list = grouped.get(depth) ?? [];
+      const depthGroups = grouped.get(rootId) ?? new Map();
+      const list = depthGroups.get(depth) ?? [];
       list.push(definition);
-      grouped.set(depth, list);
+      depthGroups.set(depth, list);
+      grouped.set(rootId, depthGroups);
     }
 
     const layouts: TreeNodeLayout[] = [];
-    const depthLevels = Array.from(grouped.keys()).sort((a, b) => a - b);
-    for (const depth of depthLevels) {
-      const depthDefinitions = grouped.get(depth) ?? [];
-      depthDefinitions.sort((a, b) => a.name.localeCompare(b.name));
-      const rowWidth =
-        depthDefinitions.length * RESEARCH_POPUP_LAYOUT.nodeWidth +
-        Math.max(0, depthDefinitions.length - 1) *
-          RESEARCH_POPUP_LAYOUT.nodeHorizontalGap;
-      const startX = Math.max(0, (contentWidth - rowWidth) / 2);
-      for (const [index, definition] of depthDefinitions.entries()) {
-        layouts.push({
-          definition,
-          depth,
-          x:
-            startX +
-            index *
-              (RESEARCH_POPUP_LAYOUT.nodeWidth +
-                RESEARCH_POPUP_LAYOUT.nodeHorizontalGap),
-          y:
-            depth *
-            (RESEARCH_POPUP_LAYOUT.nodeHeight +
-              RESEARCH_POPUP_LAYOUT.nodeVerticalGap),
-        });
+    const branchGap = RESEARCH_POPUP_LAYOUT.nodeHorizontalGap * 2;
+    const branchOrder = definitions
+      .filter((definition) => rootOf(definition.id) === definition.id)
+      .map((definition) => definition.id);
+
+    const branchWidths = branchOrder.map((rootId) => {
+      const depthGroups = grouped.get(rootId) ?? new Map();
+      let maxWidth: number = RESEARCH_POPUP_LAYOUT.nodeWidth;
+      for (const depthDefinitions of depthGroups.values()) {
+        maxWidth = Math.max(
+          maxWidth,
+          depthDefinitions.length * RESEARCH_POPUP_LAYOUT.nodeWidth +
+            Math.max(0, depthDefinitions.length - 1) *
+              RESEARCH_POPUP_LAYOUT.nodeHorizontalGap
+        );
       }
+      return maxWidth;
+    });
+
+    const totalWidth =
+      branchWidths.reduce((sum, width) => sum + width, 0) +
+      Math.max(0, branchWidths.length - 1) * branchGap;
+    let branchStartX = Math.max(0, (contentWidth - totalWidth) / 2);
+
+    for (const [branchIndex, rootId] of branchOrder.entries()) {
+      const depthGroups = grouped.get(rootId) ?? new Map();
+      const branchWidth = branchWidths[branchIndex];
+      const depthLevels = Array.from(depthGroups.keys()).sort((a, b) => a - b);
+
+      for (const depth of depthLevels) {
+        const depthDefinitions = depthGroups.get(depth) ?? [];
+        depthDefinitions.sort((a: TypedResearchDefinition, b: TypedResearchDefinition) =>
+          a.name.localeCompare(b.name)
+        );
+        const rowWidth =
+          depthDefinitions.length * RESEARCH_POPUP_LAYOUT.nodeWidth +
+          Math.max(0, depthDefinitions.length - 1) *
+            RESEARCH_POPUP_LAYOUT.nodeHorizontalGap;
+        const rowStartX = branchStartX + Math.max(0, (branchWidth - rowWidth) / 2);
+
+        for (const [index, definition] of depthDefinitions.entries()) {
+          layouts.push({
+            definition,
+            depth,
+            x:
+              rowStartX +
+              index *
+                (RESEARCH_POPUP_LAYOUT.nodeWidth +
+                  RESEARCH_POPUP_LAYOUT.nodeHorizontalGap),
+            y:
+              depth *
+              (RESEARCH_POPUP_LAYOUT.nodeHeight +
+                RESEARCH_POPUP_LAYOUT.nodeVerticalGap),
+          });
+        }
+      }
+
+      branchStartX += branchWidth + branchGap;
     }
 
     return layouts;
@@ -683,12 +743,29 @@ export class ResearchPopup extends ScreenPopup {
     y: number;
     title: string;
     subtitle: string;
-    shortDescription: string[];
     statusColor: Color;
     backgroundColor: Color;
     borderColor: Color;
   }): ScreenElement {
     const card = new ScreenElement({ x: options.x, y: options.y });
+    const titleMaxWidth = RESEARCH_POPUP_LAYOUT.nodeWidth - 16;
+    const rawTitleLines = wrapText(options.title, titleMaxWidth, 12);
+    const titleLines = rawTitleLines.slice(0, 2);
+    if (rawTitleLines.length > 2) {
+      titleLines[1] = this.ellipsis(
+        rawTitleLines.slice(1).join(' '),
+        titleMaxWidth,
+        12
+      );
+    }
+    while (titleLines.length < 2) {
+      titleLines.push('');
+    }
+    const subtitleText = this.ellipsis(
+      options.subtitle,
+      RESEARCH_POPUP_LAYOUT.nodeWidth - 16,
+      8
+    );
     const members: GraphicsGrouping[] = [
       {
         graphic: new Rectangle({
@@ -732,101 +809,44 @@ export class ResearchPopup extends ScreenPopup {
       },
       {
         graphic: new Text({
-          text: options.title,
+          text: titleLines[0],
           font: new Font({
-            size: 13,
+            size: 12,
             unit: FontUnit.Px,
             color: Color.fromHex('#f0f4f8'),
             family: FONT_FAMILY,
           }),
         }),
-        offset: vec(8, 8),
+        offset: vec(8, 7),
       },
       {
         graphic: new Text({
-          text: options.subtitle,
+          text: titleLines[1],
           font: new Font({
             size: 12,
+            unit: FontUnit.Px,
+            color: Color.fromHex('#f0f4f8'),
+            family: FONT_FAMILY,
+          }),
+        }),
+        offset: vec(8, 21),
+      },
+      {
+        graphic: new Text({
+          text: subtitleText,
+          font: new Font({
+            size: 10,
             unit: FontUnit.Px,
             color: options.statusColor,
             family: FONT_FAMILY,
           }),
         }),
-        offset: vec(8, 27),
+        offset: vec(8, 40),
       },
     ];
 
-    if (options.shortDescription[0]) {
-      members.push({
-        graphic: new Text({
-          text: options.shortDescription[0],
-          font: new Font({
-            size: 11,
-            unit: FontUnit.Px,
-            color: Color.fromHex('#b9c9d8'),
-            family: FONT_FAMILY,
-          }),
-        }),
-        offset: vec(8, 45),
-      });
-    }
-    if (options.shortDescription[1]) {
-      members.push({
-        graphic: new Text({
-          text: options.shortDescription[1],
-          font: new Font({
-            size: 11,
-            unit: FontUnit.Px,
-            color: Color.fromHex('#9fb4c8'),
-            family: FONT_FAMILY,
-          }),
-        }),
-        offset: vec(8, 59),
-      });
-    }
-
     card.graphics.use(new GraphicsGroup({ members }));
     return card;
-  }
-
-  private getShortNodeDescription(text: string): string[] {
-    const maxWidth = RESEARCH_POPUP_LAYOUT.nodeWidth - 16;
-    const words = text.split(/\s+/).filter(Boolean);
-    if (words.length === 0) {
-      return ['', ''];
-    }
-
-    const firstLine = this.fitLineByWidth(words, maxWidth, 11);
-    if (firstLine.usedWords >= words.length) {
-      return [firstLine.text, ''];
-    }
-
-    const secondLineSource = words.slice(firstLine.usedWords).join(' ');
-    return [firstLine.text, this.ellipsis(secondLineSource, maxWidth, 11)];
-  }
-
-  private fitLineByWidth(
-    words: string[],
-    maxWidth: number,
-    fontSize: number
-  ): { text: string; usedWords: number } {
-    let line = '';
-    let usedWords = 0;
-
-    for (const word of words) {
-      const next = line ? `${line} ${word}` : word;
-      if (
-        measureTextWidth(next, fontSize) <= maxWidth ||
-        (line.length === 0 && usedWords === 0)
-      ) {
-        line = next;
-        usedWords++;
-        continue;
-      }
-      break;
-    }
-
-    return { text: line, usedWords };
   }
 
   private ellipsis(text: string, width: number, fontSize: number): string {
@@ -844,6 +864,69 @@ export class ResearchPopup extends ScreenPopup {
       candidate = candidate.slice(0, -1).trimEnd();
     }
     return suffix;
+  }
+
+  private attachHoverStartButton(
+    card: ScreenElement,
+    definitionId: ResearchId
+  ): void {
+    const overlay = new ScreenElement({
+      x: 0,
+      y: 0,
+    });
+    overlay.graphics.use(
+      new Rectangle({
+        width: RESEARCH_POPUP_LAYOUT.nodeWidth,
+        height: RESEARCH_POPUP_LAYOUT.nodeHeight,
+        color: Color.fromRGB(18, 24, 30, 0.76),
+      })
+    );
+    overlay.graphics.isVisible = false;
+    card.addChild(overlay);
+
+    const startButton = new ScreenButton({
+      x: (RESEARCH_POPUP_LAYOUT.nodeWidth - 60) / 2,
+      y: (RESEARCH_POPUP_LAYOUT.nodeHeight - 20) / 2,
+      width: 60,
+      height: 20,
+      title: 'Start',
+      idleBgColor: Color.fromHex('#56636f'),
+      hoverBgColor: Color.fromHex('#6c7d8c'),
+      clickedBgColor: Color.fromHex('#48525b'),
+      onClick: () => this.startResearch(definitionId),
+    });
+    startButton.graphics.isVisible = false;
+    startButton.pointer.useGraphicsBounds = false;
+    startButton.pointer.useColliderShape = false;
+    overlay.addChild(startButton);
+
+    let isCardHovered = false;
+    let isButtonHovered = false;
+    const setVisible = (visible: boolean) => {
+      overlay.graphics.isVisible = visible;
+      startButton.graphics.isVisible = visible;
+      startButton.pointer.useGraphicsBounds = visible;
+    };
+
+    const syncVisibility = () => setVisible(isCardHovered || isButtonHovered);
+
+    card.on('pointerenter', () => {
+      isCardHovered = true;
+      syncVisibility();
+    });
+    card.on('pointerleave', () => {
+      isCardHovered = false;
+      syncVisibility();
+    });
+    startButton.on('pointerenter', () => {
+      isButtonHovered = true;
+      syncVisibility();
+    });
+    startButton.on('pointerleave', () => {
+      isButtonHovered = false;
+      syncVisibility();
+    });
+    card.on('prekill', () => setVisible(false));
   }
 
   private attachResearchTooltip(
@@ -887,11 +970,25 @@ export class ResearchPopup extends ScreenPopup {
     statusText: string,
     statusColor: Color
   ): TooltipOutcome[] {
-    const prerequisiteNames = definition.requiredResearches
+    const prerequisiteLabels: string[] = [];
+    const requiredNames = definition.requiredResearches
       .filter((id) => isResearchId(id))
       .map(
         (id) => this.researchManager.getResearchDefinitionById(id)?.name ?? id
       );
+    if (requiredNames.length > 0) {
+      prerequisiteLabels.push(...requiredNames);
+    }
+
+    const oneOfNames = (definition.requiredResearchesOneOf ?? [])
+      .filter((id) => isResearchId(id))
+      .map(
+        (id) => this.researchManager.getResearchDefinitionById(id)?.name ?? id
+      );
+    if (oneOfNames.length > 0) {
+      prerequisiteLabels.push(`(${oneOfNames.join(' OR ')})`);
+    }
+
     return [
       {
         label: 'Duration',
@@ -900,13 +997,22 @@ export class ResearchPopup extends ScreenPopup {
       {
         label: 'Prerequisites',
         value:
-          prerequisiteNames.length > 0 ? prerequisiteNames.join(', ') : 'None',
+          prerequisiteLabels.length > 0 ? prerequisiteLabels.join(', ') : 'None',
       },
       {
         label: '',
         value: statusText,
         color: statusColor,
       },
+    ];
+  }
+
+  private getLinkedPrerequisiteIds(
+    definition: TypedResearchDefinition
+  ): readonly string[] {
+    return [
+      ...definition.requiredResearches,
+      ...(definition.requiredResearchesOneOf ?? []),
     ];
   }
 

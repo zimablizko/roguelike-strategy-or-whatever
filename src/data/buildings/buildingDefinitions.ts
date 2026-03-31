@@ -3,6 +3,10 @@ import type {
   StateBuildingDefinition,
 } from '../../_common/models/buildings.models';
 import type { MapTileType } from '../../_common/models/map.models';
+import {
+  getTurnsUntilNextMarketCaravan,
+  isMarketCaravanActive,
+} from '../marketCommerce';
 
 export const stateBuildingDefinitions = {
   castle: {
@@ -65,7 +69,7 @@ export const stateBuildingDefinitions = {
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
       `Population provided: +${count * 5}`,
-      'Tax Collection: +2 Gold/turn per House',
+      'Tax Collection: +1 Gold/turn per House',
     ],
     actions: [],
   },
@@ -261,5 +265,57 @@ export const stateBuildingDefinitions = {
       'Occupies 2x2 tiles',
     ],
     actions: [],
+  },
+  market: {
+    id: 'market',
+    shortName: 'Mkt',
+    name: 'Market',
+    description:
+      'A chartered trade square that attracts merchants, coin, and guild influence. When Trade Caravans is researched, visiting caravans open a temporary trade action here.',
+    buildCost: {
+      gold: 60,
+      wood: 20,
+      stone: 10,
+    },
+    costGrowth: 1.2,
+    unique: true,
+    buildingTime: 3,
+    populationRequired: 2,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['plains', 'sand'] as MapTileType[],
+    },
+    placementDescription: 'Requires 2x2 free Plains/Sand area.',
+    requiredTechnologies: ['eco-market-charters'],
+    getStats: (_state: unknown, count: number) => [
+      `Built: ${count}/1`,
+      'Passive income: +3 Gold/turn',
+      'Guild Influence: +1 Political Power/turn',
+    ],
+    actions: [
+      {
+        id: 'trade',
+        name: 'Trade',
+        description:
+          'Open the market exchange while a caravan is in town. Available once per day during active caravan visits.',
+        requiredTechnologies: ['eco-trade-caravans'],
+        popupId: 'market-trade',
+        canRun: (context: BuildingActionContext) => {
+          if (isMarketCaravanActive(context.currentTurn)) {
+            return { activatable: true };
+          }
+
+          const turnsUntilNext = getTurnsUntilNextMarketCaravan(
+            context.currentTurn
+          );
+          return {
+            activatable: false,
+            reason: `No caravan in town. Next caravan arrives in ${turnsUntilNext} turn${turnsUntilNext === 1 ? '' : 's'}.`,
+          };
+        },
+        run: () => {},
+      },
+    ],
   },
 } as const satisfies Record<string, StateBuildingDefinition>;

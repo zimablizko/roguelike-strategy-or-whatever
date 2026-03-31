@@ -10,11 +10,11 @@ export const RESEARCH_POPUP_LAYOUT = {
   treeDrawBottom: 8,
   treeScrollStep: 96,
   treeControlColumnWidth: 44,
-  nodeWidth: 280,
-  nodeHeight: 78,
+  nodeWidth: 136,
+  nodeHeight: 58,
   nodeButtonZoneWidth: 86,
-  nodeVerticalGap: 56,
-  nodeHorizontalGap: 40,
+  nodeVerticalGap: 30,
+  nodeHorizontalGap: 24,
 } as const;
 
 export const RESEARCH_POPUP_DERIVED = {

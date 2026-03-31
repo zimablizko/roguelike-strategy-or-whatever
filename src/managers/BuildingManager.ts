@@ -44,6 +44,7 @@ export class BuildingManager {
   private readonly mapManager?: MapManager;
   private readonly stateBridge: BuildingManagerStateBridge;
   private readonly rng: SeededRandom;
+  private currentTurnProvider: () => number;
   private buildingCounts: Record<StateBuildingId, number>;
   private buildingInstances: StateBuildingInstance[] = [];
   private actionProgresses: BuildingActionProgress[] = [];
@@ -60,6 +61,7 @@ export class BuildingManager {
     this.mapManager = options.mapManager;
     this.stateBridge = options.stateBridge;
     this.rng = options.rng ?? new SeededRandom();
+    this.currentTurnProvider = options.currentTurnProvider ?? (() => 1);
     this.logManager = options.logManager;
     this.onTileChanged = options.onTileChanged;
     this.buildingCounts = createEmptyBuildingRecord();
@@ -166,6 +168,10 @@ export class BuildingManager {
     listener: ((change: BuildingTileChange) => void) | undefined
   ): void {
     this.onTileChanged = listener;
+  }
+
+  setCurrentTurnProvider(provider: (() => number) | undefined): void {
+    this.currentTurnProvider = provider ?? (() => 1);
   }
 
   /**
@@ -788,6 +794,7 @@ export class BuildingManager {
       this.buildActionContext(buildingId, instanceId, trackingResources)
     );
     this.incrementActionUsage(instanceId, actionId);
+    this.buildingsVersion++;
     return pulses;
   }
 
@@ -800,6 +807,7 @@ export class BuildingManager {
       (i) => i.instanceId === instanceId
     );
     return {
+      currentTurn: Math.max(1, Math.floor(this.currentTurnProvider())),
       state: this.stateBridge.getStateRef(),
       resources,
       getResource: (type: string) =>
@@ -886,6 +894,16 @@ export class BuildingManager {
       return {
         activatable: false,
         reason: 'Unknown action.',
+      };
+    }
+    if (
+      action.requiredTechnologies?.some(
+        (technology) => !this.isTechnologyUnlocked(technology)
+      )
+    ) {
+      return {
+        activatable: false,
+        reason: 'Action not unlocked yet.',
       };
     }
 

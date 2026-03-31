@@ -15,6 +15,9 @@ import type {
 import { SeededRandom } from '../_common/random';
 import { buildingPassiveIncome } from '../data/buildings';
 import {
+  isMarketCaravanArrivalTurn,
+} from '../data/marketCommerce';
+import {
   rareResourceDefinitions,
   type RareResourceId,
 } from '../data/rareResources';
@@ -30,7 +33,9 @@ import { RulerManager } from './RulerManager';
 
 export class TurnManager {
   private static readonly HOUSE_TAX_TECHNOLOGY_ID = 'eco-tax-collection';
-  private static readonly HOUSE_TAX_GOLD_PER_TURN = 2;
+  private static readonly HOUSE_TAX_GOLD_PER_TURN = 1;
+  private static readonly MARKET_GUILD_INFLUENCE_TECHNOLOGY_ID =
+    'eco-guild-influence';
 
   /** Calendar start year. Turn 1 = January 1 of this year. */
   static readonly START_YEAR = 1000;
@@ -213,6 +218,16 @@ export class TurnManager {
     const researchUpdate = this.researchManager?.advanceTurn(
       this.turnData.turnNumber
     );
+
+    if (
+      this.buildingManager.isTechnologyUnlocked('eco-trade-caravans') &&
+      this.buildingManager.getBuildingCount('market') > 0 &&
+      isMarketCaravanArrivalTurn(this.turnData.turnNumber)
+    ) {
+      this.logManager?.addGood(
+        'A trade caravan has arrived at the Market and will remain for 5 days.'
+      );
+    }
 
     console.log(`Turn ${this.turnData.turnNumber} ended.`);
 
@@ -478,6 +493,9 @@ export class TurnManager {
     const hasHouseTaxCollection = this.buildingManager.isTechnologyUnlocked(
       TurnManager.HOUSE_TAX_TECHNOLOGY_ID
     );
+    const hasGuildInfluence = this.buildingManager.isTechnologyUnlocked(
+      TurnManager.MARKET_GUILD_INFLUENCE_TECHNOLOGY_ID
+    );
 
     for (const instance of buildingInstances) {
       // Skip buildings still under construction.
@@ -527,6 +545,10 @@ export class TurnManager {
           'gold',
           TurnManager.HOUSE_TAX_GOLD_PER_TURN
         );
+      }
+
+      if (hasGuildInfluence && instance.buildingId === 'market') {
+        addIncome(centerX, centerY, 'politicalPower', 1);
       }
 
       // Rare resource bonuses

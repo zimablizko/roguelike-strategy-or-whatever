@@ -7,7 +7,7 @@ export const researchDefinitions = {
     name: 'Agriculture',
     description:
       'Unlocks Farm construction through organized crop rotation and field management.',
-    turns: 2,
+    turns: 10,
     requiredResearches: [],
   },
   'eco-tax-collection': {
@@ -15,9 +15,18 @@ export const researchDefinitions = {
     tree: 'economics',
     name: 'Tax Collection',
     description:
-      'Establishes regular tax registers. Houses passively generate +2 Gold per turn.',
-    turns: 2,
+      'Establishes regular tax registers. Houses passively generate +1 Gold per turn.',
+    turns: 10,
     requiredResearches: [],
+  },
+  'eco-market-charters': {
+    id: 'eco-market-charters',
+    tree: 'economics',
+    name: 'Market Charters',
+    description:
+      'Recognizes merchant privileges and urban market rights. Unlocks the Market and attracts traveling merchants to its square.',
+    turns: 15,
+    requiredResearches: ['eco-tax-collection'],
   },
   'eco-forestry': {
     id: 'eco-forestry',
@@ -25,7 +34,7 @@ export const researchDefinitions = {
     name: 'Forestry',
     description:
       'Systematic woodland management techniques. Unlocks Plant Trees work mode for Lumbermills.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['eco-agriculture'],
   },
   'eco-mining': {
@@ -34,7 +43,7 @@ export const researchDefinitions = {
     name: 'Mining',
     description:
       'Unlocks Mine construction with systematic ore extraction and quarry methods.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['eco-agriculture'],
   },
   'eco-crop-rotation': {
@@ -43,16 +52,27 @@ export const researchDefinitions = {
     name: 'Crop Rotation',
     description:
       'Advanced field management techniques. Farms in Harvest mode gather 2 fields at once. Field regrow period reduced from 12 to 6 turns.',
-    turns: 4,
-    requiredResearches: ['eco-forestry'],
+    turns: 20,
+    requiredResearches: [],
+    requiredResearchesOneOf: ['eco-forestry', 'eco-mining'],
   },
   'eco-trade-caravans': {
     id: 'eco-trade-caravans',
     tree: 'economics',
     name: 'Trade Caravans',
-    description: 'Organized caravan networks connecting distant settlements.',
-    turns: 4,
-    requiredResearches: ['eco-crop-rotation', 'eco-mining'],
+    description:
+      'Organized caravan circuits bring merchants to your Market every 15 days for 5 days, unlocking the Trade action while they remain.',
+    turns: 20,
+    requiredResearches: ['eco-market-charters'],
+  },
+  'eco-guild-influence': {
+    id: 'eco-guild-influence',
+    tree: 'economics',
+    name: 'Guild Influence',
+    description:
+      'Merchant guilds gain a formal voice in court. Markets also generate +1 Political Power per turn.',
+    turns: 20,
+    requiredResearches: ['eco-market-charters'],
   },
   'pol-clan-council': {
     id: 'pol-clan-council',
@@ -60,7 +80,7 @@ export const researchDefinitions = {
     name: 'Administration',
     description:
       'Establishes a formal administration. Appoints Advisors of Economy, Politics, and Military to the Town Hall.',
-    turns: 2,
+    turns: 10,
     requiredResearches: [],
   },
   'pol-public-hearings': {
@@ -69,7 +89,7 @@ export const researchDefinitions = {
     name: 'Public Hearings',
     description:
       'Formalizes the Common Folk voice. Approving Folk requests grants +2 additional reputation.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['pol-clan-council'],
   },
   'pol-civil-code': {
@@ -77,8 +97,8 @@ export const researchDefinitions = {
     tree: 'politics',
     name: 'Civil Code',
     description:
-      'Codifies laws and governance. Deny reputation penalty reduced from −3 to −1.',
-    turns: 3,
+      'Codifies laws and governance. Deny reputation penalty reduced from âˆ’3 to âˆ’1.',
+    turns: 15,
     requiredResearches: ['pol-clan-council'],
   },
   'pol-tax-census': {
@@ -86,7 +106,7 @@ export const researchDefinitions = {
     tree: 'politics',
     name: 'Tax Census',
     description: 'Economy Advisor delegation unlocked at Favorable reputation.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['pol-civil-code'],
   },
   'pol-provincial-governors': {
@@ -95,7 +115,7 @@ export const researchDefinitions = {
     name: 'Provincial Governors',
     description:
       'Politics Advisor delegation unlocked at Favorable reputation.',
-    turns: 4,
+    turns: 20,
     requiredResearches: ['pol-civil-code'],
   },
   'pol-military-liaison': {
@@ -104,7 +124,7 @@ export const researchDefinitions = {
     name: 'Military Liaison',
     description:
       'Military Advisor delegation unlocked at Favorable reputation.',
-    turns: 4,
+    turns: 20,
     requiredResearches: ['pol-civil-code', 'mil-drill-doctrine'],
   },
   'pol-state-bureaucracy': {
@@ -113,7 +133,7 @@ export const researchDefinitions = {
     name: 'State Bureaucracy',
     description:
       'All delegation thresholds lowered to Neutral. Entities generate requests more frequently.',
-    turns: 5,
+    turns: 25,
     requiredResearches: ['pol-tax-census', 'pol-provincial-governors'],
   },
   'mil-drill-doctrine': {
@@ -122,7 +142,7 @@ export const researchDefinitions = {
     name: 'Standing Army',
     description:
       'Establishes permanent troop levies and a formal barracks system. Unlocks Barracks construction and Footmen training.',
-    turns: 2,
+    turns: 10,
     requiredResearches: [],
   },
   'mil-fletching': {
@@ -131,7 +151,7 @@ export const researchDefinitions = {
     name: 'Fletching',
     description:
       'Standardized bowcraft and arrow-making. Unlocks Archer training at Barracks.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['mil-drill-doctrine'],
   },
   'mil-iron-weapons': {
@@ -140,7 +160,7 @@ export const researchDefinitions = {
     name: 'Iron Weapons',
     description:
       'Improved forging methods for durable iron arms. All Footmen gain +1 power.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['mil-drill-doctrine'],
   },
   'mil-fortification-engineering': {
@@ -149,7 +169,7 @@ export const researchDefinitions = {
     name: 'Fortification Engineering',
     description:
       'Advanced wall and tower construction techniques for hardened military infrastructure.',
-    turns: 3,
+    turns: 15,
     requiredResearches: ['mil-drill-doctrine'],
   },
   'mil-siege-tactics': {
@@ -158,7 +178,7 @@ export const researchDefinitions = {
     name: 'Siege Tactics',
     description:
       'Coordinated assault planning against defended positions and long sieges.',
-    turns: 4,
+    turns: 20,
     requiredResearches: ['mil-iron-weapons'],
   },
   'mil-standing-army': {
@@ -167,7 +187,7 @@ export const researchDefinitions = {
     name: 'Army Logistics',
     description:
       'Permanent supply chains and depot planning. Doubles garrison capacity per Barracks and reduces all unit upkeep by 1 meat.',
-    turns: 5,
+    turns: 25,
     requiredResearches: ['mil-fortification-engineering', 'mil-siege-tactics'],
   },
 } as const satisfies Record<string, ResearchDefinition>;

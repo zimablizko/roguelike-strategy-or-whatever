@@ -45,6 +45,7 @@ import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { IntroductionLorePopup } from '../ui/popups/IntroductionLorePopup';
 import { LogPopup } from '../ui/popups/LogPopup';
 import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
+import { MarketTradePopup } from '../ui/popups/MarketTradePopup';
 import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
@@ -82,6 +83,7 @@ export class GameplayScene extends Scene {
   private rulerPopup?: ScreenPopup;
   private researchPopup?: ResearchPopup;
   private militaryPopup?: MilitaryPopup;
+  private marketTradePopup?: MarketTradePopup;
   private battlePopup?: BattlePopup;
   private battleResultPopup?: BattleResultPopup;
   private introductionLorePopup?: IntroductionLorePopup;
@@ -265,6 +267,9 @@ export class GameplayScene extends Scene {
       getFocusCurrent: () => this.turnManager.getTurnDataRef().focus.current,
       adjustFocus: (delta) => this.turnManager.adjustFocus(delta),
     });
+    this.gameManager.buildingManager.setCurrentTurnProvider(
+      () => this.turnManager.getTurnDataRef().turnNumber
+    );
     this.gameManager.politicsManager.setDecisionFocusBridge({
       getFocusCurrent: () => this.turnManager.getTurnDataRef().focus.current,
       spendFocus: (amount) => this.turnManager.spendFocus(amount),
@@ -831,6 +836,15 @@ export class GameplayScene extends Scene {
           this.startSowFieldPlacement(instanceId);
         }
       },
+      onActionPopupRequest: (buildingId, actionId, instanceId, popupId) => {
+        if (
+          buildingId === 'market' &&
+          actionId === 'trade' &&
+          popupId === 'market-trade'
+        ) {
+          this.showMarketTradePopup(instanceId);
+        }
+      },
       onActionHover: (buildingId, actionId, instanceId, hovered) => {
         if (
           !hovered ||
@@ -924,6 +938,29 @@ export class GameplayScene extends Scene {
     });
 
     this.gameMenuPopup = popup;
+    this.add(popup);
+  }
+
+  private showMarketTradePopup(marketInstanceId: string): void {
+    if (this.marketTradePopup) {
+      this.marketTradePopup.close();
+      this.marketTradePopup = undefined;
+    }
+
+    const engine = this.engine;
+    const popup = new MarketTradePopup({
+      x: engine.drawWidth / 2,
+      y: engine.drawHeight / 2,
+      buildingManager: this.gameManager.buildingManager,
+      resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
+      logManager: this.gameManager.logManager,
+      marketInstanceId,
+      onClose: () => {
+        this.marketTradePopup = undefined;
+      },
+    });
+    this.marketTradePopup = popup;
     this.add(popup);
   }
 

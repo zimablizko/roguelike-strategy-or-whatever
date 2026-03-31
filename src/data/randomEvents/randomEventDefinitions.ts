@@ -9,17 +9,20 @@ export const randomEventDefinitions = {
     rarity: 'common',
     weight: 10,
     cooldownTurns: 14,
+    conditions: {
+      requiredTechnologies: ['eco-market-charters'],
+      minBuildingCounts: { market: 1 },
+    },
     options: [
       {
-        id: 'tax-the-caravan',
-        title: 'Tax the Caravan',
+        id: 'license-the-fair',
+        title: 'License the Fair',
         outcomeDescription:
-          'Claim a heavy market duty. Gain 25 Gold, but the people resent the squeeze.',
+          'Grant stall permits and market rights for the fair. Gain 20 Gold.',
         outcome: {
-          resourceEffects: { gold: 25 },
-          reputationEffects: { 'common-folk': -2 },
+          resourceEffects: { gold: 20 },
           resultText:
-            'The caravan pays the tariff in silver. Trade slows for the day, but the treasury grows heavier.',
+            'The visiting merchants pay for stall space, clerks, and market rights. Trade flows smoothly and the treasury takes its share.',
           logSeverity: 'neutral',
         },
       },
@@ -27,12 +30,12 @@ export const randomEventDefinitions = {
         id: 'host-the-market',
         title: 'Host the Market',
         outcomeDescription:
-          'Spend 10 Gold to support the fair. Gain 1 Jewelry and improve public mood.',
+          'Spend 5 Gold to support the fair. Gain 1 Jewelry and improve public mood.',
         requirements: {
-          minResources: { gold: 10 },
+          minResources: { gold: 5 },
         },
         outcome: {
-          resourceEffects: { gold: -10, jewelry: 1 },
+          resourceEffects: { gold: -5, jewelry: 1 },
           reputationEffects: { 'common-folk': 3 },
           resultText:
             'The square fills with buyers, songs, and coin. The merchants leave pleased, and the people remember your generosity.',
@@ -43,15 +46,15 @@ export const randomEventDefinitions = {
         id: 'hire-guards',
         title: 'Hire Guards',
         outcomeDescription:
-          'Spend 20 Gold to recruit armed escorts from the caravan road. Gain 3 Militia.',
+          'Spend 15 Gold to recruit armed escorts from the merchant roads. Gain 3 Militia.',
         requirements: {
-          minResources: { gold: 20 },
+          minResources: { gold: 15 },
         },
         outcome: {
-          resourceEffects: { gold: -20 },
+          resourceEffects: { gold: -15 },
           unitRewards: [{ unitId: 'militia', count: 3 }],
           resultText:
-            'Several hard-bitten caravan guards accept your coin and swear temporary service under your banner.',
+            'Several hard-bitten road guards accept your coin and swear temporary service under your banner.',
           logSeverity: 'good',
         },
       },

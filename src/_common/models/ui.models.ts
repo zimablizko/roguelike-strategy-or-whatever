@@ -281,6 +281,16 @@ export interface SelectedBuildingViewOptions {
     actionId: string,
     instanceId: string
   ) => void;
+  /**
+   * Called when an action opens a dedicated popup instead of executing immediately.
+   * Focus is only spent after the popup confirms the action.
+   */
+  onActionPopupRequest?: (
+    buildingId: string,
+    actionId: string,
+    instanceId: string,
+    popupId: string
+  ) => void;
 }
 
 export interface MapIncomeEffectsViewOptions {
@@ -480,6 +490,18 @@ export interface RandomEventPopupOptions {
   description: string;
   options: RandomEventOption[];
   tooltipProvider: TooltipProvider;
+  anchor?: ScreenPopupAnchor;
+  onClose?: () => void;
+}
+
+export interface MarketTradePopupOptions {
+  x: number;
+  y: number;
+  buildingManager: BuildingManager;
+  resourceManager: ResourceManager;
+  turnManager: TurnManager;
+  logManager: import('../../managers/GameLogManager').GameLogManager;
+  marketInstanceId: string;
   anchor?: ScreenPopupAnchor;
   onClose?: () => void;
 }

@@ -66,6 +66,12 @@ export class SelectedBuildingView extends ScreenElement {
     actionId: string,
     instanceId: string
   ) => void;
+  private readonly onActionPopupRequest?: (
+    buildingId: string,
+    actionId: string,
+    instanceId: string,
+    popupId: string
+  ) => void;
   private readonly mapTileProvider?: (
     x: number,
     y: number
@@ -98,6 +104,7 @@ export class SelectedBuildingView extends ScreenElement {
     this.onActionHover = options.onActionHover;
     this.onActionPulses = options.onActionPulses;
     this.onActionPlacementRequest = options.onActionPlacementRequest;
+    this.onActionPopupRequest = options.onActionPopupRequest;
     this.mapTileProvider = options.mapTileProvider;
     this.minPanelWidth = 420;
     this.maxPanelWidth = options.width ?? 560;
@@ -734,7 +741,9 @@ export class SelectedBuildingView extends ScreenElement {
         instanceId,
         this.resourceManager
       );
-      const enabled = hasActionPoint && actionStatus.activatable;
+      const enabled =
+        actionStatus.activatable &&
+        (action.popupId ? true : hasActionPoint);
       const usesMax = actionStatus.usesMax ?? 0;
       const usesLabel =
         usesMax > 1 ? ` (${actionStatus.usesRemaining}/${usesMax})` : '';
@@ -768,6 +777,15 @@ export class SelectedBuildingView extends ScreenElement {
                   definition.id,
                   action.id,
                   instanceId
+                );
+                return;
+              }
+              if (action.popupId) {
+                this.onActionPopupRequest?.(
+                  definition.id,
+                  action.id,
+                  instanceId,
+                  action.popupId
                 );
                 return;
               }
@@ -1017,6 +1035,13 @@ export class SelectedBuildingView extends ScreenElement {
     definition: TypedBuildingDefinition
   ): StateBuildingActionDefinition[] {
     return definition.actions.filter((action) => {
+      if (
+        action.requiredTechnologies?.some(
+          (technology) => !this.buildingManager.isTechnologyUnlocked(technology)
+        )
+      ) {
+        return false;
+      }
       if (
         definition.id === 'barracks' &&
         action.id === 'train-archers' &&

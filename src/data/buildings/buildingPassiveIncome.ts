@@ -8,4 +8,5 @@ export const buildingPassiveIncome: Record<string, BuildingPassiveIncome[]> = {
   lumbermill: [{ resourceType: 'wood', amount: 1 }],
   mine: [{ resourceType: 'stone', amount: 'random:1:3' }],
   'hunters-hut': [{ resourceType: 'meat', amount: 'random:1:2' }],
+  market: [{ resourceType: 'gold', amount: 3 }],
 };

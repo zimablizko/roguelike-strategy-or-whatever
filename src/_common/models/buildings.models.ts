@@ -11,6 +11,7 @@ export interface BuildingActionInstanceInfo {
 }
 
 export interface BuildingActionContext {
+  currentTurn: number;
   state: Readonly<{
     tiles: { forest: number; stone: number; plains: number; river: number };
     ocean: number;
@@ -39,6 +40,8 @@ export interface StateBuildingActionDefinition {
   id: string;
   name: string;
   description: string;
+  requiredTechnologies?: TechnologyId[];
+  popupId?: string;
   /**
    * Number of times this action can be used per turn per building instance. Defaults to 1.
    * Example: charges=2 means a single instance of that building can use this action twice per turn.

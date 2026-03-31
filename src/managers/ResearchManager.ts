@@ -139,14 +139,37 @@ export class ResearchManager {
       return { startable: false, reason: 'Another research is in progress.' };
     }
 
-    const missingPrerequisites = definition.requiredResearches.filter(
+    const missingAllPrerequisites = definition.requiredResearches.filter(
       (requiredId) =>
         !isResearchId(requiredId) || !this.completedResearches.has(requiredId)
     );
-    if (missingPrerequisites.length > 0) {
+    const missingPrerequisiteLabels = missingAllPrerequisites.map(
+      (requiredId) =>
+        getResearchDefinition(requiredId as ResearchId)?.name ?? requiredId
+    );
+    if (missingPrerequisiteLabels.length > 0) {
       return {
         startable: false,
-        reason: `Missing prerequisites: ${missingPrerequisites.join(', ')}`,
+        reason: `Missing prerequisites: ${missingPrerequisiteLabels.join(', ')}`,
+      };
+    }
+
+    const oneOfPrerequisites = definition.requiredResearchesOneOf?.filter(
+      (requiredId) => isResearchId(requiredId)
+    ) as ResearchId[] | undefined;
+    if (
+      oneOfPrerequisites &&
+      oneOfPrerequisites.length > 0 &&
+      !oneOfPrerequisites.some((requiredId) =>
+        this.completedResearches.has(requiredId)
+      )
+    ) {
+      const labels = oneOfPrerequisites.map(
+        (requiredId) => getResearchDefinition(requiredId)?.name ?? requiredId
+      );
+      return {
+        startable: false,
+        reason: `Missing one of prerequisites: ${labels.join(' or ')}`,
       };
     }
 
@@ -343,8 +366,16 @@ export class ResearchManager {
       const sameTreePrerequisites = definition.requiredResearches.filter(
         (required) => isResearchId(required) && definitionsById.has(required)
       ) as ResearchId[];
+      const sameTreeOneOfPrerequisites = (
+        definition.requiredResearchesOneOf ?? []
+      ).filter(
+        (required) => isResearchId(required) && definitionsById.has(required)
+      ) as ResearchId[];
 
-      if (sameTreePrerequisites.length === 0) {
+      if (
+        sameTreePrerequisites.length === 0 &&
+        sameTreeOneOfPrerequisites.length === 0
+      ) {
         depthCache.set(id, 0);
         return 0;
       }
@@ -352,6 +383,14 @@ export class ResearchManager {
       let maxDepth = 0;
       for (const prerequisiteId of sameTreePrerequisites) {
         maxDepth = Math.max(maxDepth, depthOf(prerequisiteId) + 1);
+      }
+      if (sameTreeOneOfPrerequisites.length > 0) {
+        const minOneOfDepth = sameTreeOneOfPrerequisites.reduce(
+          (minDepth, prerequisiteId) =>
+            Math.min(minDepth, depthOf(prerequisiteId) + 1),
+          Number.POSITIVE_INFINITY
+        );
+        maxDepth = Math.max(maxDepth, minOneOfDepth);
       }
       depthCache.set(id, maxDepth);
       return maxDepth;
