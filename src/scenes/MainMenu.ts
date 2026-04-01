@@ -1,5 +1,5 @@
-import { Color, Engine, Font, Label, Scene, TextAlign } from 'excalibur';
-import { FONT_FAMILY } from '../_common/text';
+import { Color, Engine, Scene, ScreenElement, vec } from 'excalibur';
+import { Resources } from '../_common/resources';
 import { ScreenButton } from '../ui/elements/ScreenButton';
 
 export class MainMenu extends Scene {
@@ -15,18 +15,13 @@ export class MainMenu extends Scene {
   private render(engine: Engine): void {
     this.clear();
 
-    const title = new Label({
-      text: 'Roguelike Strategy Game',
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2 - 100,
-      font: new Font({
-        size: 32,
-        color: Color.White,
-        textAlign: TextAlign.Center,
-        family: FONT_FAMILY,
-      }),
+    const logo = new ScreenElement({
+      x: engine.drawWidth / 2 - 2,
+      y: engine.drawHeight / 2 - 120,
     });
-    this.add(title);
+    logo.anchor = vec(0.5, 0.5);
+    logo.graphics.use(Resources.MainMenuLogo.toSprite());
+    this.add(logo);
 
     this.addButtons(engine);
   }

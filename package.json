@@ -1,7 +1,7 @@
 {
   "name": "roguelike-strategy-or-whatever",
   "version": "1.0.0",
-  "description": "Roguelike strategy game built with Excalibur.js",
+  "description": "One More Realm — a roguelike strategy game built with Excalibur.js",
   "type": "module",
   "scripts": {
     "dev": "vite",

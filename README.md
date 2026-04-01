@@ -1,4 +1,4 @@
-# Roguelike Strategy Game
+# One More Realm
 
 A roguelike strategy game built with [Excalibur.js](https://excaliburjs.com/) and bundled with [Vite](https://vitejs.dev/). This project uses a Manager-based architecture with dedicated UI views.
 
@@ -52,12 +52,14 @@ src/
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd roguelike-strategy-or-whatever
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
@@ -65,6 +67,7 @@ npm install
 ### Development
 
 Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -74,11 +77,13 @@ The game will be available at `http://localhost:3000`
 ### Building for Production
 
 Build the project:
+
 ```bash
 npm run build
 ```
 
 Preview the production build:
+
 ```bash
 npm run preview
 ```
@@ -88,11 +93,13 @@ npm run preview
 #### Manual Deployment
 
 Deploy the game to GitHub Pages manually:
+
 ```bash
 npm run deploy
 ```
 
 This will:
+
 1. Build the project with the correct base path for GitHub Pages
 2. Create a `.nojekyll` file to prevent Jekyll processing
 3. Initialize a git repository in the dist folder
@@ -102,6 +109,7 @@ This will:
 #### Automated Deployment
 
 The project includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys to GitHub Pages:
+
 - **Triggers**: On every push to `main` or `master` branch
 - **Manual trigger**: Can be triggered manually from the Actions tab in GitHub
 - **What it does**: Installs dependencies, builds the project, and deploys to gh-pages branch
@@ -121,7 +129,9 @@ After deployment, your game will be live at: https://zimablizko.github.io/roguel
 ## Architecture
 
 ### Managers
+
 Dedicated manager classes own game state:
+
 - **GameManager** — Orchestrates sub-managers
 - **ResourceManager** — Single source of truth for resources
 - **StateManager** — Buildings, state data, technologies
@@ -130,6 +140,7 @@ Dedicated manager classes own game state:
 - **TurnManager** — Turn lifecycle and passive income
 
 ### UI Views
+
 Views poll manager state each frame using version counters to skip unnecessary re-renders.
 
 ### Extending the Game
