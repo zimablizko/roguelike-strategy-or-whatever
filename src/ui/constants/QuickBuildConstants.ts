@@ -26,6 +26,7 @@ export const QUICK_BUILD_HOTKEYS: Partial<
   'hunters-hut': { key: Keys.T, label: 'T' },
   barracks: { key: Keys.K, label: 'K' },
   bakery: { key: Keys.R, label: 'R' },
+  market: { key: Keys.A, label: 'A' },
 };
 
 export const QUICK_BUILD_COLORS = {

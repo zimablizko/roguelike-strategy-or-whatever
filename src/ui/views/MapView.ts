@@ -1002,10 +1002,10 @@ export class MapView extends Actor {
     let dy = 0;
     const keyboard = engine.input.keyboard;
 
-    if (keyboard.isHeld(Keys.Left) || keyboard.isHeld(Keys.A)) dx -= 1;
-    if (keyboard.isHeld(Keys.Right) || keyboard.isHeld(Keys.D)) dx += 1;
-    if (keyboard.isHeld(Keys.Up) || keyboard.isHeld(Keys.W)) dy -= 1;
-    if (keyboard.isHeld(Keys.Down) || keyboard.isHeld(Keys.S)) dy += 1;
+    if (keyboard.isHeld(Keys.Left)) dx -= 1;
+    if (keyboard.isHeld(Keys.Right)) dx += 1;
+    if (keyboard.isHeld(Keys.Up)) dy -= 1;
+    if (keyboard.isHeld(Keys.Down)) dy += 1;
 
     if (dx === 0 && dy === 0) {
       return;

@@ -1,3 +1,4 @@
+import type { WheelEvent } from 'excalibur';
 import {
   Color,
   Font,
@@ -51,6 +52,8 @@ export class StatePopup extends ScreenPopup {
   private lastPoliticsVersion = -1;
   private lastResourceVersion = -1;
   private lastTurnVersion = -1;
+  private requestScrollOffset = 0;
+  private requestMaxScrollOffset = 0;
 
   constructor(options: StatePopupOptions) {
     super({
@@ -77,6 +80,25 @@ export class StatePopup extends ScreenPopup {
     this.turnManager = options.turnManager;
     this.politicsManager = options.politicsManager;
     this.tooltipProvider = options.tooltipProvider;
+
+    this.on('pointerwheel', (ev: WheelEvent) => {
+      if (this.activeTab !== 'town-hall') return;
+      if (this.requestMaxScrollOffset <= 0) return;
+      const direction = Math.sign(ev.deltaY);
+      if (direction === 0) return;
+      const newOffset = Math.max(
+        0,
+        Math.min(
+          this.requestMaxScrollOffset,
+          this.requestScrollOffset + direction
+        )
+      );
+      if (newOffset !== this.requestScrollOffset) {
+        this.requestScrollOffset = newOffset;
+        this.renderActiveTab();
+      }
+      ev.cancel();
+    });
   }
 
   onPreUpdate(): void {
@@ -239,23 +261,23 @@ export class StatePopup extends ScreenPopup {
     );
     root.addChild(separator);
 
-    // ─ Requests header ─
-    const requestsHeaderY = separatorY + 10;
-    root.addChild(
-      StatePopup.createLine(
-        0,
-        requestsHeaderY,
-        'Requests',
-        16,
-        Color.fromHex('#f0f4f8')
-      )
-    );
-
     // ─ Request list ─
     const requests = this.politicsManager.getActiveRequests();
+    const requestsHeaderY = separatorY + 10;
     const listStartY = requestsHeaderY + 28;
 
     if (requests.length === 0) {
+      this.requestScrollOffset = 0;
+      this.requestMaxScrollOffset = 0;
+      root.addChild(
+        StatePopup.createLine(
+          0,
+          requestsHeaderY,
+          'Requests',
+          16,
+          Color.fromHex('#f0f4f8')
+        )
+      );
       root.addChild(
         StatePopup.createLine(
           10,
@@ -268,10 +290,87 @@ export class StatePopup extends ScreenPopup {
       return;
     }
 
+    // Calculate available height and max visible cards
+    const bodyHeight =
+      L.height -
+      L.headerHeight -
+      L.padding * 2 -
+      L.tabBarHeight -
+      L.tabContentGap;
+    const listHeight = bodyHeight - listStartY;
+    const cardSpan = L.requestCardHeight + L.requestCardGap;
+    const maxVisible = Math.max(1, Math.floor(listHeight / cardSpan));
+
+    const needsScroll = requests.length > maxVisible;
+
+    this.requestMaxScrollOffset = Math.max(0, requests.length - maxVisible);
+    this.requestScrollOffset = Math.min(
+      this.requestScrollOffset,
+      this.requestMaxScrollOffset
+    );
+
+    // Requests header
+    root.addChild(
+      StatePopup.createLine(
+        0,
+        requestsHeaderY,
+        `${requests.length} ${requests.length === 1 ? 'Request' : 'Requests'}`,
+        16,
+        Color.fromHex('#f0f4f8')
+      )
+    );
+
+    // Scrollbar indicator
+    const scrollbarW = 10;
+    const cardWidth = needsScroll
+      ? contentWidth - scrollbarW - 4
+      : contentWidth;
+
+    if (needsScroll) {
+      const trackH = maxVisible * cardSpan - L.requestCardGap;
+      const trackX = contentWidth - scrollbarW;
+      const trackY = listStartY;
+
+      const track = new ScreenElement({ x: trackX, y: trackY });
+      track.graphics.use(
+        new Rectangle({
+          width: scrollbarW,
+          height: trackH,
+          color: Color.fromRGB(255, 255, 255, 0.08),
+        })
+      );
+      root.addChild(track);
+
+      const thumbRatio = maxVisible / requests.length;
+      const thumbH = Math.max(16, Math.floor(trackH * thumbRatio));
+      const travel = trackH - thumbH;
+      const t =
+        this.requestMaxScrollOffset > 0
+          ? this.requestScrollOffset / this.requestMaxScrollOffset
+          : 0;
+      const thumbY = trackY + t * travel;
+
+      const thumb = new ScreenElement({ x: trackX, y: thumbY });
+      thumb.graphics.use(
+        new Rectangle({
+          width: scrollbarW,
+          height: thumbH,
+          color: Color.fromRGB(255, 255, 255, 0.25),
+        })
+      );
+      root.addChild(thumb);
+    }
+
+    // Render visible cards
+    const visibleRequests = requests.slice(
+      this.requestScrollOffset,
+      this.requestScrollOffset + maxVisible
+    );
+
     let cardY = listStartY;
-    for (const req of requests) {
-      this.renderRequestCard(root, req, 0, cardY, contentWidth);
-      cardY += L.requestCardHeight + L.requestCardGap;
+    for (const req of visibleRequests) {
+      this.renderRequestCard(root, req, 0, cardY, cardWidth);
+      cardY += cardSpan;
     }
   }
 
