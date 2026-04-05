@@ -4,6 +4,11 @@ import type { RulerTraitId } from './ruler-traits.models';
 
 /** Verbal health rating for the ruler. */
 export type RulerHealth = 'Poor' | 'Fair' | 'Good' | 'Strong' | 'Excellent';
+export type RulerSkillId = 'charisma';
+
+export const RULER_SKILL_LABELS: Record<RulerSkillId, string> = {
+  charisma: 'Charisma',
+};
 
 export const RULER_HEALTH_LEVELS: readonly RulerHealth[] = [
   'Poor',

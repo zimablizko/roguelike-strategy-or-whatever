@@ -192,6 +192,7 @@ export class GameManager {
 
     this.randomEventManager = new RandomEventManager({
       rng: this.rng,
+      rulerManager: this.rulerManager,
       resourceManager: this.resourceManager,
       buildingManager: this.buildingManager,
       militaryManager: this.militaryManager,

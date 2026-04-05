@@ -1,5 +1,7 @@
 export {
   getAllRandomEventDefinitions,
+  getRandomEventSkillCheckLabel,
+  getRandomEventSkillCheckTarget,
   getRandomEventDefinition,
   hasAvailableRandomEventOption,
   isRandomEventId,

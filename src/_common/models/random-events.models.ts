@@ -7,10 +7,17 @@ import type {
 import type { PoliticalEntityId } from './politics.models';
 import type { ResourceType } from './resource.models';
 import type { StatePrehistoryId } from './game-setup.models';
+import type { RulerSkillId } from './ruler.models';
 
 export type RandomEventRarity = 'common' | 'uncommon' | 'rare';
 
 export type RandomEventSignalId = 'forest-chopped' | 'forest-restored';
+export type RandomEventSkillCheckDifficulty =
+  | 'easy'
+  | 'normal'
+  | 'hard'
+  | 'very-hard'
+  | 'impossible';
 
 export interface RandomEventConditionSet {
   minTurn?: number;
@@ -55,13 +62,45 @@ export interface RandomEventOutcome {
   logSeverity?: 'good' | 'bad' | 'neutral';
 }
 
-export interface RandomEventOptionDefinition {
+export interface RandomEventSkillCheckDefinition {
+  skill: RulerSkillId;
+  difficulty: RandomEventSkillCheckDifficulty | number;
+  difficultyLabel?: string;
+  successOutcome: RandomEventOutcome;
+  failureOutcome: RandomEventOutcome;
+}
+
+export interface RandomEventSkillCheckPresentation {
+  skill: RulerSkillId;
+  skillLabel: string;
+  difficultyLabel: string;
+  target: number;
+}
+
+export interface RandomEventSkillCheckResult
+  extends RandomEventSkillCheckPresentation {
+  skillValue: number;
+  roll: number;
+  total: number;
+  success: boolean;
+}
+
+interface RandomEventBaseOptionDefinition {
   id: string;
   title: string;
   outcomeDescription: string;
   requirements?: RandomEventOptionRequirements;
-  outcome: RandomEventOutcome;
 }
+
+export type RandomEventOptionDefinition =
+  | (RandomEventBaseOptionDefinition & {
+      outcome: RandomEventOutcome;
+      skillCheck?: never;
+    })
+  | (RandomEventBaseOptionDefinition & {
+      outcome?: never;
+      skillCheck: RandomEventSkillCheckDefinition;
+    });
 
 export interface RandomEventDefinition {
   id: string;
@@ -84,6 +123,7 @@ export interface RandomEventPresentationOption {
   id: string;
   title: string;
   outcomeDescription: string;
+  skillCheck?: RandomEventSkillCheckPresentation;
   disabled: boolean;
   disabledReason?: string;
 }
@@ -104,6 +144,7 @@ export interface RandomEventResolution {
   description: string;
   logSeverity: 'good' | 'bad' | 'neutral';
   battleStarted: boolean;
+  skillCheck?: RandomEventSkillCheckResult;
 }
 
 export interface RandomEventSaveState {

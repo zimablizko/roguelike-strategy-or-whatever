@@ -1186,6 +1186,7 @@ export class GameplayScene extends Scene {
       options: pending.options.map((option) => ({
         title: option.title,
         outcomeDescription: option.outcomeDescription,
+        skillCheck: option.skillCheck,
         disabled: option.disabled,
         disabledReason: option.disabledReason,
         onSelect: () => {

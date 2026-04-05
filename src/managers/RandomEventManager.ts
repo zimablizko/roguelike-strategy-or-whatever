@@ -8,18 +8,24 @@ import type {
   PendingRandomEventState,
   RandomEventConditionSet,
   RandomEventDefinition,
+  RandomEventOutcome,
   RandomEventOptionDefinition,
   RandomEventOptionRequirements,
   RandomEventPresentation,
   RandomEventPresentationOption,
   RandomEventResolution,
   RandomEventSaveState,
+  RandomEventSkillCheckDefinition,
+  RandomEventSkillCheckPresentation,
+  RandomEventSkillCheckResult,
   RandomEventSignalId,
 } from '../_common/models/random-events.models';
 import type { ResourceType } from '../_common/models/resource.models';
 import type { SeededRandom } from '../_common/random';
 import {
   getAllRandomEventDefinitions,
+  getRandomEventSkillCheckLabel,
+  getRandomEventSkillCheckTarget,
   getRandomEventDefinition,
   hasAvailableRandomEventOption,
   isRandomEventId,
@@ -34,6 +40,7 @@ import type { GameLogManager } from './GameLogManager';
 import type { MilitaryManager } from './MilitaryManager';
 import type { PoliticsManager } from './PoliticsManager';
 import type { ResourceManager } from './ResourceManager';
+import type { RulerManager } from './RulerManager';
 
 export interface RandomEventFocusBridge {
   getFocusCurrent(): number;
@@ -42,6 +49,7 @@ export interface RandomEventFocusBridge {
 
 export interface RandomEventManagerOptions {
   rng: SeededRandom;
+  rulerManager: RulerManager;
   resourceManager: ResourceManager;
   buildingManager: BuildingManager;
   militaryManager: MilitaryManager;
@@ -58,6 +66,7 @@ type RequirementResult = {
 
 export class RandomEventManager {
   private readonly rng: SeededRandom;
+  private readonly rulerManager: RulerManager;
   private readonly resourceManager: ResourceManager;
   private readonly buildingManager: BuildingManager;
   private readonly militaryManager: MilitaryManager;
@@ -75,6 +84,7 @@ export class RandomEventManager {
 
   constructor(options: RandomEventManagerOptions) {
     this.rng = options.rng;
+    this.rulerManager = options.rulerManager;
     this.resourceManager = options.resourceManager;
     this.buildingManager = options.buildingManager;
     this.militaryManager = options.militaryManager;
@@ -219,47 +229,13 @@ export class RandomEventManager {
     }
 
     const currentTurn = this.pendingEvent.generatedOnTurn;
-    const logSeverity = option.outcome.logSeverity ?? 'neutral';
-
-    if (option.outcome.resourceEffects) {
-      this.resourceManager.addResources(option.outcome.resourceEffects);
+    const resolvedOutcome = this.resolveOptionOutcome(option);
+    if (!resolvedOutcome) {
+      return undefined;
     }
 
-    if (option.outcome.focusDelta && this.focusBridge) {
-      this.focusBridge.adjustFocus(option.outcome.focusDelta);
-    }
-
-    if (option.outcome.reputationEffects) {
-      for (const [entityId, delta] of Object.entries(
-        option.outcome.reputationEffects
-      ) as [PoliticalEntityId, number][]) {
-        this.politicsManager.adjustReputation(entityId, delta);
-      }
-    }
-
-    if (option.outcome.unitRewards) {
-      for (const reward of option.outcome.unitRewards) {
-        this.militaryManager.addUnits(
-          reward.unitId,
-          reward.count,
-          reward.readiness ?? 'available'
-        );
-      }
-    }
-
-    if (option.outcome.signalEffects) {
-      for (const [signalId, delta] of Object.entries(
-        option.outcome.signalEffects
-      ) as [RandomEventSignalId, number][]) {
-        this.adjustSignal(signalId, delta);
-      }
-    }
-
-    let battleStarted = false;
-    if (option.outcome.startBattle) {
-      battleStarted =
-        this.militaryManager.startBattle(option.outcome.startBattle) !== undefined;
-    }
+    const logSeverity = resolvedOutcome.outcome.logSeverity ?? 'neutral';
+    const battleStarted = this.applyOutcome(resolvedOutcome.outcome);
 
     this.cooldowns.set(definition.id, currentTurn);
     if (definition.unique) {
@@ -269,8 +245,11 @@ export class RandomEventManager {
     this.version++;
 
     const resolutionText =
-      option.outcome.resultText +
-      (option.outcome.startBattle && !battleStarted
+      (resolvedOutcome.skillCheck
+        ? `${this.formatSkillCheckResult(resolvedOutcome.skillCheck)} `
+        : '') +
+      resolvedOutcome.outcome.resultText +
+      (resolvedOutcome.outcome.startBattle && !battleStarted
         ? ' Your forces could not assemble for battle.'
         : '');
 
@@ -293,6 +272,7 @@ export class RandomEventManager {
       description: resolutionText,
       logSeverity,
       battleStarted,
+      skillCheck: resolvedOutcome.skillCheck,
     };
   }
 
@@ -380,13 +360,117 @@ export class RandomEventManager {
     option: RandomEventOptionDefinition
   ): RandomEventPresentationOption {
     const result = this.evaluateOptionRequirements(option.requirements);
+    const skillCheck = option.skillCheck
+      ? this.buildSkillCheckPresentation(option.skillCheck)
+      : undefined;
+
     return {
       id: option.id,
       title: option.title,
       outcomeDescription: option.outcomeDescription,
+      skillCheck,
       disabled: !result.eligible,
       disabledReason: result.reason,
     };
+  }
+
+  private buildSkillCheckPresentation(
+    skillCheck: RandomEventSkillCheckDefinition
+  ): RandomEventSkillCheckPresentation {
+    const target = getRandomEventSkillCheckTarget(skillCheck.difficulty);
+    return {
+      skill: skillCheck.skill,
+      skillLabel: this.rulerManager.getSkillLabel(skillCheck.skill),
+      difficultyLabel: getRandomEventSkillCheckLabel(
+        skillCheck.difficulty,
+        skillCheck.difficultyLabel
+      ),
+      target,
+    };
+  }
+
+  private resolveOptionOutcome(
+    option: RandomEventOptionDefinition
+  ):
+    | {
+        outcome: RandomEventOutcome;
+        skillCheck?: RandomEventSkillCheckResult;
+      }
+    | undefined {
+    if (option.skillCheck) {
+      const presentation = this.buildSkillCheckPresentation(option.skillCheck);
+      const skillValue = this.rulerManager.getSkillValue(option.skillCheck.skill);
+      const roll = this.rng.randomInt(1, 20);
+      const total = roll + skillValue;
+      const success = total >= presentation.target;
+
+      return {
+        outcome: success
+          ? option.skillCheck.successOutcome
+          : option.skillCheck.failureOutcome,
+        skillCheck: {
+          ...presentation,
+          skillValue,
+          roll,
+          total,
+          success,
+        },
+      };
+    }
+
+    if (!option.outcome) {
+      return undefined;
+    }
+
+    return {
+      outcome: option.outcome,
+    };
+  }
+
+  private applyOutcome(outcome: RandomEventOutcome): boolean {
+    if (outcome.resourceEffects) {
+      this.resourceManager.addResources(outcome.resourceEffects);
+    }
+
+    if (outcome.focusDelta && this.focusBridge) {
+      this.focusBridge.adjustFocus(outcome.focusDelta);
+    }
+
+    if (outcome.reputationEffects) {
+      for (const [entityId, delta] of Object.entries(
+        outcome.reputationEffects
+      ) as [PoliticalEntityId, number][]) {
+        this.politicsManager.adjustReputation(entityId, delta);
+      }
+    }
+
+    if (outcome.unitRewards) {
+      for (const reward of outcome.unitRewards) {
+        this.militaryManager.addUnits(
+          reward.unitId,
+          reward.count,
+          reward.readiness ?? 'available'
+        );
+      }
+    }
+
+    if (outcome.signalEffects) {
+      for (const [signalId, delta] of Object.entries(
+        outcome.signalEffects
+      ) as [RandomEventSignalId, number][]) {
+        this.adjustSignal(signalId, delta);
+      }
+    }
+
+    if (!outcome.startBattle) {
+      return false;
+    }
+
+    return this.militaryManager.startBattle(outcome.startBattle) !== undefined;
+  }
+
+  private formatSkillCheckResult(skillCheck: RandomEventSkillCheckResult): string {
+    return `${skillCheck.skillLabel} check (${skillCheck.difficultyLabel}): ${skillCheck.success ? 'Success.' : 'Failure.'}`;
   }
 
   private evaluateConditions(

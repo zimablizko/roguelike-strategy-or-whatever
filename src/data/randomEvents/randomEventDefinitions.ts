@@ -28,18 +28,29 @@ export const randomEventDefinitions = {
       },
       {
         id: 'host-the-market',
-        title: 'Host the Market',
+        title: 'Charm the Caravan Master',
         outcomeDescription:
-          'Spend 5 Gold to support the fair. Gain 1 Jewelry and improve public mood.',
+          'Spend 5 Gold on a gracious welcome and try to win richer gifts with personal charm.',
         requirements: {
           minResources: { gold: 5 },
         },
-        outcome: {
-          resourceEffects: { gold: -5, jewelry: 1 },
-          reputationEffects: { 'common-folk': 3 },
-          resultText:
-            'The square fills with buyers, songs, and coin. The merchants leave pleased, and the people remember your generosity.',
-          logSeverity: 'good',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'normal',
+          successOutcome: {
+            resourceEffects: { gold: -5, jewelry: 1 },
+            reputationEffects: { 'common-folk': 3 },
+            resultText:
+              'The square fills with buyers, songs, and coin. The merchants leave pleased, and the people remember your generosity.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { gold: -5 },
+            reputationEffects: { 'common-folk': 1 },
+            resultText:
+              'Your welcome is courteous, but the caravan keeps its best wares close and departs after only modest trade.',
+            logSeverity: 'neutral',
+          },
         },
       },
       {
@@ -83,17 +94,27 @@ export const randomEventDefinitions = {
       },
       {
         id: 'fund-a-search',
-        title: 'Fund a Search',
+        title: 'Question the Antiquarians',
         outcomeDescription:
-          'Spend 15 Gold on a careful excavation. Gain 1 Jewelry and 10 Gold worth of relics.',
+          'Spend 10 Gold to bring in scholars and press them for a promising lead before the dig begins.',
         requirements: {
-          minResources: { gold: 15 },
+          minResources: { gold: 10 },
         },
-        outcome: {
-          resourceEffects: { gold: -5, jewelry: 1 },
-          resultText:
-            'The excavation is slow but rewarding. A handful of relics and ornaments are carried back to the treasury.',
-          logSeverity: 'good',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'hard',
+          successOutcome: {
+            resourceEffects: { gold: -10, jewelry: 1, stone: 10 },
+            resultText:
+              'The antiquarians respond to your interest with uncommon enthusiasm. Their guidance uncovers decorated stonework and a cache of ornaments worth the expense.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { gold: -10 },
+            resultText:
+              'The scholars disagree, the dig spreads in the wrong direction, and the funded search yields little beyond dust and notes.',
+            logSeverity: 'bad',
+          },
         },
       },
       {
@@ -200,17 +221,32 @@ export const randomEventDefinitions = {
       },
       {
         id: 'pay-them-to-move-on',
-        title: 'Pay Them to Move On',
+        title: 'Bargain for Service',
         outcomeDescription:
-          'Spend 10 Gold to avoid trouble and send them elsewhere.',
+          'Offer 20 Gold and try to talk the veterans into a cheaper oath of service.',
         requirements: {
-          minResources: { gold: 10 },
+          minResources: { gold: 20 },
         },
-        outcome: {
-          resourceEffects: { gold: -10 },
-          resultText:
-            'They take your coin with a shrug and continue down the road.',
-          logSeverity: 'neutral',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'hard',
+          successOutcome: {
+            resourceEffects: { gold: -20 },
+            unitRewards: [
+              { unitId: 'footman', count: 2 },
+              { unitId: 'archer', count: 1 },
+            ],
+            reputationEffects: { 'military-advisor': 2 },
+            resultText:
+              'Your offer lands well. The veterans accept leaner pay for honorable terms and enter your service before nightfall.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { gold: -10 },
+            resultText:
+              'The company scoffs at the bargain, pockets a token payment for wasted time, and marches on.',
+            logSeverity: 'neutral',
+          },
         },
       },
       {
@@ -242,18 +278,31 @@ export const randomEventDefinitions = {
     options: [
       {
         id: 'appease-the-raiders',
-        title: 'Appease Them',
+        title: 'Parley at the Woodline',
         outcomeDescription:
-          'Send gifts of timber and silver. Spend 20 Wood and 15 Gold to avert violence.',
+          'Ride out with gifts and attempt to calm the raiders before blood is spilled.',
         requirements: {
-          minResources: { wood: 20, gold: 15 },
+          minResources: { wood: 10, gold: 5 },
         },
-        outcome: {
-          resourceEffects: { wood: -20, gold: -15 },
-          signalEffects: { 'forest-chopped': -4 },
-          resultText:
-            'The raiders accept the wagons and melt back into the trees. Tension eases, though the lesson is expensive.',
-          logSeverity: 'neutral',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'very-hard',
+          successOutcome: {
+            resourceEffects: { wood: -10, gold: -5 },
+            signalEffects: { 'forest-chopped': -4 },
+            reputationEffects: { 'common-folk': 1 },
+            resultText:
+              'You meet the raiders beneath the trees and speak plainly enough to cool their fury. They accept a smaller tribute and disperse.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { wood: -20, gold: -10 },
+            signalEffects: { 'forest-chopped': -2 },
+            reputationEffects: { 'common-folk': -1 },
+            resultText:
+              'The parley turns sour. You salvage peace only by sending heavier tribute after tempers flare at the woodline.',
+            logSeverity: 'bad',
+          },
         },
       },
       {
@@ -367,6 +416,344 @@ export const randomEventDefinitions = {
           resultText:
             'Outlying hamlets are stripped and evacuated. The core of the province survives, but the retreat carries a bitter political cost.',
           logSeverity: 'bad',
+        },
+      },
+    ],
+  },
+  'bumper-harvest': {
+    id: 'bumper-harvest',
+    title: 'Bumper Harvest',
+    description:
+      'The fields ripen thick and early this season. Granaries strain, ovens smoke from dawn, and village elders ask how the surplus should be used before it spoils or is squandered.',
+    rarity: 'common',
+    weight: 9,
+    cooldownTurns: 18,
+    conditions: {
+      requiredTechnologies: ['eco-agriculture'],
+      minBuildingCounts: { farm: 1 },
+      minTurn: 4,
+    },
+    options: [
+      {
+        id: 'store-the-grain',
+        title: 'Store the Surplus',
+        outcomeDescription:
+          'Pack the granaries and bake what can be preserved for later.',
+        outcome: {
+          resourceEffects: { wheat: 18, bread: 10 },
+          resultText:
+            'Granaries are filled to the rafters and the village ovens work without pause. The realm enters the next stretch of seasons better provisioned than expected.',
+          logSeverity: 'good',
+        },
+      },
+      {
+        id: 'hold-a-harvest-fair',
+        title: 'Hold a Harvest Fair',
+        outcomeDescription:
+          'Spend a little coin and turn the surplus into a public celebration and trading day.',
+        requirements: {
+          minResources: { gold: 5 },
+        },
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'normal',
+          successOutcome: {
+            resourceEffects: { gold: 15 },
+            reputationEffects: { 'common-folk': 3, 'economy-advisor': 1 },
+            resultText:
+              'Your presence turns the gathering into a proper fair. Traders linger, villagers spend freely, and the treasury benefits along with your standing.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { gold: 5 },
+            reputationEffects: { 'common-folk': 1 },
+            resultText:
+              'The celebration is pleasant enough, but trade remains modest and most of the benefit ends in full bellies rather than fuller coffers.',
+            logSeverity: 'neutral',
+          },
+        },
+      },
+      {
+        id: 'feed-the-herds',
+        title: 'Feed the Herds',
+        outcomeDescription:
+          'Divert part of the grain to drovers and breeders to strengthen livestock stocks.',
+        requirements: {
+          minResources: { wheat: 8 },
+        },
+        outcome: {
+          resourceEffects: { wheat: -8, meat: 14 },
+          resultText:
+            'The grain goes to feed pens and drovers instead of storehouses. Herds fatten quickly, and butchers report a stronger supply than usual.',
+          logSeverity: 'good',
+        },
+      },
+    ],
+  },
+  'tax-dispute': {
+    id: 'tax-dispute',
+    title: 'Tax Dispute',
+    description:
+      'A district collector and several village elders arrive together, each accusing the other of lies. Records, levies, and bruised pride have become one tangled matter, and all demand judgment from the throne.',
+    rarity: 'uncommon',
+    weight: 7,
+    cooldownTurns: 20,
+    conditions: {
+      requiredTechnologies: ['pol-tax-census'],
+      minTurn: 6,
+    },
+    options: [
+      {
+        id: 'hear-the-petitioners',
+        title: 'Hear Both Sides',
+        outcomeDescription:
+          'Take the matter personally and try to untangle anger, recordkeeping, and half-truths in open hearing.',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'hard',
+          successOutcome: {
+            resourceEffects: { gold: -5 },
+            reputationEffects: { 'common-folk': 4, 'politics-advisor': 2 },
+            resultText:
+              'You calm the room, expose the worst exaggerations, and force a settlement that feels stern but fair. The dispute ends with more respect than resentment.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            reputationEffects: { 'common-folk': -2, 'politics-advisor': -1 },
+            resultText:
+              'The hearing drags into accusation and posturing. No side leaves satisfied, and your intervention only deepens the sense of disorder.',
+            logSeverity: 'bad',
+          },
+        },
+      },
+      {
+        id: 'back-the-collector',
+        title: 'Back the Collector',
+        outcomeDescription:
+          'Rule in favor of revenue and make an example of resistance.',
+        outcome: {
+          resourceEffects: { gold: 20 },
+          reputationEffects: { 'common-folk': -3, 'economy-advisor': 1 },
+          resultText:
+            'The collector leaves vindicated and the levies are gathered in full. The treasury gains immediately, though the villages mutter long after the case is closed.',
+          logSeverity: 'bad',
+        },
+      },
+      {
+        id: 'order-an-audit',
+        title: 'Order an Audit',
+        outcomeDescription:
+          'Spend focus and coin on scribes, witnesses, and a slower but more reliable investigation.',
+        requirements: {
+          minFocus: 1,
+          minResources: { gold: 10 },
+        },
+        outcome: {
+          resourceEffects: { gold: -10 },
+          focusDelta: -1,
+          reputationEffects: { 'politics-advisor': 2, 'economy-advisor': 1 },
+          resultText:
+            'Scribes are dispatched, ledgers are copied, and the district is examined line by line. The process is costly, but your court earns a reputation for discipline.',
+          logSeverity: 'good',
+        },
+      },
+    ],
+  },
+  'rich-ore-vein': {
+    id: 'rich-ore-vein',
+    title: 'Rich Ore Vein',
+    description:
+      'Miners break into a dense new seam below the old galleries. Foremen claim it could enrich the province for years if handled carefully, or yield a windfall quickly if worked with less patience.',
+    rarity: 'uncommon',
+    weight: 6,
+    cooldownTurns: 21,
+    conditions: {
+      requiredTechnologies: ['eco-mining'],
+      minBuildingCounts: { mine: 1 },
+    },
+    options: [
+      {
+        id: 'extract-carefully',
+        title: 'Extract Carefully',
+        outcomeDescription:
+          'Use measured shifts and proper shoring to secure a steady haul.',
+        outcome: {
+          resourceEffects: { ironOre: 16, stone: 8 },
+          resultText:
+            'Surveyors mark the seam and the crews work it methodically. The yield is strong, and the mine remains stable for future work.',
+          logSeverity: 'good',
+        },
+      },
+      {
+        id: 'rally-the-miners',
+        title: 'Rally the Miners',
+        outcomeDescription:
+          'Go below in person and push the crews toward an extraordinary output.',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'hard',
+          successOutcome: {
+            resourceEffects: { ironOre: 24 },
+            reputationEffects: { 'common-folk': 1 },
+            resultText:
+              'Your visit stiffens backs and sharpens morale. The miners answer with a remarkable haul and talk proudly of the day the ruler came below.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { ironOre: 10 },
+            reputationEffects: { 'common-folk': -2 },
+            resultText:
+              'The speech lands poorly in the choking dark. The crews produce some ore, but the strain and grumbling linger after the shift ends.',
+            logSeverity: 'bad',
+          },
+        },
+      },
+      {
+        id: 'sell-the-claim',
+        title: 'Sell the Claim',
+        outcomeDescription:
+          'Lease the seam to local contractors for immediate money instead of direct extraction.',
+        outcome: {
+          resourceEffects: { gold: 18 },
+          reputationEffects: { 'economy-advisor': 2 },
+          resultText:
+            'Bidders gather quickly and pay well for the rights. The realm gives up some long-term control, but the treasury feels the benefit at once.',
+          logSeverity: 'neutral',
+        },
+      },
+    ],
+  },
+  'festival-of-banners': {
+    id: 'festival-of-banners',
+    title: 'Festival of Banners',
+    description:
+      'A local holy day and civic celebration are set to coincide, drawing crowds into the square beneath newly dyed banners. Advisors press for a response that can turn the gathering into either loyalty, influence, or quiet disappointment.',
+    rarity: 'common',
+    weight: 8,
+    cooldownTurns: 20,
+    conditions: {
+      requiredTechnologies: ['pol-public-hearings'],
+      minTurn: 5,
+    },
+    options: [
+      {
+        id: 'give-a-public-address',
+        title: 'Give a Public Address',
+        outcomeDescription:
+          'Step before the crowd and try to turn ceremony into authority.',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'normal',
+          successOutcome: {
+            resourceEffects: { politicalPower: 12 },
+            reputationEffects: { 'common-folk': 2, 'politics-advisor': 1 },
+            resultText:
+              'Your words strike the right balance of dignity and warmth. The crowd leaves with sharper loyalty, and your voice carries further in court afterward.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { politicalPower: 4 },
+            resultText:
+              'The speech is received politely rather than passionately. The day still reflects on your rule, but only faintly.',
+            logSeverity: 'neutral',
+          },
+        },
+      },
+      {
+        id: 'fund-games-and-bread',
+        title: 'Fund Games and Bread',
+        outcomeDescription:
+          'Pay for contests, musicians, and free loaves so the day is remembered kindly.',
+        requirements: {
+          minResources: { gold: 10, bread: 6 },
+        },
+        outcome: {
+          resourceEffects: { gold: -10, bread: -6 },
+          reputationEffects: { 'common-folk': 4 },
+          resultText:
+            'Banners snap over wrestling grounds, musicians play until dusk, and free bread keeps tempers light. The people remember the day with gratitude.',
+          logSeverity: 'good',
+        },
+      },
+      {
+        id: 'keep-it-modest',
+        title: 'Keep It Modest',
+        outcomeDescription:
+          'Allow the celebration to proceed without court involvement or extra expense.',
+        outcome: {
+          reputationEffects: { 'common-folk': -1 },
+          resultText:
+            'The day passes without scandal, but also without much warmth from the throne. The crowd enjoys itself and notices your restraint.',
+          logSeverity: 'neutral',
+        },
+      },
+    ],
+  },
+  'smuggler-ring-exposed': {
+    id: 'smuggler-ring-exposed',
+    title: 'Smuggler Ring Exposed',
+    description:
+      'Custom clerks uncover a network of quiet warehouses, false manifests, and night carts slipping goods around your market tolls. The ring is profitable enough to be useful, dangerous enough to be hated, and organized enough to bargain.',
+    rarity: 'rare',
+    weight: 4,
+    cooldownTurns: 28,
+    conditions: {
+      requiredTechnologies: ['eco-trade-caravans'],
+      minBuildingCounts: { market: 1 },
+      minTurn: 8,
+    },
+    options: [
+      {
+        id: 'offer-clemency-for-licenses',
+        title: 'Offer Clemency for Licenses',
+        outcomeDescription:
+          'Try to turn smugglers into taxpayers instead of corpses or fugitives.',
+        skillCheck: {
+          skill: 'charisma',
+          difficulty: 'very-hard',
+          successOutcome: {
+            resourceEffects: { gold: 25, jewelry: 1 },
+            reputationEffects: { 'economy-advisor': 2 },
+            resultText:
+              'You offer pardons, charters, and a hard line against any future deceit. Enough of the ring accepts that the crown gains both revenue and useful trade contacts.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { gold: 8 },
+            reputationEffects: { 'economy-advisor': -1, 'common-folk': -1 },
+            resultText:
+              'A few lesser operators submit, but the core of the ring vanishes with much of its wealth. The result is too soft for some and too clumsy for others.',
+            logSeverity: 'neutral',
+          },
+        },
+      },
+      {
+        id: 'seize-the-goods',
+        title: 'Seize the Goods',
+        outcomeDescription:
+          'Raid the warehouses, confiscate contraband, and make public examples of the ringleaders.',
+        outcome: {
+          resourceEffects: { gold: 15, jewelry: 1 },
+          reputationEffects: { 'common-folk': -2, 'economy-advisor': -1 },
+          resultText:
+            'Doors are broken, ledgers burned, and wagons hauled into crown custody. The haul is real, but so is the sense that trade in your realm has grown harsher.',
+          logSeverity: 'bad',
+        },
+      },
+      {
+        id: 'buy-their-route-maps',
+        title: 'Buy Their Route Maps',
+        outcomeDescription:
+          'Spend coin for information, routes, and names rather than immediate punishment.',
+        requirements: {
+          minResources: { gold: 10 },
+        },
+        outcome: {
+          resourceEffects: { gold: -10, politicalPower: 8 },
+          reputationEffects: { 'economy-advisor': 1, 'politics-advisor': 1 },
+          resultText:
+            'The ring sells you silence, route books, and the names of those who looked away. The treasury pays now, but the court gains leverage that may matter later.',
+          logSeverity: 'good',
         },
       },
     ],

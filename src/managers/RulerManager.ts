@@ -4,8 +4,12 @@ import type {
   RulerData,
   RulerHealth,
   RulerManagerOptions,
+  RulerSkillId,
 } from '../_common/models/ruler.models';
-import { RULER_HEALTH_LEVELS } from '../_common/models/ruler.models';
+import {
+  RULER_HEALTH_LEVELS,
+  RULER_SKILL_LABELS,
+} from '../_common/models/ruler.models';
 import { SeededRandom } from '../_common/random';
 import { generateRulerName } from '../data/gameSetup';
 
@@ -52,6 +56,19 @@ export class RulerManager {
   /** Get the ruler's charisma stat. */
   getCharisma(): number {
     return this.ruler.charisma;
+  }
+
+  getSkillValue(skill: RulerSkillId): number {
+    switch (skill) {
+      case 'charisma':
+        return this.ruler.charisma;
+      default:
+        return 0;
+    }
+  }
+
+  getSkillLabel(skill: RulerSkillId): string {
+    return RULER_SKILL_LABELS[skill] ?? skill;
   }
 
   /** Get the ruler's verbal health status. */

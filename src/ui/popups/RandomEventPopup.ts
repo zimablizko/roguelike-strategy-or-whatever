@@ -1,4 +1,5 @@
 import { Color, Font, FontUnit, ScreenElement, Text } from 'excalibur';
+import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type {
   RandomEventOption,
   RandomEventPopupOptions,
@@ -117,14 +118,28 @@ export class RandomEventPopup extends ScreenPopup {
       option.disabled && option.disabledReason
         ? `${option.disabledReason} ${option.outcomeDescription}`
         : option.outcomeDescription;
-    this.bindTooltip(button, option.title, tooltipText);
+    this.bindTooltip(
+      button,
+      option.title,
+      tooltipText,
+      option.skillCheck
+        ? [
+            {
+              label: 'Skillcheck',
+              value: `${option.skillCheck.skillLabel} (${option.skillCheck.difficultyLabel})`,
+              color: this.getSkillCheckDifficultyColor(option.skillCheck.target),
+            },
+          ]
+        : []
+    );
     return row;
   }
 
   private bindTooltip(
     button: ScreenButton,
     header: string,
-    description: string
+    description: string,
+    outcomes: TooltipOutcome[] = []
   ): void {
     button.on('pointerenter', () => {
       this.tooltipProvider.show({
@@ -137,6 +152,7 @@ export class RandomEventPopup extends ScreenPopup {
         }),
         header,
         description,
+        outcomes,
         width: 280,
         placement: 'top',
       });
@@ -144,6 +160,22 @@ export class RandomEventPopup extends ScreenPopup {
     button.on('pointerleave', () => this.tooltipProvider.hide(button));
     button.on('prekill', () => this.tooltipProvider.hide(button));
     this.tooltipOwners.push(button);
+  }
+
+  private getSkillCheckDifficultyColor(target: number): Color {
+    if (target <= 10) {
+      return Color.fromHex('#73d98c');
+    }
+    if (target <= 15) {
+      return Color.fromHex('#d7d46f');
+    }
+    if (target <= 20) {
+      return Color.fromHex('#e0a65b');
+    }
+    if (target <= 25) {
+      return Color.fromHex('#d96d5f');
+    }
+    return Color.fromHex('#c24d8e');
   }
 
   private createLine(

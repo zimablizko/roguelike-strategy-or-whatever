@@ -32,6 +32,7 @@ import type { TypedResearchDefinition } from './researches.models';
 import type { ResourceType } from './resource.models';
 import type { TooltipOutcome } from './tooltip.models';
 import type { EndTurnIncomePulse } from './turn.models';
+import type { RandomEventSkillCheckPresentation } from './random-events.models';
 
 export interface InteractivePanelOptions {
   x: number;
@@ -478,6 +479,7 @@ export interface BattleResultPopupOptions {
 export interface RandomEventOption {
   title: string;
   outcomeDescription: string;
+  skillCheck?: RandomEventSkillCheckPresentation;
   onSelect: () => void;
   disabled?: boolean;
   disabledReason?: string;
