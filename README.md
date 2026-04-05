@@ -72,7 +72,7 @@ Start the development server:
 npm run dev
 ```
 
-The game will be available at `http://localhost:3000`
+The game will be available at `http://localhost:3333`
 
 ### Building for Production
 

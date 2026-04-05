@@ -6,7 +6,7 @@ const repoName = process.env.REPO_NAME || 'roguelike-strategy-or-whatever';
 export default defineConfig({
   base: process.env.GITHUB_PAGES ? `/${repoName}/` : '/',
   server: {
-    port: 3000,
+    port: 3333,
   },
   build: {
     target: 'esnext',
