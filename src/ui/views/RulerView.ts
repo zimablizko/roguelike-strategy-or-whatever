@@ -23,7 +23,14 @@ export class RulerDisplay extends InteractivePanelElement {
   private yProvider?: () => number;
   private widthProvider?: () => number;
 
-  private lastRendered: Pick<RulerData, 'name' | 'age'> | undefined;
+  private lastRendered:
+    | Pick<
+        RulerData,
+        | 'name'
+        | 'age'
+        | 'health'
+      >
+    | undefined;
 
   constructor(options: RulerDisplayOptions) {
     super(options);
@@ -38,6 +45,7 @@ export class RulerDisplay extends InteractivePanelElement {
     const next = {
       name: ruler.name,
       age: ruler.age,
+      health: ruler.health,
     };
 
     // Always update position from providers (stateDisplay size may change)
@@ -49,7 +57,8 @@ export class RulerDisplay extends InteractivePanelElement {
       !force &&
       this.lastRendered &&
       this.lastRendered.name === next.name &&
-      this.lastRendered.age === next.age
+      this.lastRendered.age === next.age &&
+      this.lastRendered.health === next.health
     ) {
       return;
     }

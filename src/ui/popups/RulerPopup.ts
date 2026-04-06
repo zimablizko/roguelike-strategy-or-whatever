@@ -8,7 +8,10 @@ import {
   Text,
   vec,
 } from 'excalibur';
-import type { RulerData } from '../../_common/models/ruler.models';
+import type {
+  RulerData,
+  RulerHealth,
+} from '../../_common/models/ruler.models';
 import type { RulerTraitDefinition } from '../../_common/models/ruler-traits.models';
 import { FONT_FAMILY } from '../../_common/text';
 import { resolveRulerTraits } from '../../data/traits';
@@ -25,19 +28,34 @@ export interface RulerPopupOptions {
   onClose?: () => void;
 }
 
-/**
- * Popup displaying detailed ruler information.
- * Two-column layout: stats on left, personal actions on right.
- */
+type StatCardDefinition = {
+  label: string;
+  value: string;
+  accentColor: Color;
+  description: string;
+};
+
+const RULER_SKILL_COLORS = {
+  charisma: Color.fromHex('#d9c26b'),
+  governance: Color.fromHex('#62b6cb'),
+  intrigue: Color.fromHex('#8f7ae6'),
+  warfare: Color.fromHex('#d96f5f'),
+} as const;
+
 export class RulerPopup extends ScreenPopup {
-  private static readonly POPUP_WIDTH = 540;
-  private static readonly POPUP_HEIGHT = 420;
-  private static readonly COLUMN_GAP = 20;
-  private static readonly DIVIDER_WIDTH = 2;
+  private static readonly POPUP_WIDTH = 640;
+  private static readonly POPUP_HEIGHT = 560;
+  private static readonly COLUMN_GAP = 18;
+  private static readonly LEFT_COLUMN_WIDTH = 182;
+  private static readonly CARD_HEIGHT = 44;
+  private static readonly CARD_GAP = 8;
+  private static readonly SECTION_HEADER_HEIGHT = 28;
+
+  private readonly tooltipProvider: TooltipProvider;
+  private tooltipOwners: unknown[] = [];
 
   constructor(options: RulerPopupOptions) {
     const ruler = options.rulerManager.getRulerRef();
-    const tooltipProvider = options.tooltipProvider;
 
     super({
       x: options.x,
@@ -51,235 +69,326 @@ export class RulerPopup extends ScreenPopup {
       closeOnBackplateClick: true,
       onClose: options.onClose,
       contentBuilder: (contentRoot) => {
-        this.buildContent(contentRoot, ruler, tooltipProvider);
+        this.buildContent(contentRoot, ruler);
       },
     });
+
+    this.tooltipProvider = options.tooltipProvider;
   }
 
-  // ─── Content ─────────────────────────────────────────────────────
+  override onPreKill(_scene: import('excalibur').Scene): void {
+    for (const owner of this.tooltipOwners) {
+      this.tooltipProvider.hide(owner);
+    }
+    this.tooltipOwners = [];
+    super.onPreKill(_scene);
+  }
 
   private buildContent(
     contentRoot: ScreenElement,
-    ruler: Readonly<RulerData>,
-    tooltipProvider: TooltipProvider
+    ruler: Readonly<RulerData>
   ): void {
-    const totalW = RulerPopup.POPUP_WIDTH - 28; // account for popup padding
-    const leftW = Math.floor((totalW - RulerPopup.COLUMN_GAP) * 0.5);
-    const rightX = leftW + RulerPopup.COLUMN_GAP;
+    const contentWidth = RulerPopup.POPUP_WIDTH - 28;
+    const leftX = 0;
+    const rightX = RulerPopup.LEFT_COLUMN_WIDTH + RulerPopup.COLUMN_GAP;
+    const rightWidth = contentWidth - rightX;
 
-    // Left column: Stats
-    this.buildStatsColumn(contentRoot, ruler, leftW, tooltipProvider);
-
-    // Vertical divider
-    const dividerHeight = RulerPopup.POPUP_HEIGHT - 80;
-    const divider = new ScreenElement({
-      x: leftW + RulerPopup.COLUMN_GAP / 2 - RulerPopup.DIVIDER_WIDTH / 2,
-      y: 0,
-    });
-    divider.graphics.use(
-      new Rectangle({
-        width: RulerPopup.DIVIDER_WIDTH,
-        height: dividerHeight,
-        color: Color.fromHex('#3a4f63'),
-      })
+    const topBottom = Math.max(
+      this.buildStatusColumn(
+        contentRoot,
+        leftX,
+        0,
+        RulerPopup.LEFT_COLUMN_WIDTH,
+        ruler
+      ),
+      this.buildSkillsColumn(contentRoot, rightX, 0, rightWidth, ruler)
     );
-    contentRoot.addChild(divider);
 
-    // Right column: Personal Actions
-    this.buildActionsColumn(contentRoot, rightX);
+    const lowerY = topBottom + 18;
+    const traitsWidth = 352;
+    const actionsX = traitsWidth + RulerPopup.COLUMN_GAP;
+    const actionsWidth = contentWidth - actionsX;
+
+    this.buildTraitsSection(contentRoot, 0, lowerY, traitsWidth, ruler);
+    this.buildActionsSection(contentRoot, actionsX, lowerY, actionsWidth);
   }
 
-  // ─── Stats Column (left) ────────────────────────────────────────
-
-  private buildStatsColumn(
+  private buildStatusColumn(
     root: ScreenElement,
-    ruler: Readonly<RulerData>,
-    columnWidth: number,
-    tooltipProvider: TooltipProvider
+    x: number,
+    y: number,
+    width: number,
+    ruler: Readonly<RulerData>
+  ): number {
+    root.addChild(this.createSectionHeader(x, y, 'Status'));
+    let nextY = y + RulerPopup.SECTION_HEADER_HEIGHT;
+
+    const cards: StatCardDefinition[] = [
+      {
+        label: 'Age',
+        value: String(ruler.age),
+        accentColor: Color.fromHex('#92a9bd'),
+        description:
+          'Represents the ruler age. It is mostly informational for now, but it is a natural hook for future succession, mortality, and dynasty systems.',
+      },
+      {
+        label: 'Health',
+        value: ruler.health,
+        accentColor: this.getHealthColor(ruler.health),
+        description:
+          'Represents overall physical condition. Better health makes the ruler more resilient and supports future long-term character risk.',
+      },
+      {
+        label: 'Focus',
+        value: String(ruler.focus),
+        accentColor: Color.fromHex('#e4c166'),
+        description:
+          'Determines how much direct personal attention the ruler can spend each turn. Construction, decrees, and other hands-on actions consume Focus.',
+      },
+    ];
+
+    for (const card of cards) {
+      root.addChild(
+        this.createStatCard(x, nextY, width, RulerPopup.CARD_HEIGHT, card)
+      );
+      nextY += RulerPopup.CARD_HEIGHT + RulerPopup.CARD_GAP;
+    }
+
+    return nextY - RulerPopup.CARD_GAP;
+  }
+
+  private buildSkillsColumn(
+    root: ScreenElement,
+    x: number,
+    y: number,
+    width: number,
+    ruler: Readonly<RulerData>
+  ): number {
+    root.addChild(this.createSectionHeader(x, y, 'Ruler Skills'));
+
+    const cardGap = 10;
+    const cardWidth = Math.floor((width - cardGap) / 2);
+    const startY = y + RulerPopup.SECTION_HEADER_HEIGHT;
+    const secondRowY = startY + RulerPopup.CARD_HEIGHT + cardGap;
+
+    const cards: Array<StatCardDefinition & { x: number; y: number }> = [
+      {
+        x,
+        y: startY,
+        label: 'Charisma',
+        value: String(ruler.charisma),
+        accentColor: RULER_SKILL_COLORS.charisma,
+        description:
+          'Used for persuasion, diplomacy, public speeches, negotiation, and any event where personal presence matters.',
+      },
+      {
+        x: x + cardWidth + cardGap,
+        y: startY,
+        label: 'Governance',
+        value: String(ruler.governance),
+        accentColor: RULER_SKILL_COLORS.governance,
+        description:
+          'Used for administration, taxation, logistics, provisioning, and keeping the realm machinery running efficiently.',
+      },
+      {
+        x,
+        y: secondRowY,
+        label: 'Intrigue',
+        value: String(ruler.intrigue),
+        accentColor: RULER_SKILL_COLORS.intrigue,
+        description:
+          'Used for schemes, hidden dealings, intelligence work, blackmail, and situations where secrecy matters.',
+      },
+      {
+        x: x + cardWidth + cardGap,
+        y: secondRowY,
+        label: 'Warfare',
+        value: String(ruler.warfare),
+        accentColor: RULER_SKILL_COLORS.warfare,
+        description:
+          'Used for army discipline, battlefield judgment, frontier crises, and moments that reward military leadership.',
+      },
+    ];
+
+    for (const card of cards) {
+      root.addChild(
+        this.createStatCard(
+          card.x,
+          card.y,
+          cardWidth,
+          RulerPopup.CARD_HEIGHT,
+          card
+        )
+      );
+    }
+
+    return secondRowY + RulerPopup.CARD_HEIGHT;
+  }
+
+  private buildTraitsSection(
+    root: ScreenElement,
+    x: number,
+    y: number,
+    width: number,
+    ruler: Readonly<RulerData>
   ): void {
-    const titleColor = Color.fromHex('#d4e6f1');
-    const labelColor = Color.fromHex('#8fa8c0');
-    const valueColor = Color.White;
-    const lineH = 26;
-    let y = 0;
-
-    // Section title
-    root.addChild(RulerPopup.createText(0, y, 'Stats', 16, titleColor));
-    y += lineH + 4;
-
-    // Age
-    root.addChild(
-      RulerPopup.createStatRow(
-        0,
-        y,
-        'Age',
-        String(ruler.age),
-        labelColor,
-        valueColor
-      )
-    );
-    y += lineH;
-
-    // Focus
-    root.addChild(
-      RulerPopup.createStatRow(
-        0,
-        y,
-        'Focus',
-        String(ruler.focus),
-        labelColor,
-        valueColor
-      )
-    );
-    y += lineH;
-
-    // Charisma
-    root.addChild(
-      RulerPopup.createStatRow(
-        0,
-        y,
-        'Charisma',
-        String(ruler.charisma),
-        labelColor,
-        valueColor
-      )
-    );
-    y += lineH;
-
-    // Health
-    root.addChild(
-      RulerPopup.createStatRow(
-        0,
-        y,
-        'Health',
-        ruler.health,
-        labelColor,
-        RulerPopup.healthColor(ruler.health)
-      )
-    );
-    y += lineH + 18;
-
-    root.addChild(RulerPopup.createText(0, y, 'Traits', 16, titleColor));
-    y += lineH + 2;
+    root.addChild(this.createSectionHeader(x, y, 'Traits'));
 
     const traits = resolveRulerTraits(ruler.traits);
     if (traits.length === 0) {
       root.addChild(
-        RulerPopup.createText(0, y, 'No traits selected.', 13, labelColor)
+        this.createText(
+          x,
+          y + 30,
+          'No traits selected.',
+          13,
+          Color.fromHex('#8fa8c0')
+        )
       );
       return;
     }
 
-    for (const trait of traits) {
+    const gap = 10;
+    const blockWidth = Math.floor((width - gap) / 2);
+    const startY = y + 30;
+
+    for (let i = 0; i < traits.length; i++) {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
       root.addChild(
-        this.createTraitBlock(0, y, columnWidth - 8, trait, tooltipProvider)
+        this.createTraitBlock(
+          x + col * (blockWidth + gap),
+          startY + row * 38,
+          blockWidth,
+          traits[i]
+        )
       );
-      y += 38;
     }
   }
 
-  // ─── Actions Column (right) ─────────────────────────────────────
-
-  private buildActionsColumn(root: ScreenElement, x: number): void {
-    const titleColor = Color.fromHex('#d4e6f1');
-    const hintColor = Color.fromHex('#5d7b94');
-
-    root.addChild(
-      RulerPopup.createText(x, 0, 'Personal Actions', 16, titleColor)
-    );
-    root.addChild(
-      RulerPopup.createText(x, 34, 'No actions available yet.', 13, hintColor)
-    );
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────────
-
-  private static healthColor(health: string): Color {
-    switch (health) {
-      case 'Poor':
-        return Color.fromHex('#e74c3c');
-      case 'Fair':
-        return Color.fromHex('#e67e22');
-      case 'Good':
-        return Color.fromHex('#f1c40f');
-      case 'Strong':
-        return Color.fromHex('#2ecc71');
-      case 'Excellent':
-        return Color.fromHex('#27ae60');
-      default:
-        return Color.White;
-    }
-  }
-
-  /**
-   * Create a label + value stat row.
-   * Label on the left, value right-aligned within the row.
-   */
-  private static createStatRow(
+  private buildActionsSection(
+    root: ScreenElement,
     x: number,
     y: number,
-    label: string,
-    value: string,
-    labelColor: Color,
-    valueColor: Color
-  ): ScreenElement {
-    const container = new ScreenElement({ x, y });
-    const labelText = new Text({
-      text: `${label}:`,
-      font: new Font({
-        size: 14,
-        unit: FontUnit.Px,
-        color: labelColor,
-        family: FONT_FAMILY,
-      }),
-    });
-    const valueText = new Text({
-      text: value,
-      font: new Font({
-        size: 14,
-        unit: FontUnit.Px,
-        color: valueColor,
-        family: FONT_FAMILY,
-      }),
-    });
+    width: number
+  ): void {
+    root.addChild(this.createSectionHeader(x, y, 'Actions'));
 
-    // Render label and value with a fixed offset for alignment
-    const valueOffset = 120;
-    container.graphics.use(
+    const panelY = y + 30;
+    const panelHeight = 112;
+    root.addChild(
+      this.createPanelBlock(
+        x,
+        panelY,
+        width,
+        panelHeight,
+        Color.fromHex('#17232d')
+      )
+    );
+
+    root.addChild(
+      this.createText(
+        x + 14,
+        panelY + 16,
+        'No personal actions available yet.',
+        14,
+        Color.fromHex('#d4e6f1')
+      )
+    );
+    root.addChild(
+      this.createWrappedText(
+        x + 14,
+        panelY + 44,
+        'This section is reserved for direct ruler actions, court decisions, and future character abilities.',
+        width - 28,
+        12,
+        Color.fromHex('#8fa8c0')
+      )
+    );
+  }
+
+  private createSectionHeader(
+    x: number,
+    y: number,
+    text: string
+  ): ScreenElement {
+    const root = new ScreenElement({ x, y });
+    root.addChild(this.createText(0, 0, text, 16, Color.fromHex('#d4e6f1')));
+    root.addChild(
+      this.createRect(0, 22, 120, 1, Color.fromHex('#324453'))
+    );
+    return root;
+  }
+
+  private createStatCard(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    card: StatCardDefinition
+  ): ScreenElement {
+    const root = new ScreenElement({ x, y });
+    root.pointer.useGraphicsBounds = true;
+    root.pointer.useColliderShape = false;
+
+    root.graphics.use(
       new GraphicsGroup({
         members: [
-          { graphic: labelText, offset: vec(0, 0) },
-          { graphic: valueText, offset: vec(valueOffset, 0) },
+          {
+            graphic: new Rectangle({
+              width,
+              height,
+              color: Color.fromHex('#17232d'),
+              strokeColor: Color.fromHex('#324453'),
+              lineWidth: 1,
+            }),
+            offset: vec(0, 0),
+          },
+          {
+            graphic: new Rectangle({
+              width: 4,
+              height,
+              color: card.accentColor,
+            }),
+            offset: vec(0, 0),
+          },
+          {
+            graphic: new Text({
+              text: card.label.toUpperCase(),
+              font: new Font({
+                size: 10,
+                unit: FontUnit.Px,
+                color: Color.fromHex('#8fa8c0'),
+                family: FONT_FAMILY,
+              }),
+            }),
+            offset: vec(12, 7),
+          },
+          {
+            graphic: new Text({
+              text: card.value,
+              font: new Font({
+                size: 18,
+                unit: FontUnit.Px,
+                color: card.accentColor,
+                family: FONT_FAMILY,
+              }),
+            }),
+            offset: vec(12, 20),
+          },
         ],
       })
     );
 
-    return container;
-  }
-
-  private static createText(
-    x: number,
-    y: number,
-    text: string,
-    size: number,
-    color: Color
-  ): ScreenElement {
-    const el = new ScreenElement({ x, y });
-    el.graphics.use(
-      new Text({
-        text,
-        font: new Font({ size, unit: FontUnit.Px, color, family: FONT_FAMILY }),
-      })
-    );
-    return el;
+    this.bindTooltip(root, card.label, card.description, width, height);
+    return root;
   }
 
   private createTraitBlock(
     x: number,
     y: number,
     width: number,
-    trait: RulerTraitDefinition,
-    tooltipProvider: TooltipProvider
+    trait: RulerTraitDefinition
   ): ScreenElement {
     const height = 30;
     const block = new ScreenElement({ x, y });
@@ -319,28 +428,146 @@ export class RulerPopup extends ScreenPopup {
       })
     );
 
-    block.on('pointerenter', () => {
-      tooltipProvider.show({
-        owner: block,
+    this.bindTooltip(
+      block,
+      trait.name,
+      `${trait.description}\n\nEffect: ${trait.effectSummary}`,
+      width,
+      height
+    );
+
+    return block;
+  }
+
+  private bindTooltip(
+    owner: ScreenElement,
+    header: string,
+    description: string,
+    width: number,
+    height: number
+  ): void {
+    owner.on('pointerenter', () => {
+      this.tooltipProvider.show({
+        owner,
         getAnchorRect: () => ({
-          x: block.globalPos.x,
-          y: block.globalPos.y,
+          x: owner.globalPos.x,
+          y: owner.globalPos.y,
           width,
           height,
         }),
-        header: trait.name,
-        description: `${trait.description}\n\nEffect: ${trait.effectSummary}`,
+        header,
+        description,
         width: 320,
-        placement: 'right',
       });
     });
-    block.on('pointerleave', () => {
-      tooltipProvider.hide(block);
+    owner.on('pointerleave', () => {
+      this.tooltipProvider.hide(owner);
     });
-    block.on('prekill', () => {
-      tooltipProvider.hide(block);
+    owner.on('prekill', () => {
+      this.tooltipProvider.hide(owner);
     });
+    this.tooltipOwners.push(owner);
+  }
 
-    return block;
+  private createText(
+    x: number,
+    y: number,
+    text: string,
+    size: number,
+    color: Color
+  ): ScreenElement {
+    const el = new ScreenElement({ x, y });
+    el.graphics.use(
+      new Text({
+        text,
+        font: new Font({ size, unit: FontUnit.Px, color, family: FONT_FAMILY }),
+      })
+    );
+    return el;
+  }
+
+  private createWrappedText(
+    x: number,
+    y: number,
+    text: string,
+    maxWidth: number,
+    size: number,
+    color: Color
+  ): ScreenElement {
+    const roughChars = Math.max(16, Math.floor(maxWidth / (size * 0.52)));
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let current = '';
+
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length > roughChars && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    }
+
+    if (current) {
+      lines.push(current);
+    }
+
+    return this.createText(x, y, lines.join('\n'), size, color);
+  }
+
+  private createRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: Color
+  ): ScreenElement {
+    const el = new ScreenElement({ x, y });
+    el.graphics.use(
+      new Rectangle({
+        width,
+        height,
+        color,
+      })
+    );
+    return el;
+  }
+
+  private createPanelBlock(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: Color
+  ): ScreenElement {
+    const el = new ScreenElement({ x, y });
+    el.graphics.use(
+      new Rectangle({
+        width,
+        height,
+        color,
+        strokeColor: Color.fromHex('#324453'),
+        lineWidth: 1,
+      })
+    );
+    return el;
+  }
+
+  private getHealthColor(health: RulerHealth): Color {
+    switch (health) {
+      case 'Poor':
+        return Color.fromHex('#e74c3c');
+      case 'Fair':
+        return Color.fromHex('#e67e22');
+      case 'Good':
+        return Color.fromHex('#f1c40f');
+      case 'Strong':
+        return Color.fromHex('#2ecc71');
+      case 'Excellent':
+        return Color.fromHex('#27ae60');
+      default:
+        return Color.White;
+    }
   }
 }

@@ -221,6 +221,20 @@ export class SaveManager {
     if (!this.isRecord(value.state) || typeof value.state.name !== 'string') {
       return false;
     }
+    if (
+      typeof value.ruler.age !== 'number' ||
+      typeof value.ruler.focus !== 'number' ||
+      typeof value.ruler.charisma !== 'number' ||
+      (value.ruler.governance !== undefined &&
+        typeof value.ruler.governance !== 'number') ||
+      (value.ruler.intrigue !== undefined &&
+        typeof value.ruler.intrigue !== 'number') ||
+      (value.ruler.warfare !== undefined &&
+        typeof value.ruler.warfare !== 'number') ||
+      typeof value.ruler.health !== 'string'
+    ) {
+      return false;
+    }
     if (typeof value.rngState !== 'number') {
       return false;
     }

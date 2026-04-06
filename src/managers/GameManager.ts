@@ -79,6 +79,9 @@ export class GameManager {
             traits: saveData.ruler.traits,
             focus: saveData.ruler.focus,
             charisma: saveData.ruler.charisma,
+            governance: saveData.ruler.governance,
+            intrigue: saveData.ruler.intrigue,
+            warfare: saveData.ruler.warfare,
             health: saveData.ruler.health,
           }
         : options.ruler,
@@ -259,6 +262,9 @@ export class GameManager {
         traits: [...ruler.traits],
         focus: ruler.focus,
         charisma: ruler.charisma,
+        governance: ruler.governance,
+        intrigue: ruler.intrigue,
+        warfare: ruler.warfare,
         health: ruler.health,
       },
       state: {

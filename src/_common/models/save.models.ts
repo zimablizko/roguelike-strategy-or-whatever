@@ -36,6 +36,9 @@ export interface GameSaveData {
     traits?: string[];
     focus: number;
     charisma: number;
+    governance?: number;
+    intrigue?: number;
+    warfare?: number;
     health: RulerHealth;
   };
   state: StateData;

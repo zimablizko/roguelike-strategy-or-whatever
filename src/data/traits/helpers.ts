@@ -107,6 +107,9 @@ export function applyRulerTraitEffects(
     result.age = Math.max(18, result.age + (effect.age ?? 0));
     result.focus = clamp(result.focus + (effect.focus ?? 0), 1, 20);
     result.charisma = clamp(result.charisma + (effect.charisma ?? 0), 1, 20);
+    result.governance = clamp(result.governance + (effect.governance ?? 0), 1, 20);
+    result.intrigue = clamp(result.intrigue + (effect.intrigue ?? 0), 1, 20);
+    result.warfare = clamp(result.warfare + (effect.warfare ?? 0), 1, 20);
 
     if (effect.healthStep) {
       const currentIndex = RULER_HEALTH_LEVELS.indexOf(result.health);

@@ -14,7 +14,7 @@ import { SeededRandom } from '../_common/random';
 import { generateRulerName } from '../data/gameSetup';
 
 /**
- * Manages ruler state (name/age/portrait/focus/charisma/health).
+ * Manages ruler state (name/age/portrait/stats/health).
  * Ruler is generated when this manager is created.
  */
 export class RulerManager {
@@ -58,10 +58,28 @@ export class RulerManager {
     return this.ruler.charisma;
   }
 
+  getGovernance(): number {
+    return this.ruler.governance;
+  }
+
+  getIntrigue(): number {
+    return this.ruler.intrigue;
+  }
+
+  getWarfare(): number {
+    return this.ruler.warfare;
+  }
+
   getSkillValue(skill: RulerSkillId): number {
     switch (skill) {
       case 'charisma':
         return this.ruler.charisma;
+      case 'governance':
+        return this.ruler.governance;
+      case 'intrigue':
+        return this.ruler.intrigue;
+      case 'warfare':
+        return this.ruler.warfare;
       default:
         return 0;
     }
@@ -113,12 +131,38 @@ export class RulerManager {
       1,
       20
     );
+    const governance = clamp(
+      initial?.governance ?? this.rng.randomInt(8, 12),
+      1,
+      20
+    );
+    const intrigue = clamp(
+      initial?.intrigue ?? this.rng.randomInt(8, 12),
+      1,
+      20
+    );
+    const warfare = clamp(
+      initial?.warfare ?? this.rng.randomInt(8, 12),
+      1,
+      20
+    );
 
     // Health: defaults to 'Good'
     const health: RulerHealth = initial?.health ?? 'Good';
 
     if (!applyTraitEffects || traits.length === 0) {
-      return { name, age, portrait, traits, focus, charisma, health };
+      return {
+        name,
+        age,
+        portrait,
+        traits,
+        focus,
+        charisma,
+        governance,
+        intrigue,
+        warfare,
+        health,
+      };
     }
 
     return {
@@ -130,6 +174,9 @@ export class RulerManager {
           age,
           focus,
           charisma,
+          governance,
+          intrigue,
+          warfare,
           health,
         },
         traits
