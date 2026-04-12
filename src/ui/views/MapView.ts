@@ -16,6 +16,11 @@ import {
 } from '../../_common/buildings-sprites';
 import { ICON_LAYOUT, IconsSpritesheet } from '../../_common/icons';
 import type { MapData, MapTileType } from '../../_common/models/map.models';
+import {
+  getTerrainTileFrame,
+  TILE_CELL_SIZE,
+  TilesSpritesheet,
+} from '../../_common/tiles-sprites';
 import type {
   MapBuildPlacementOverlay,
   MapBuildingOverlay,
@@ -193,15 +198,36 @@ export class MapView extends Actor {
 
     this.drawMapFrame(ctx);
 
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    const terrainSheetImg = TilesSpritesheet.image;
     for (let y = 0; y < this.map.height; y++) {
       for (let x = 0; x < this.map.width; x++) {
-        ctx.fillStyle = this.getTileColor(this.map.tiles[y][x]);
-        ctx.fillRect(
-          offset + x * this.tileSize,
-          offset + y * this.tileSize,
-          this.tileSize,
-          this.tileSize
-        );
+        const tile = this.map.tiles[y][x];
+        const left = offset + x * this.tileSize;
+        const top = offset + y * this.tileSize;
+        const frame = terrainSheetImg
+          ? getTerrainTileFrame(tile, x, y)
+          : undefined;
+
+        if (frame) {
+          ctx.drawImage(
+            terrainSheetImg,
+            frame.col * TILE_CELL_SIZE,
+            frame.row * TILE_CELL_SIZE,
+            TILE_CELL_SIZE,
+            TILE_CELL_SIZE,
+            left,
+            top,
+            this.tileSize,
+            this.tileSize
+          );
+          continue;
+        }
+
+        ctx.fillStyle = this.getTileColor(tile);
+        ctx.fillRect(left, top, this.tileSize, this.tileSize);
       }
     }
 
@@ -231,6 +257,8 @@ export class MapView extends Actor {
     this.drawBuildPlacementOverlay(ctx);
     this.drawFieldLabels(ctx);
     this.drawBuildings(ctx);
+
+    ctx.restore();
   }
 
   private drawRareResourceIcons(ctx: CanvasRenderingContext2D): void {
@@ -539,14 +567,10 @@ export class MapView extends Actor {
         overlay.turnsRemaining !== undefined && overlay.turnsRemaining > 0;
       const selected = overlay.instanceId === this.selectedBuildingInstanceId;
 
-      // Border: amber for selected, construction-orange for in-progress, otherwise dark.
-      if (inProgress && !selected) {
-        ctx.strokeStyle = 'rgba(210, 140, 30, 0.88)';
-      } else {
-        ctx.strokeStyle = selected
-          ? 'rgba(245, 196, 15, 0.98)'
-          : 'rgba(34, 35, 37, 0.96)';
-      }
+      // Keep selection readable, but make regular building outlines subtler.
+      ctx.strokeStyle = selected
+        ? 'rgba(245, 196, 15, 0.98)'
+        : 'rgba(128, 128, 128, 0.5)';
       ctx.lineWidth = selected ? borderWidth + 2 : borderWidth;
       ctx.strokeRect(
         left + ctx.lineWidth / 2,

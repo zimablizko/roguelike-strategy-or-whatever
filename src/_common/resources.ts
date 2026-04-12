@@ -1,6 +1,7 @@
 import { ImageSource, Loader } from 'excalibur';
 import { BuildingsSpritesheet } from './buildings-sprites';
 import { IconsSpritesheet } from './icons';
+import { TilesSpritesheet } from './tiles-sprites';
 
 /** All Excalibur ImageSource assets. Add new assets here and to the loader below. */
 export const MainMenuLogo = new ImageSource(
@@ -10,6 +11,7 @@ export const MainMenuLogo = new ImageSource(
 export const Resources = {
   IconsSpritesheet,
   BuildingsSpritesheet,
+  TilesSpritesheet,
   MainMenuLogo,
 };
 
@@ -17,6 +19,7 @@ export const Resources = {
 export const loader = new Loader([
   Resources.IconsSpritesheet,
   Resources.BuildingsSpritesheet,
+  Resources.TilesSpritesheet,
   Resources.MainMenuLogo,
 ]);
 
