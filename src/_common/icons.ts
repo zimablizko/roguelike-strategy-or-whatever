@@ -82,6 +82,7 @@ const RESOURCE_ICON_IDS: Partial<Record<ResourceType | 'food', IconId>> = {
   wheat: 'wheat',
   meat: 'food',
   bread: 'bread',
+  fish: 'food',
   food: 'food',
 };
 

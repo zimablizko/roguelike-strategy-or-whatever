@@ -479,6 +479,11 @@ export interface BattleResultPopupOptions {
 export interface RandomEventOption {
   title: string;
   outcomeDescription: string;
+  resourceEffects?: Partial<Record<ResourceType, number>>;
+  focusDelta?: number;
+  resourceRanges?: Array<{ resourceType: ResourceType; min: number; max: number }>;
+  focusRange?: { min: number; max: number };
+  tooltipOutcomes?: TooltipOutcome[];
   skillCheck?: RandomEventSkillCheckPresentation;
   onSelect: () => void;
   disabled?: boolean;

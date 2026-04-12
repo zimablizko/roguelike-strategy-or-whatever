@@ -7,7 +7,6 @@ import {
   ScreenElement,
   Text,
 } from 'excalibur';
-import { getIconSprite, getResourceIcon } from '../../_common/icons';
 import type {
   PoliticalEntity,
   PoliticalEntityId,
@@ -29,6 +28,7 @@ import { STATE_POPUP_LAYOUT } from '../constants/StatePopupConstants';
 import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenPopup } from '../elements/ScreenPopup';
+import { buildTooltipEffectResourceSections } from '../tooltip/TooltipResourceSection';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 type TabId = 'town-hall' | 'storage' | 'statistics';
@@ -618,45 +618,14 @@ export class StatePopup extends ScreenPopup {
     repChanges?: Partial<Record<PoliticalEntityId, number>>,
     focusCost = 0
   ): TooltipOutcome[] {
-    const negatives: TooltipOutcome[] = [];
-    const positives: TooltipOutcome[] = [];
-    const negColor = Color.fromHex('#e05252');
+    const outcomes = buildTooltipEffectResourceSections({
+      resourceEffects,
+      focusDelta: focusCost > 0 ? -focusCost : 0,
+      resourceManager: this.resourceManager,
+      focusAvailable: this.turnManager.getTurnDataRef().focus.current,
+    });
     const posColor = Color.fromHex('#52b66f');
-
-    if (focusCost > 0) {
-      negatives.push({
-        label: '',
-        value: String(-focusCost),
-        icon: getIconSprite('focus', 18),
-        color: negColor,
-        iconAfter: true,
-      });
-    }
-
-    if (resourceEffects) {
-      for (const [res, amount] of Object.entries(resourceEffects)) {
-        if (!amount) continue;
-        const resType = res as ResourceType;
-        const icon = getResourceIcon(resType);
-        if (amount < 0) {
-          negatives.push({
-            label: '',
-            value: String(amount),
-            icon,
-            color: negColor,
-            iconAfter: true,
-          });
-        } else {
-          positives.push({
-            label: '',
-            value: `+${amount}`,
-            icon,
-            color: posColor,
-            iconAfter: true,
-          });
-        }
-      }
-    }
+    const negColor = Color.fromHex('#e05252');
 
     if (repChanges) {
       for (const [entityId, amount] of Object.entries(repChanges)) {
@@ -664,13 +633,13 @@ export class StatePopup extends ScreenPopup {
         const name = this.getShortEntityName(entityId as PoliticalEntityId);
         const magnitude = StatePopup.getRepChangeMagnitude(amount);
         if (amount < 0) {
-          negatives.push({
+          outcomes.push({
             label: '',
             value: `${name} reputation ${magnitude} (${amount})`,
             color: negColor,
           });
         } else {
-          positives.push({
+          outcomes.push({
             label: '',
             value: `${name} reputation ${magnitude} (+${amount})`,
             color: posColor,
@@ -679,13 +648,13 @@ export class StatePopup extends ScreenPopup {
       }
     }
 
-    if (!negatives.length && !positives.length) {
+    if (!outcomes.length) {
       return [
         { label: '', value: 'No effects', color: Color.fromHex('#8fa8c0') },
       ];
     }
 
-    return [...negatives, ...positives];
+    return outcomes;
   }
 
   private static getRepChangeMagnitude(amount: number): string {

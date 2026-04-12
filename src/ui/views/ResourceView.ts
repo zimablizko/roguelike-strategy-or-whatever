@@ -55,7 +55,8 @@ export class ResourceDisplay extends ScreenElement {
     wheat: 'Wheat: grown on fields, used by Bakeries to produce Bread.',
     meat: 'Meat: hunted from wildlife, consumed as food.',
     bread: 'Bread: baked from Wheat, consumed as food.',
-    food: 'Food: total edible supplies (Meat + Bread). Consumed each turn.',
+    fish: 'Fish: caught from rivers and coastlines by Fisheries.',
+    food: 'Food: total edible supplies (Meat + Bread + Fish). Consumed each turn.',
     population: 'Population: occupied / total workforce. Build Houses to grow.',
     politicalPower:
       'Political Power: influence reserved for major political decisions.',
@@ -144,6 +145,7 @@ export class ResourceDisplay extends ScreenElement {
       a.wheat === b.wheat &&
       a.meat === b.meat &&
       a.bread === b.bread &&
+      a.fish === b.fish &&
       a.population === b.population &&
       a.politicalPower === b.politicalPower
     );

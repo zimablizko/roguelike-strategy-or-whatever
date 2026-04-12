@@ -84,6 +84,8 @@ export interface StateBuildingDefinition {
     height: number;
     allowedTiles: MapTileType[];
     fallbackReplacementTile?: MapTileType;
+    /** When set, at least one tile adjacent to the building footprint must be one of these types. */
+    adjacentToTiles?: MapTileType[];
   };
   placementDescription: string;
   requiredTechnologies: TechnologyId[];

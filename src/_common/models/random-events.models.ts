@@ -123,6 +123,10 @@ export interface RandomEventPresentationOption {
   id: string;
   title: string;
   outcomeDescription: string;
+  resourceEffects?: Partial<Record<ResourceType, number>>;
+  focusDelta?: number;
+  resourceRanges?: Array<{ resourceType: ResourceType; min: number; max: number }>;
+  focusRange?: { min: number; max: number };
   skillCheck?: RandomEventSkillCheckPresentation;
   disabled: boolean;
   disabledReason?: string;

@@ -12,12 +12,10 @@ import {
   type Scene,
   type Subscription,
 } from 'excalibur';
-import { getResourceIcon } from '../../_common/icons';
 import type {
   StateBuildingId,
   TypedBuildingDefinition,
 } from '../../_common/models/buildings.models';
-import type { ResourceType } from '../../_common/models/resource.models';
 import type { TooltipOutcome } from '../../_common/models/tooltip.models';
 import type {
   BuildRow,
@@ -35,6 +33,11 @@ import {
   QUICK_BUILD_LAYOUT,
 } from '../constants/QuickBuildConstants';
 import { ScreenButton } from '../elements/ScreenButton';
+import {
+  buildTooltipCostEntries,
+  buildTooltipResourceSection,
+  type TooltipResourceEntry,
+} from '../tooltip/TooltipResourceSection';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export class QuickBuildView extends ScreenElement {
@@ -377,15 +380,6 @@ export class QuickBuildView extends ScreenElement {
 
   private buildTooltipOutcomes(row: BuildRow): TooltipOutcome[] {
     const outcomes: TooltipOutcome[] = [];
-    const keys: ResourceType[] = [
-      'gold',
-      'wood',
-      'stone',
-      'wheat',
-      'meat',
-      'bread',
-      'population',
-    ];
     const okColor = QUICK_BUILD_COLORS.costOk;
     const badColor = QUICK_BUILD_COLORS.costBad;
     const neutralColor = QUICK_BUILD_COLORS.neutral;
@@ -393,39 +387,31 @@ export class QuickBuildView extends ScreenElement {
 
     // Permanent bonus (population)
     if (row.definition.populationProvided) {
-      outcomes.push({
-        label: 'Permanent',
-        icon: this.getResourceIconLocal('population'),
-        value: `+${row.definition.populationProvided}`,
-        color: okColor,
-        inline: true,
-        iconAfter: true,
-      });
+      outcomes.push(
+        ...buildTooltipResourceSection('Permanent', [
+          {
+            resourceType: 'population',
+            amount: row.definition.populationProvided,
+          },
+        ])
+      );
     }
 
     // Each turn passive income
     const passiveEntries = buildingPassiveIncome[row.definition.id] ?? [];
     if (passiveEntries.length > 0) {
-      const incomeOutcomes: TooltipOutcome[] = passiveEntries.map(
-        (entry, i) => {
-          let valueText: string;
-          if (typeof entry.amount === 'string') {
-            const p = entry.amount.split(':');
-            valueText = `+${p[1]}\u2013${p[2]}`;
-          } else {
-            valueText = (entry.amount >= 0 ? '+' : '') + String(entry.amount);
-          }
-          return {
-            label: i === 0 ? 'Each turn' : '',
-            icon: this.getResourceIconLocal(entry.resourceType),
-            value: valueText,
-            color: okColor,
-            inline: true,
-            iconAfter: true,
-          };
-        }
+      outcomes.push(
+        ...buildTooltipResourceSection(
+          'Each turn',
+          passiveEntries.map((entry) => ({
+            resourceType: entry.resourceType,
+            amount:
+              typeof entry.amount === 'string'
+                ? entry.amount.split(':').slice(1).join('\u2013')
+                : entry.amount,
+          }))
+        )
       );
-      outcomes.push(...incomeOutcomes);
     }
 
     // Placement: tile names only
@@ -439,40 +425,28 @@ export class QuickBuildView extends ScreenElement {
     });
 
     // Costs
-    const costOutcomes: TooltipOutcome[] = [];
-    for (const key of keys) {
-      const amount = row.status.nextCost[key];
-      if (amount === undefined || amount <= 0) {
-        continue;
-      }
-      const have = this.resourceManager.getResource(key);
-      const missing = Math.max(0, amount - have);
-      costOutcomes.push({
-        label: '',
-        icon: this.getResourceIconLocal(key),
-        value: missing > 0 ? `${amount} (-${missing})` : `${amount}`,
-        color: missing > 0 ? badColor : okColor,
-        inline: true,
-      });
-    }
+    const costEntries: TooltipResourceEntry[] = [
+      {
+        resourceType: 'focus',
+        amount: 1,
+        available: this.turnManager.getTurnDataRef().focus.current,
+      },
+      ...buildTooltipCostEntries(row.status.nextCost, this.resourceManager),
+    ];
 
     if (row.definition.populationRequired) {
       const freePop = this.buildingManager.getFreePopulation();
-      const enough = freePop >= row.definition.populationRequired;
-      costOutcomes.push({
-        label: '',
-        icon: this.getResourceIconLocal('population'),
-        value: `${row.definition.populationRequired} (free: ${freePop})`,
-        color: enough ? okColor : badColor,
-        inline: true,
+      costEntries.push({
+        resourceType: 'population',
+        amount: row.definition.populationRequired,
+        available: freePop,
       });
     }
 
-    if (costOutcomes.length === 0) {
+    if (costEntries.length === 0) {
       outcomes.push({ label: 'Costs', value: 'Free', color: okColor });
     } else {
-      costOutcomes[0].label = 'Costs';
-      outcomes.push(...costOutcomes);
+      outcomes.push(...buildTooltipResourceSection('Costs', costEntries));
     }
 
     // Missing tech
@@ -498,11 +472,6 @@ export class QuickBuildView extends ScreenElement {
     }
     return technologyId;
   }
-
-  private getResourceIconLocal(resourceType: ResourceType) {
-    return getResourceIcon(resourceType);
-  }
-
   private getRowTitle(definition: TypedBuildingDefinition): string {
     const hotkey = QUICK_BUILD_HOTKEYS[definition.id];
     if (!hotkey) {

@@ -19,6 +19,7 @@ export class ResourceManager {
     wheat: 0,
     meat: 0,
     bread: 0,
+    fish: 0,
     population: 0,
     politicalPower: 0,
   };

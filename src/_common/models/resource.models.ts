@@ -7,6 +7,7 @@ export type ResourceType =
   | 'wheat'
   | 'meat'
   | 'bread'
+  | 'fish'
   | 'population'
   | 'politicalPower';
 
@@ -14,6 +15,7 @@ export type ResourceType =
 export const FOOD_RESOURCE_TYPES: readonly ResourceType[] = [
   'meat',
   'bread',
+  'fish',
 ] as const;
 
 export type ResourceStock = Record<ResourceType, number>;

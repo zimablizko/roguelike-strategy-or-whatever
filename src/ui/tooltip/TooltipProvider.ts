@@ -248,7 +248,7 @@ export class TooltipProvider extends ScreenElement {
                 y + (row.height - this.outcomeIconSize) / 2
               ),
             });
-            outcomeX += this.outcomeIconSize + 6;
+            outcomeX += this.outcomeIconSize + 4;
           }
 
           members.push({
@@ -265,7 +265,7 @@ export class TooltipProvider extends ScreenElement {
                 y + (row.height - this.outcomeIconSize) / 2
               ),
             });
-            outcomeX += this.outcomeIconSize + 6;
+            outcomeX += this.outcomeIconSize + 4;
           }
 
           if (i < row.items.length - 1) {
@@ -569,7 +569,7 @@ export class TooltipProvider extends ScreenElement {
         }),
       });
       const width =
-        (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
+        (iconSprite ? this.outcomeIconSize + 4 : 0) + textGraphic.width;
       return { iconSprite, textGraphic, width, iconAfter: outcome.iconAfter };
     });
 
@@ -614,7 +614,7 @@ export class TooltipProvider extends ScreenElement {
       }),
     });
     const width =
-      (iconSprite ? this.outcomeIconSize + 6 : 0) + textGraphic.width;
+      (iconSprite ? this.outcomeIconSize + 4 : 0) + textGraphic.width;
     const height = Math.max(
       this.outcomeRowHeight,
       textGraphic.height,

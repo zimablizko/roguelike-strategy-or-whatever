@@ -1073,6 +1073,7 @@ export class BuildingManager {
             rawInstance.lumbermillCooldown > 0
               ? rawInstance.lumbermillCooldown
               : undefined,
+          fisheryWorkMode: rawInstance.fisheryWorkMode,
         });
         this.buildingCounts[rawInstance.buildingId] += 1;
       }
@@ -1631,6 +1632,135 @@ export class BuildingManager {
     return pulses;
   }
 
+  // ── Fishery work mode ──────────────────────────────────────────────
+
+  getFisheryWorkMode(
+    instanceId: string
+  ): import('../_common/models/building-manager.models').FisheryWorkMode {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    return instance?.fisheryWorkMode ?? 'line-fishing';
+  }
+
+  setFisheryWorkMode(
+    instanceId: string,
+    mode: import('../_common/models/building-manager.models').FisheryWorkMode
+  ): void {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance || instance.buildingId !== 'fishery') return;
+    instance.fisheryWorkMode = mode;
+    this.buildingsVersion++;
+  }
+
+  /**
+   * Returns the count of river/ocean tiles adjacent to a fishery instance (range 2).
+   */
+  getFisheryWaterCount(instanceId: string, range = 2): number {
+    if (!this.mapManager) return 0;
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance) return 0;
+    const map = this.mapManager.getMapRef();
+    let count = 0;
+    const minX = Math.max(0, instance.x - range);
+    const maxX = Math.min(
+      map.width - 1,
+      instance.x + instance.width - 1 + range
+    );
+    const minY = Math.max(0, instance.y - range);
+    const maxY = Math.min(
+      map.height - 1,
+      instance.y + instance.height - 1 + range
+    );
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        const tile = map.tiles[ty][tx];
+        if (tile === 'river' || tile === 'ocean') count++;
+      }
+    }
+    return count;
+  }
+
+  /** Net fishing wood cost counter — consumes 1 Wood every 4 turns. */
+  private static readonly NET_FISHING_WOOD_INTERVAL = 4;
+
+  /**
+   * Processes automatic work modes for all fisheries each turn.
+   * Returns income pulses for fish/gold gains.
+   */
+  processFisheryWorkModes(
+    resourceManager: ResourceManager
+  ): EndTurnIncomePulse[] {
+    const pulses: EndTurnIncomePulse[] = [];
+    const currentTurn = this.currentTurnProvider();
+
+    for (const instance of this.buildingInstances) {
+      if (instance.buildingId !== 'fishery') continue;
+      if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
+        continue;
+
+      const mode = instance.fisheryWorkMode ?? 'line-fishing';
+      const centerX = instance.x + (instance.width - 1) / 2;
+      const centerY = instance.y + (instance.height - 1) / 2;
+
+      if (mode === 'line-fishing') {
+        const amount = this.rng.randomInt(1, 2);
+        pulses.push({
+          tileX: centerX,
+          tileY: centerY,
+          resourceType: 'fish',
+          amount,
+        });
+      } else if (mode === 'net-fishing') {
+        // Every NET_FISHING_WOOD_INTERVAL turns, consume 1 Wood for net repairs.
+        if (currentTurn % BuildingManager.NET_FISHING_WOOD_INTERVAL === 0) {
+          if (resourceManager.getResource('wood') >= 1) {
+            resourceManager.addResource('wood', -1);
+            pulses.push({
+              tileX: centerX,
+              tileY: centerY,
+              resourceType: 'wood',
+              amount: -1,
+            });
+          } else {
+            // Not enough wood — fall back to line fishing yield.
+            const amount = this.rng.randomInt(1, 2);
+            pulses.push({
+              tileX: centerX,
+              tileY: centerY,
+              resourceType: 'fish',
+              amount,
+            });
+            continue;
+          }
+        }
+        const amount = this.rng.randomInt(2, 3);
+        pulses.push({
+          tileX: centerX,
+          tileY: centerY,
+          resourceType: 'fish',
+          amount,
+        });
+      } else if (mode === 'gold-panning') {
+        const amount = this.rng.randomInt(0, 1);
+        if (amount > 0) {
+          pulses.push({
+            tileX: centerX,
+            tileY: centerY,
+            resourceType: 'gold',
+            amount,
+          });
+        }
+      }
+    }
+
+    return pulses;
+  }
+
   /**
    * Finds the nearest tile matching one of the given types within range of a lumbermill.
    */
@@ -2017,6 +2147,30 @@ export class BuildingManager {
         }
 
         replacementCells.push({ x, y });
+      }
+    }
+
+    // Adjacency check: at least one tile bordering the footprint must match.
+    const adjacentRequired = definition.placementRule.adjacentToTiles;
+    if (adjacentRequired && adjacentRequired.length > 0) {
+      let hasAdjacent = false;
+      const w = definition.placementRule.width;
+      const h = definition.placementRule.height;
+      outer: for (let dy = -1; dy <= h; dy++) {
+        for (let dx = -1; dx <= w; dx++) {
+          // Skip interior cells — only check the border ring.
+          if (dx >= 0 && dx < w && dy >= 0 && dy < h) continue;
+          const nx = startX + dx;
+          const ny = startY + dy;
+          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+          if (adjacentRequired.includes(map.tiles[ny][nx])) {
+            hasAdjacent = true;
+            break outer;
+          }
+        }
+      }
+      if (!hasAdjacent) {
+        return undefined;
       }
     }
 

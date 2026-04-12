@@ -14,6 +14,7 @@ import { getIconSprite } from '../_common/icons';
 import type { StateBuildingId } from '../_common/models/buildings.models';
 import type { GameSetupData } from '../_common/models/game-setup.models';
 import { FOOD_RESOURCE_TYPES } from '../_common/models/resource.models';
+import type { RandomEventOption } from '../_common/models/ui.models';
 import type { SaveSlotId } from '../_common/models/save.models';
 import type {
   MapBuildPlacementOverlay,
@@ -44,12 +45,16 @@ import { BattleResultPopup } from '../ui/popups/BattleResultPopup';
 import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
 import { IntroductionLorePopup } from '../ui/popups/IntroductionLorePopup';
 import { LogPopup } from '../ui/popups/LogPopup';
-import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { MarketTradePopup } from '../ui/popups/MarketTradePopup';
+import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
 import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
+import {
+  buildTooltipEffectResourceSections,
+  buildTooltipResourceSection,
+} from '../ui/tooltip/TooltipResourceSection';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
 import { LogView } from '../ui/views/LogView';
@@ -1047,15 +1052,12 @@ export class GameplayScene extends Scene {
         description:
           'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants Wood.',
         icon: getIconSprite('resources'),
-        outcomes: [
-          { label: 'Focus', value: '-1' },
-          {
-            label: '',
-            value: '+4',
-            icon: getIconSprite('resources'),
-            color: Color.fromHex('#9fe6aa'),
-          },
-        ],
+        outcomes: buildTooltipEffectResourceSections({
+          resourceEffects: { wood: 4 },
+          focusDelta: -1,
+          resourceManager: this.resourceManager,
+          focusAvailable: this.turnManager.getTurnDataRef().focus.current,
+        }),
         tooltipProvider: this.tooltipProvider,
         onClick: () => {
           if (!this.turnManager.spendFocus(1)) return;
@@ -1072,15 +1074,12 @@ export class GameplayScene extends Scene {
         description:
           'Launch small boats on water tiles to secure meat supplies for the next turn.',
         icon: getIconSprite('food'),
-        outcomes: [
-          { label: 'Focus', value: '-1' },
-          {
-            label: '',
-            value: '+5',
-            icon: getIconSprite('food'),
-            color: Color.fromHex('#9fe6aa'),
-          },
-        ],
+        outcomes: buildTooltipEffectResourceSections({
+          resourceEffects: { meat: 5 },
+          focusDelta: -1,
+          resourceManager: this.resourceManager,
+          focusAvailable: this.turnManager.getTurnDataRef().focus.current,
+        }),
         tooltipProvider: this.tooltipProvider,
         onClick: () => {
           if (!this.turnManager.spendFocus(1)) return;
@@ -1186,6 +1185,11 @@ export class GameplayScene extends Scene {
       options: pending.options.map((option) => ({
         title: option.title,
         outcomeDescription: option.outcomeDescription,
+        resourceEffects: option.resourceEffects,
+        focusDelta: option.focusDelta,
+        resourceRanges: option.resourceRanges,
+        focusRange: option.focusRange,
+        tooltipOutcomes: this.buildRandomEventTooltipOutcomes(option),
         skillCheck: option.skillCheck,
         disabled: option.disabled,
         disabledReason: option.disabledReason,
@@ -1251,9 +1255,19 @@ export class GameplayScene extends Scene {
         {
           title: 'Open the Granaries',
           disabled: !canGiveFood,
+          disabledReason: canGiveFood
+            ? undefined
+            : 'Not enough food in reserve.',
+          tooltipOutcomes: buildTooltipResourceSection('Costs', [
+            {
+              resourceType: 'food',
+              amount: foodDemand,
+              available: totalFood,
+            },
+          ]),
           outcomeDescription: canGiveFood
-            ? `Spend ${foodDemand} food from your stores. The crowd is fed and breaks apart before dusk.`
-            : `Requires ${foodDemand} food. You do not have enough meat and bread in reserve to satisfy the crowd.`,
+            ? 'Open the stores and feed the crowd before dusk.'
+            : 'Open the stores and try to satisfy the crowd.',
           onSelect: () => {
             if (!this.spendFoodFromStores(foodDemand)) {
               return;
@@ -1266,9 +1280,18 @@ export class GameplayScene extends Scene {
         {
           title: 'Send the Steward',
           disabled: !canNegotiate,
+          disabledReason: canNegotiate
+            ? undefined
+            : 'Not enough Focus or Gold.',
+          tooltipOutcomes: buildTooltipEffectResourceSections({
+            resourceEffects: { gold: -4 },
+            focusDelta: -1,
+            resourceManager: this.resourceManager,
+            focusAvailable: this.turnManager.getTurnDataRef().focus.current,
+          }),
           outcomeDescription: canNegotiate
-            ? 'Spend 1 Focus and 4 Gold. Your steward promises relief, records grievances, and quiets the square without bloodshed.'
-            : 'Requires 1 Focus and 4 Gold. Without coin and personal attention, no peaceful settlement can be arranged.',
+            ? 'Send your steward to promise relief, record grievances, and quiet the square without bloodshed.'
+            : 'Without coin and personal attention, no peaceful settlement can be arranged.',
           onSelect: () => {
             if (!this.turnManager.spendFocus(1)) return;
             if (!this.resourceManager.spendResource('gold', 4)) return;
@@ -1337,6 +1360,87 @@ export class GameplayScene extends Scene {
     }
 
     return remaining <= 0;
+  }
+
+  private buildRandomEventTooltipOutcomes(
+    option: Pick<
+      RandomEventOption,
+      'resourceEffects' | 'focusDelta' | 'resourceRanges' | 'focusRange'
+    >
+  ) {
+    const fixedEffects = buildTooltipEffectResourceSections({
+      resourceEffects: option.resourceEffects,
+      focusDelta: option.focusDelta,
+      resourceManager: this.resourceManager,
+      focusAvailable: this.turnManager.getTurnDataRef().focus.current,
+    });
+
+    const coveredResources = new Set<string>([
+      ...Object.keys(option.resourceEffects ?? {}),
+      ...(option.focusDelta ? ['focus'] : []),
+    ]);
+
+    const rangeCosts: Array<{
+      resourceType: import('../ui/tooltip/TooltipResourceSection').TooltipResourceKey;
+      amount: string;
+    }> = [];
+    const rangeGains: Array<{
+      resourceType: import('../ui/tooltip/TooltipResourceSection').TooltipResourceKey;
+      amount: string;
+    }> = [];
+
+    const addRange = (
+      resourceType: import('../ui/tooltip/TooltipResourceSection').TooltipResourceKey,
+      min: number,
+      max: number
+    ) => {
+      if (coveredResources.has(resourceType)) {
+        return;
+      }
+
+      if (max <= 0) {
+        rangeCosts.push({
+          resourceType,
+          amount: this.formatTooltipRange(Math.abs(max), Math.abs(min)),
+        });
+        return;
+      }
+
+      if (min >= 0) {
+        rangeGains.push({
+          resourceType,
+          amount: this.formatTooltipRange(min, max),
+        });
+        return;
+      }
+
+      rangeCosts.push({
+        resourceType,
+        amount: this.formatTooltipRange(0, Math.abs(min)),
+      });
+      rangeGains.push({
+        resourceType,
+        amount: this.formatTooltipRange(0, max),
+      });
+    };
+
+    for (const range of option.resourceRanges ?? []) {
+      addRange(range.resourceType, range.min, range.max);
+    }
+
+    if (option.focusRange) {
+      addRange('focus', option.focusRange.min, option.focusRange.max);
+    }
+
+    return [
+      ...fixedEffects,
+      ...buildTooltipResourceSection('Costs', rangeCosts),
+      ...buildTooltipResourceSection('Gains', rangeGains),
+    ];
+  }
+
+  private formatTooltipRange(min: number, max: number): string {
+    return min === max ? `${max}` : `${min}-${max}`;
   }
 
   private autoSaveIfDirty(): void {
@@ -1811,6 +1915,7 @@ export class GameplayScene extends Scene {
       wheat: 0,
       meat: 50,
       bread: 50,
+      fish: 0,
       population: 10,
       politicalPower: 0,
     };

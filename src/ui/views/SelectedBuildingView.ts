@@ -14,6 +14,7 @@ import { getResourceIcon } from '../../_common/icons';
 import { clamp } from '../../_common/math';
 import type {
   FarmWorkMode,
+  FisheryWorkMode,
   LumbermillWorkMode,
 } from '../../_common/models/building-manager.models';
 import type {
@@ -33,6 +34,10 @@ import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
+import {
+  buildTooltipEffectResourceSections,
+  buildTooltipResourceSection,
+} from '../tooltip/TooltipResourceSection';
 
 interface BuildingInfoRowSegment {
   value: string;
@@ -278,7 +283,8 @@ export class SelectedBuildingView extends ScreenElement {
 
     const isFarm = definition.id === 'farm';
     const isLumbermill = definition.id === 'lumbermill';
-    const hasWorkMode = isFarm || isLumbermill;
+    const isFishery = definition.id === 'fishery';
+    const hasWorkMode = isFarm || isLumbermill || isFishery;
     const visibleActions = hasWorkMode
       ? []
       : this.getVisibleActions(definition);
@@ -318,11 +324,14 @@ export class SelectedBuildingView extends ScreenElement {
     )
       ? 3
       : 2;
+    const fisheryModeCount = 4;
     const rightItemCount = isFarm
       ? farmModeCount
       : isLumbermill
         ? lumbermillModeCount
-        : visibleActions.length;
+        : isFishery
+          ? fisheryModeCount
+          : visibleActions.length;
     const actionBottomY =
       actionsStartY +
       Math.max(0, rightItemCount * actionRowGap - (rightItemCount > 0 ? 4 : 0));
@@ -439,6 +448,13 @@ export class SelectedBuildingView extends ScreenElement {
       );
     } else if (isLumbermill) {
       this.createLumbermillWorkModeRows(
+        actionsTitleX,
+        actionsStartY,
+        rightColumnWidth,
+        selected.instanceId
+      );
+    } else if (isFishery) {
+      this.createFisheryWorkModeRows(
         actionsTitleX,
         actionsStartY,
         rightColumnWidth,
@@ -742,8 +758,7 @@ export class SelectedBuildingView extends ScreenElement {
         this.resourceManager
       );
       const enabled =
-        actionStatus.activatable &&
-        (action.popupId ? true : hasActionPoint);
+        actionStatus.activatable && (action.popupId ? true : hasActionPoint);
       const usesMax = actionStatus.usesMax ?? 0;
       const usesLabel =
         usesMax > 1 ? ` (${actionStatus.usesRemaining}/${usesMax})` : '';
@@ -859,13 +874,9 @@ export class SelectedBuildingView extends ScreenElement {
         label: 'Harvest',
         description: `Harvest ${harvestCount} ready Field${harvestCount > 1 ? 's' : ''} nearby each turn.`,
         outcomes: [
-          {
-            label: 'Gains',
-            icon: this.getResourceIconLocal('wheat'),
-            value: '+8–10 Wheat',
-            color: Color.fromHex('#9fe6aa'),
-            inline: true,
-          },
+          ...buildTooltipResourceSection('Gains', [
+            { resourceType: 'wheat', amount: '8-10' },
+          ]),
           {
             label: 'Regrow',
             value: `${regrowTurns} turns`,
@@ -940,13 +951,9 @@ export class SelectedBuildingView extends ScreenElement {
         label: 'Harvest Timber',
         description: 'Cut the nearest Forest tile.',
         outcomes: [
-          {
-            label: 'Gains',
-            icon: this.getResourceIconLocal('wood'),
-            value: '+3–5 Lumber',
-            color: Color.fromHex('#9fe6aa'),
-            inline: true,
-          },
+          ...buildTooltipResourceSection('Gains', [
+            { resourceType: 'wood', amount: '3-5' },
+          ]),
           {
             label: 'Cooldown',
             value: '3 turns',
@@ -961,13 +968,13 @@ export class SelectedBuildingView extends ScreenElement {
         label: 'Plant Trees',
         description: 'Plant a tree on the nearest Plains or Sand tile.',
         outcomes: [
-          {
-            label: 'Costs',
-            icon: this.getResourceIconLocal('gold'),
-            value: '-5',
-            color: Color.fromHex('#e6c97a'),
-            inline: true,
-          },
+          ...buildTooltipResourceSection('Costs', [
+            {
+              resourceType: 'gold',
+              amount: 5,
+              available: this.resourceManager.getResource('gold'),
+            },
+          ]),
           {
             label: 'Cooldown',
             value: '5 turns',
@@ -1006,6 +1013,98 @@ export class SelectedBuildingView extends ScreenElement {
         tooltipWidth: 260,
         onClick: () => {
           this.buildingManager.setLumbermillWorkMode(instanceId, mode);
+          this.lastBuildingsVersion = -1;
+        },
+      });
+
+      this.actionRows.push(row);
+      this.addChild(row);
+      y += 38;
+    }
+  }
+
+  private createFisheryWorkModeRows(
+    startX: number,
+    startY: number,
+    rowWidth: number,
+    instanceId: string
+  ): void {
+    const currentMode = this.buildingManager.getFisheryWorkMode(instanceId);
+    const modes: Array<{
+      mode: FisheryWorkMode;
+      label: string;
+      description: string;
+      outcomes: TooltipOutcome[];
+    }> = [
+      {
+        mode: 'idle',
+        label: 'Idle',
+        description: 'Fisherman rests. No production this turn.',
+        outcomes: [],
+      },
+      {
+        mode: 'line-fishing',
+        label: 'Line Fishing',
+        description:
+          'Cast a simple line into the water. Steady, low-cost catch.',
+        outcomes: buildTooltipResourceSection('Gains', [
+          { resourceType: 'fish', amount: '1-2/turn' },
+        ]),
+      },
+      {
+        mode: 'net-fishing',
+        label: 'Net Fishing',
+        description:
+          'Deploy wide nets for a larger haul. Nets wear out and need Wood for repairs every 4 turns.',
+        outcomes: [
+          ...buildTooltipResourceSection('Gains', [
+            { resourceType: 'fish', amount: '2-3/turn' },
+          ]),
+          ...buildTooltipResourceSection('Upkeep', [
+            { resourceType: 'wood', amount: '1 / 4 turns' },
+          ]),
+        ],
+      },
+      {
+        mode: 'gold-panning',
+        label: 'Gold Panning',
+        description:
+          'Sift through river sand searching for gold flakes and nuggets. Low but valuable yield.',
+        outcomes: buildTooltipResourceSection('Gains', [
+          { resourceType: 'gold', amount: '0-1/turn' },
+        ]),
+      },
+    ];
+
+    let y = startY;
+    for (const { mode, label, description, outcomes } of modes) {
+      const isActive = mode === currentMode;
+      const activeColor = Color.fromHex('#1e5e30');
+      const activeHover = Color.fromHex('#267538');
+      const inactiveColor = Color.fromHex('#274158');
+      const inactiveHover = Color.fromHex('#356083');
+
+      const row = new ActionElement({
+        x: startX,
+        y,
+        width: rowWidth,
+        height: 34,
+        title: label,
+        description,
+        outcomes,
+        tooltipProvider: this.tooltipProvider,
+        bgColor: isActive ? activeColor : inactiveColor,
+        hoverBgColor: isActive ? activeHover : inactiveHover,
+        pressedBgColor: isActive
+          ? Color.fromHex('#1a4d28')
+          : Color.fromHex('#2e5270'),
+        hoverBorderColor: isActive
+          ? Color.fromHex('#4caf73')
+          : Color.fromHex('#f1c40f'),
+        textColor: Color.White,
+        tooltipWidth: 260,
+        onClick: () => {
+          this.buildingManager.setFisheryWorkMode(instanceId, mode);
           this.lastBuildingsVersion = -1;
         },
       });
@@ -1233,16 +1332,16 @@ export class SelectedBuildingView extends ScreenElement {
       1,
       this.buildingManager.getBuildingCount(definition.id)
     );
+    const focusAvailable = this.turnManager.getTurnDataRef().focus.current;
 
     if (definition.id === 'castle' && action.id === 'call-to-arms') {
       return [
-        {
-          label: 'Costs',
-          icon: this.getResourceIconLocal('gold'),
-          value: '-10',
-          color: Color.fromHex('#e6c97a'),
-          inline: true,
-        },
+        ...buildTooltipEffectResourceSections({
+          resourceEffects: { gold: -10 },
+          focusDelta: -1,
+          resourceManager: this.resourceManager,
+          focusAvailable,
+        }),
         {
           label: 'Muster',
           value: '+4-6 Militia',
@@ -1258,13 +1357,12 @@ export class SelectedBuildingView extends ScreenElement {
 
     if (definition.id === 'barracks' && action.id === 'train-footmen') {
       return [
-        {
-          label: 'Costs',
-          icon: this.getResourceIconLocal('gold'),
-          value: '-50',
-          color: Color.fromHex('#e6c97a'),
-          inline: true,
-        },
+        ...buildTooltipEffectResourceSections({
+          resourceEffects: { gold: -50 },
+          focusDelta: -1,
+          resourceManager: this.resourceManager,
+          focusAvailable,
+        }),
         {
           label: 'Training',
           value: '+3-5 Footmen',
@@ -1280,20 +1378,12 @@ export class SelectedBuildingView extends ScreenElement {
 
     if (definition.id === 'barracks' && action.id === 'train-archers') {
       return [
-        {
-          label: 'Costs',
-          icon: this.getResourceIconLocal('gold'),
-          value: '-75',
-          color: Color.fromHex('#e6c97a'),
-          inline: true,
-        },
-        {
-          label: '',
-          icon: this.getResourceIconLocal('wood'),
-          value: '-25',
-          color: Color.fromHex('#e6c97a'),
-          inline: true,
-        },
+        ...buildTooltipEffectResourceSections({
+          resourceEffects: { gold: -75, wood: -25 },
+          focusDelta: -1,
+          resourceManager: this.resourceManager,
+          focusAvailable,
+        }),
         {
           label: 'Training',
           value: '+3-5 Archers',
@@ -1324,12 +1414,19 @@ export class SelectedBuildingView extends ScreenElement {
       mine: 'stone',
     };
     return [
-      {
-        label: '',
-        icon: getResourceIcon(resourceByBuilding[definition.id]!),
-        value: `+${value}`,
-        color: Color.fromHex('#9fe6aa'),
-      },
+      ...buildTooltipResourceSection('Costs', [
+        {
+          resourceType: 'focus',
+          amount: 1,
+          available: focusAvailable,
+        },
+      ]),
+      ...buildTooltipResourceSection('Gains', [
+        {
+          resourceType: resourceByBuilding[definition.id]!,
+          amount: value,
+        },
+      ]),
     ];
   }
 

@@ -1,6 +1,15 @@
 import type { ResearchDefinition } from '../../_common/models/researches.models';
 
 export const researchDefinitions = {
+  'eco-fishing': {
+    id: 'eco-fishing',
+    tree: 'economics',
+    name: 'Fishing',
+    description:
+      "Knowledge of net-making and fishing techniques. Unlocks Fisherman's Hut construction on river shores.",
+    turns: 10,
+    requiredResearches: [],
+  },
   'eco-agriculture': {
     id: 'eco-agriculture',
     tree: 'economics',

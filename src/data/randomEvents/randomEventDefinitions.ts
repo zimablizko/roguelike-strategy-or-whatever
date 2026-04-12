@@ -18,7 +18,7 @@ export const randomEventDefinitions = {
         id: 'license-the-fair',
         title: 'License the Fair',
         outcomeDescription:
-          'Grant stall permits and market rights for the fair. Gain 20 Gold.',
+          'Grant stall permits and market rights for the fair.',
         outcome: {
           resourceEffects: { gold: 20 },
           resultText:
@@ -30,7 +30,7 @@ export const randomEventDefinitions = {
         id: 'host-the-market',
         title: 'Charm the Caravan Master',
         outcomeDescription:
-          'Spend 5 Gold on a gracious welcome and try to win richer gifts with personal charm.',
+          'Offer a gracious welcome and try to win richer gifts with personal charm.',
         requirements: {
           minResources: { gold: 5 },
         },
@@ -57,7 +57,7 @@ export const randomEventDefinitions = {
         id: 'hire-guards',
         title: 'Hire Guards',
         outcomeDescription:
-          'Spend 15 Gold to recruit armed escorts from the merchant roads. Gain 3 Militia.',
+          'Recruit armed escorts from the merchant roads.',
         requirements: {
           minResources: { gold: 15 },
         },
@@ -84,7 +84,7 @@ export const randomEventDefinitions = {
         id: 'salvage-stone',
         title: 'Salvage the Stone',
         outcomeDescription:
-          'Strip the ruins for useful masonry. Gain 20 Stone.',
+          'Strip the ruins for useful masonry.',
         outcome: {
           resourceEffects: { stone: 20 },
           resultText:
@@ -96,7 +96,7 @@ export const randomEventDefinitions = {
         id: 'fund-a-search',
         title: 'Question the Antiquarians',
         outcomeDescription:
-          'Spend 10 Gold to bring in scholars and press them for a promising lead before the dig begins.',
+          'Bring in scholars and press them for a promising lead before the dig begins.',
         requirements: {
           minResources: { gold: 10 },
         },
@@ -121,7 +121,7 @@ export const randomEventDefinitions = {
         id: 'seal-the-site',
         title: 'Seal the Site',
         outcomeDescription:
-          'Spend nothing and leave the place undisturbed. Lose the opportunity, but avoid risk.',
+          'Leave the place undisturbed and avoid the risk.',
         outcome: {
           resultText:
             'You order the site marked and left alone. The workers grumble, but the matter ends there.',
@@ -146,7 +146,7 @@ export const randomEventDefinitions = {
         id: 'fund-repairs',
         title: 'Fund Repairs',
         outcomeDescription:
-          'Spend 15 Wood and 10 Gold to shore up the mine and calm the workers.',
+          'Shore up the mine and calm the workers.',
         requirements: {
           minResources: { wood: 15, gold: 10 },
         },
@@ -162,7 +162,7 @@ export const randomEventDefinitions = {
         id: 'press-on-cheaply',
         title: 'Patch It Cheaply',
         outcomeDescription:
-          'Spend 5 Wood only. Save coin now, but morale suffers.',
+          'Brace the shaft cheaply and save coin, even if morale suffers.',
         requirements: {
           minResources: { wood: 5 },
         },
@@ -178,7 +178,7 @@ export const randomEventDefinitions = {
         id: 'close-the-shaft',
         title: 'Close the Shaft',
         outcomeDescription:
-          'Abandon the damaged section. Lose 15 Gold in disrupted output.',
+          'Abandon the damaged section and accept the disrupted output.',
         outcome: {
           resourceEffects: { gold: -15 },
           resultText:
@@ -204,7 +204,7 @@ export const randomEventDefinitions = {
         id: 'hire-footmen',
         title: 'Hire the Veterans',
         outcomeDescription:
-          'Spend 35 Gold to enlist 2 Footmen and 1 Archer immediately.',
+          'Enlist the veterans into immediate service.',
         requirements: {
           minResources: { gold: 35 },
         },
@@ -223,7 +223,7 @@ export const randomEventDefinitions = {
         id: 'pay-them-to-move-on',
         title: 'Bargain for Service',
         outcomeDescription:
-          'Offer 20 Gold and try to talk the veterans into a cheaper oath of service.',
+          'Try to talk the veterans into a cheaper oath of service.',
         requirements: {
           minResources: { gold: 20 },
         },
@@ -337,7 +337,7 @@ export const randomEventDefinitions = {
         id: 'do-nothing',
         title: 'Do Nothing',
         outcomeDescription:
-          'Ignore the warning. Lose 30 Wood and 10 Gold to raids on the frontier.',
+          'Ignore the warning and accept whatever the raiders take from the frontier.',
         outcome: {
           resourceEffects: { wood: -30, gold: -10 },
           reputationEffects: { 'common-folk': -3, 'military-advisor': -2 },
@@ -393,7 +393,7 @@ export const randomEventDefinitions = {
         id: 'fortify-the-settlements',
         title: 'Fortify the Settlements',
         outcomeDescription:
-          'Spend 25 Wood and 15 Stone to harden roads, watchposts, and storehouses against the assault.',
+          'Harden roads, watchposts, and storehouses against the assault.',
         requirements: {
           minResources: { wood: 25, stone: 15 },
         },
@@ -409,7 +409,7 @@ export const randomEventDefinitions = {
         id: 'yield-the-frontier',
         title: 'Yield the Frontier',
         outcomeDescription:
-          'Abandon exposed holdings and preserve the heartland. Lose 25 Gold and 20 Meat.',
+          'Abandon exposed holdings and preserve the heartland.',
         outcome: {
           resourceEffects: { gold: -25, meat: -20 },
           reputationEffects: { 'common-folk': -2, 'military-advisor': -3 },
@@ -450,7 +450,7 @@ export const randomEventDefinitions = {
         id: 'hold-a-harvest-fair',
         title: 'Hold a Harvest Fair',
         outcomeDescription:
-          'Spend a little coin and turn the surplus into a public celebration and trading day.',
+          'Turn the surplus into a public celebration and trading day.',
         requirements: {
           minResources: { gold: 5 },
         },
@@ -543,7 +543,7 @@ export const randomEventDefinitions = {
         id: 'order-an-audit',
         title: 'Order an Audit',
         outcomeDescription:
-          'Spend focus and coin on scribes, witnesses, and a slower but more reliable investigation.',
+          'Order a slower but more reliable investigation with scribes and witnesses.',
         requirements: {
           minFocus: 1,
           minResources: { gold: 10 },
@@ -744,7 +744,7 @@ export const randomEventDefinitions = {
         id: 'buy-their-route-maps',
         title: 'Buy Their Route Maps',
         outcomeDescription:
-          'Spend coin for information, routes, and names rather than immediate punishment.',
+          'Pay for information, routes, and names rather than immediate punishment.',
         requirements: {
           minResources: { gold: 10 },
         },
@@ -754,6 +754,127 @@ export const randomEventDefinitions = {
           resultText:
             'The ring sells you silence, route books, and the names of those who looked away. The treasury pays now, but the court gains leverage that may matter later.',
           logSeverity: 'good',
+        },
+      },
+    ],
+  },
+  'bountiful-catch': {
+    id: 'bountiful-catch',
+    title: 'Bountiful Catch',
+    description:
+      'The rivers teem with silvery fish this season. Your fishermen report the largest haul anyone can remember — nets strain and baskets overflow.',
+    rarity: 'common',
+    weight: 8,
+    cooldownTurns: 21,
+    conditions: {
+      minTurn: 10,
+      requiredTechnologies: ['eco-fishing'],
+      minBuildingCounts: { fishery: 1 },
+    },
+    options: [
+      {
+        id: 'store-the-surplus',
+        title: 'Store the Surplus',
+        outcomeDescription:
+          'Salt and smoke the excess catch for the winter stores.',
+        outcome: {
+          resourceEffects: { fish: 15 },
+          resultText:
+            'Barrels of salted fish line the storerooms. The settlement will eat well for many days to come.',
+          logSeverity: 'good',
+        },
+      },
+      {
+        id: 'sell-at-market',
+        title: 'Sell at Market',
+        outcomeDescription:
+          'Trade the surplus fish to passing merchants for coin.',
+        outcome: {
+          resourceEffects: { gold: 12 },
+          resultText:
+            'Travelling merchants eagerly pay premium prices for the fresh catch. Gold fills the coffers.',
+          logSeverity: 'good',
+        },
+      },
+      {
+        id: 'host-a-feast',
+        title: 'Host a Feast',
+        outcomeDescription:
+          'Share the bounty with the people and boost goodwill.',
+        requirements: {
+          minResources: { fish: 5 },
+        },
+        outcome: {
+          resourceEffects: { fish: -5 },
+          reputationEffects: { 'common-folk': 4 },
+          resultText:
+            'The settlement gathers for a great riverside feast. Songs are sung, and the ruler is praised for their generosity.',
+          logSeverity: 'good',
+        },
+      },
+    ],
+  },
+  'river-flooding': {
+    id: 'river-flooding',
+    title: 'River Flooding',
+    description:
+      "Heavy rains upstream have swollen the rivers beyond their banks. Water laps at the foundations of your fishermen's huts and threatens nearby fields.",
+    rarity: 'uncommon',
+    weight: 7,
+    cooldownTurns: 28,
+    conditions: {
+      minTurn: 15,
+      requiredTechnologies: ['eco-fishing'],
+      minBuildingCounts: { fishery: 1 },
+    },
+    options: [
+      {
+        id: 'sandbag-the-banks',
+        title: 'Sandbag the Banks',
+        outcomeDescription:
+          'Protect your riverside buildings with sandbags and braces.',
+        requirements: {
+          minResources: { wood: 10, stone: 5 },
+        },
+        outcome: {
+          resourceEffects: { wood: -10, stone: -5 },
+          resultText:
+            'Workers pile sandbags and timber braces through the night. The waters rise but the huts stand firm.',
+          logSeverity: 'neutral',
+        },
+      },
+      {
+        id: 'evacuate-and-wait',
+        title: 'Evacuate and Wait',
+        outcomeDescription:
+          'Pull the fishermen back and let the flood pass.',
+        outcome: {
+          resourceEffects: { fish: -8 },
+          resultText:
+            'The fishermen retreat to higher ground. When the waters recede, barrels of salted fish are found waterlogged and ruined.',
+          logSeverity: 'bad',
+        },
+      },
+      {
+        id: 'channel-the-waters',
+        title: 'Channel the Waters',
+        outcomeDescription:
+          'Attempt to dig emergency channels to divert the flood. Requires governance skill.',
+        skillCheck: {
+          skill: 'governance',
+          difficulty: 'normal',
+          successOutcome: {
+            resourceEffects: { fish: 5, gold: 5 },
+            resultText:
+              'Your engineers carve diversion channels just in time. The flood waters irrigate the fields and trap fish in shallow pools — a lucky windfall.',
+            logSeverity: 'good',
+          },
+          failureOutcome: {
+            resourceEffects: { fish: -5, wood: -5 },
+            resultText:
+              'The hastily dug channels collapse under the pressure. Mud and debris damage stored supplies and timber stockpiles.',
+            logSeverity: 'bad',
+          },
         },
       },
     ],

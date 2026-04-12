@@ -363,11 +363,22 @@ export class RandomEventManager {
     const skillCheck = option.skillCheck
       ? this.buildSkillCheckPresentation(option.skillCheck)
       : undefined;
+    const sharedEffects = option.skillCheck
+      ? this.getSharedOutcomeEffects(
+          option.skillCheck.successOutcome,
+          option.skillCheck.failureOutcome
+        )
+      : undefined;
+    const effectRanges = this.getOutcomeEffectRanges(option);
 
     return {
       id: option.id,
       title: option.title,
       outcomeDescription: option.outcomeDescription,
+      resourceEffects: sharedEffects?.resourceEffects ?? option.outcome?.resourceEffects,
+      focusDelta: sharedEffects?.focusDelta ?? option.outcome?.focusDelta,
+      resourceRanges: effectRanges.resourceRanges,
+      focusRange: effectRanges.focusRange,
       skillCheck,
       disabled: !result.eligible,
       disabledReason: result.reason,
@@ -550,7 +561,7 @@ export class RandomEventManager {
     ) {
       return {
         eligible: false,
-        reason: `Requires ${requirements.minFocus} Focus.`,
+        reason: 'Not enough Focus.',
       };
     }
 
@@ -573,7 +584,7 @@ export class RandomEventManager {
         if (this.resourceManager.getResource(resourceType) < amount) {
           return {
             eligible: false,
-            reason: `Requires ${amount} ${this.getResourceLabel(resourceType)}.`,
+            reason: 'Insufficient resources.',
           };
         }
       }
@@ -778,33 +789,6 @@ export class RandomEventManager {
     return isResearchId(id) ? (getResearchDefinition(id)?.name ?? id) : id;
   }
 
-  private getResourceLabel(resourceType: ResourceType): string {
-    switch (resourceType) {
-      case 'gold':
-        return 'Gold';
-      case 'wood':
-        return 'Wood';
-      case 'stone':
-        return 'Stone';
-      case 'jewelry':
-        return 'Jewelry';
-      case 'ironOre':
-        return 'Iron Ore';
-      case 'wheat':
-        return 'Wheat';
-      case 'meat':
-        return 'Meat';
-      case 'bread':
-        return 'Bread';
-      case 'population':
-        return 'Population';
-      case 'politicalPower':
-        return 'Political Power';
-      default:
-        return resourceType;
-    }
-  }
-
   private getBuildingLabel(buildingId: StateBuildingId): string {
     return this.buildingManager.getBuildingDefinition(buildingId)?.name ?? buildingId;
   }
@@ -818,5 +802,92 @@ export class RandomEventManager {
 
   private getUnitLabel(unitId: UnitRole): string {
     return getUnitDefinition(unitId)?.name ?? unitId;
+  }
+
+  private getSharedOutcomeEffects(
+    a: RandomEventOutcome,
+    b: RandomEventOutcome
+  ): {
+    resourceEffects?: Partial<Record<ResourceType, number>>;
+    focusDelta?: number;
+  } {
+    const resourceEffects: Partial<Record<ResourceType, number>> = {};
+    const resourceKeys = new Set<ResourceType>([
+      ...Object.keys(a.resourceEffects ?? {}),
+      ...Object.keys(b.resourceEffects ?? {}),
+    ] as ResourceType[]);
+
+    for (const resourceType of resourceKeys) {
+      const aAmount = a.resourceEffects?.[resourceType];
+      const bAmount = b.resourceEffects?.[resourceType];
+      if (aAmount !== undefined && bAmount !== undefined && aAmount === bAmount) {
+        resourceEffects[resourceType] = aAmount;
+      }
+    }
+
+    const sharedFocusDelta =
+      a.focusDelta !== undefined &&
+      b.focusDelta !== undefined &&
+      a.focusDelta === b.focusDelta
+        ? a.focusDelta
+        : undefined;
+
+    return {
+      resourceEffects:
+        Object.keys(resourceEffects).length > 0 ? resourceEffects : undefined,
+      focusDelta: sharedFocusDelta,
+    };
+  }
+
+  private getOutcomeEffectRanges(
+    option: RandomEventOptionDefinition
+  ): {
+    resourceRanges?: Array<{ resourceType: ResourceType; min: number; max: number }>;
+    focusRange?: { min: number; max: number };
+  } {
+    const outcomes = option.outcome
+      ? [option.outcome]
+      : option.skillCheck
+        ? [option.skillCheck.successOutcome, option.skillCheck.failureOutcome]
+        : [];
+
+    if (outcomes.length === 0) {
+      return {};
+    }
+
+    const resourceKeys = new Set<ResourceType>(
+      outcomes.flatMap((outcome) =>
+        Object.keys(outcome.resourceEffects ?? {}) as ResourceType[]
+      )
+    );
+    const resourceRanges: Array<{
+      resourceType: ResourceType;
+      min: number;
+      max: number;
+    }> = [];
+
+    for (const resourceType of resourceKeys) {
+      const values = outcomes.map(
+        (outcome) => outcome.resourceEffects?.[resourceType] ?? 0
+      );
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      if (min === 0 && max === 0) {
+        continue;
+      }
+      resourceRanges.push({ resourceType, min, max });
+    }
+
+    const focusValues = outcomes.map((outcome) => outcome.focusDelta ?? 0);
+    const focusMin = Math.min(...focusValues);
+    const focusMax = Math.max(...focusValues);
+
+    return {
+      resourceRanges: resourceRanges.length > 0 ? resourceRanges : undefined,
+      focusRange:
+        focusMin === 0 && focusMax === 0
+          ? undefined
+          : { min: focusMin, max: focusMax },
+    };
   }
 }

@@ -9,6 +9,11 @@ import type { StateData } from './state.models';
 
 export type FarmWorkMode = 'idle' | 'sow' | 'harvest';
 export type LumbermillWorkMode = 'idle' | 'harvest' | 'plant';
+export type FisheryWorkMode =
+  | 'idle'
+  | 'line-fishing'
+  | 'net-fishing'
+  | 'gold-panning';
 
 export interface StateBuildingBuildStatus {
   buildable: boolean;
@@ -50,6 +55,8 @@ export interface StateBuildingInstance {
   lumbermillWorkMode?: LumbermillWorkMode;
   /** Lumbermill-only: turns remaining before next harvest/plant action. */
   lumbermillCooldown?: number;
+  /** Fishery-only: current work mode. */
+  fisheryWorkMode?: FisheryWorkMode;
 }
 
 export interface BuildingActionProgress {

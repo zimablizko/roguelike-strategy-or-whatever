@@ -1,8 +1,8 @@
+import type { GameSetupData } from '../_common/models/game-setup.models';
 import type {
   GameManagerOptions,
   PlayerData,
 } from '../_common/models/game.models';
-import type { GameSetupData } from '../_common/models/game-setup.models';
 import type { GameSaveData } from '../_common/models/save.models';
 import { SeededRandom } from '../_common/random';
 import {
@@ -36,6 +36,7 @@ export class GameManager {
       wheat: 0,
       meat: 50,
       bread: 50,
+      fish: 0,
       population: 10,
       politicalPower: 0,
     },
@@ -153,7 +154,8 @@ export class GameManager {
         BARRACKS_GARRISON_PER_INSTANCE,
       isTechnologyUnlocked: (techId: string) =>
         this.buildingManager.isTechnologyUnlocked(techId),
-      grantResources: (resources) => this.resourceManager.addResources(resources),
+      grantResources: (resources) =>
+        this.resourceManager.addResources(resources),
       logManager: this.logManager,
       initial: saveData?.military ?? undefined,
     });

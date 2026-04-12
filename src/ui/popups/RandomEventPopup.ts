@@ -122,15 +122,18 @@ export class RandomEventPopup extends ScreenPopup {
       button,
       option.title,
       tooltipText,
-      option.skillCheck
-        ? [
-            {
-              label: 'Skillcheck',
-              value: `${option.skillCheck.skillLabel} (${option.skillCheck.difficultyLabel})`,
-              color: this.getSkillCheckDifficultyColor(option.skillCheck.target),
-            },
-          ]
-        : []
+      [
+        ...(option.tooltipOutcomes ?? []),
+        ...(option.skillCheck
+          ? [
+              {
+                label: 'Skillcheck',
+                value: `${option.skillCheck.skillLabel} (${option.skillCheck.difficultyLabel})`,
+                color: this.getSkillCheckDifficultyColor(option.skillCheck.target),
+              },
+            ]
+          : []),
+      ]
     );
     return row;
   }

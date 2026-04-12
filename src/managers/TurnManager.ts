@@ -14,9 +14,7 @@ import type {
 } from '../_common/models/turn.models';
 import { SeededRandom } from '../_common/random';
 import { buildingPassiveIncome } from '../data/buildings';
-import {
-  isMarketCaravanArrivalTurn,
-} from '../data/marketCommerce';
+import { isMarketCaravanArrivalTurn } from '../data/marketCommerce';
 import {
   rareResourceDefinitions,
   type RareResourceId,
@@ -200,6 +198,17 @@ export class TurnManager {
       }
     }
     actionPulses.push(...lumbermillPulses);
+
+    // Process automatic fishery work modes (line-fishing / net-fishing / gold-panning)
+    const fisheryPulses = this.buildingManager.processFisheryWorkModes(
+      this.resourceManager
+    );
+    for (const pulse of fisheryPulses) {
+      if (pulse.resourceType && pulse.amount) {
+        this.resourceManager.addResource(pulse.resourceType, pulse.amount);
+      }
+    }
+    actionPulses.push(...fisheryPulses);
 
     this.turnData.turnNumber++;
     this.resetFocus();

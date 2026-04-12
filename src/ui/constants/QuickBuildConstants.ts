@@ -27,6 +27,7 @@ export const QUICK_BUILD_HOTKEYS: Partial<
   barracks: { key: Keys.K, label: 'K' },
   bakery: { key: Keys.R, label: 'R' },
   market: { key: Keys.A, label: 'A' },
+  fishery: { key: Keys.I, label: 'I' },
 };
 
 export const QUICK_BUILD_COLORS = {

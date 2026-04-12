@@ -318,4 +318,34 @@ export const stateBuildingDefinitions = {
       },
     ],
   },
+  fishery: {
+    id: 'fishery',
+    shortName: 'Fsh',
+    name: "Fisherman's Hut",
+    description:
+      'A riverside fishing hut built on the shore. Passively produces Fish each turn and can Cast Nets for bonus yield from nearby waters.',
+    buildCost: {
+      gold: 25,
+      wood: 15,
+    },
+    costGrowth: 1.2,
+    unique: false,
+    buildingTime: 2,
+    populationRequired: 1,
+    placementRule: {
+      width: 2,
+      height: 2,
+      allowedTiles: ['plains', 'sand'] as MapTileType[],
+      adjacentToTiles: ['river', 'ocean'] as MapTileType[],
+    },
+    placementDescription:
+      'Requires 2x2 Plains/Sand area adjacent to River or Ocean.',
+    requiredTechnologies: ['eco-fishing'],
+    getStats: (state: { tiles: { river: number } }, count: number) => [
+      `Built: ${count}`,
+      `River tiles in territory: ${state.tiles.river}`,
+      'Passive income: +1–2 Fish/turn (Line), +2–3 Fish/turn (Net, costs Wood)',
+    ],
+    actions: [],
+  },
 } as const satisfies Record<string, StateBuildingDefinition>;
