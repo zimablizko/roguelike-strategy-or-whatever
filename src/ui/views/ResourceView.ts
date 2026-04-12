@@ -3,16 +3,19 @@ import {
   Font,
   FontUnit,
   GraphicsGroup,
-  GraphicsGrouping,
+  type GraphicsGrouping,
   Rectangle,
   type Scene,
   ScreenElement,
-  Sprite,
+  type Sprite,
   Text,
   vec,
 } from 'excalibur';
 import { getIconSprite } from '../../_common/icons';
-import type { ResourceStock } from '../../_common/models/resource.models';
+import type {
+  ResourceStock,
+  ResourceType,
+} from '../../_common/models/resource.models';
 import { FOOD_RESOURCE_TYPES } from '../../_common/models/resource.models';
 import type {
   ResourceConfig,
@@ -23,6 +26,26 @@ import { FONT_FAMILY } from '../../_common/text';
 import { BuildingManager } from '../../managers/BuildingManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
+
+/** Floating red text shown when a resource is spent. */
+interface ResourceSpendPulse {
+  key: ResourceDisplayKey;
+  ageMs: number;
+  durationMs: number;
+  liftPx: number;
+  text: Text;
+  shadow: Text;
+  textWidth: number;
+  textHeight: number;
+}
+
+import {
+  SHAKE_AMPLITUDE_PX,
+  SHAKE_ANGULAR_SPEED,
+  SHAKE_DURATION_MS,
+  SPEND_PULSE_DURATION_MS,
+  SPEND_PULSE_LIFT_PX,
+} from '../constants/SpendFeedbackConstants';
 
 /**
  * UI component that displays current player resources with icons
@@ -65,6 +88,11 @@ export class ResourceDisplay extends ScreenElement {
   private lastBuildingsVersion = -1;
   private lastOccupiedPopulation = -1;
   private lastTotalPopulation = -1;
+  private spendPulses: ResourceSpendPulse[] = [];
+  private shakes = new Map<
+    ResourceDisplayKey,
+    { ageMs: number; durationMs: number }
+  >();
 
   constructor(options: ResourceDisplayOptions) {
     super({ x: options.x, y: options.y });
@@ -131,8 +159,28 @@ export class ResourceDisplay extends ScreenElement {
     this.updateDisplay(true);
   }
 
-  onPreUpdate(): void {
-    this.updateDisplay(false);
+  onPreUpdate(_engine: unknown, elapsedMs: number): void {
+    // Drain spend notifications and aggregate by display key
+    const notifications = this.resourceManager.drainSpendNotifications();
+    if (notifications.length > 0) {
+      const aggregated = new Map<ResourceDisplayKey, number>();
+      for (const { type, amount } of notifications) {
+        const displayKey = this.mapToDisplayKey(type);
+        if (displayKey !== undefined) {
+          aggregated.set(
+            displayKey,
+            (aggregated.get(displayKey) ?? 0) + amount
+          );
+        }
+      }
+      for (const [key, amount] of aggregated) {
+        this.createSpendPulse(key, amount);
+        this.startShake(key);
+      }
+    }
+
+    const hasActiveEffects = this.tickEffects(elapsedMs);
+    this.updateDisplay(false, hasActiveEffects);
   }
 
   private sameResources(a: ResourceStock, b: ResourceStock): boolean {
@@ -154,7 +202,7 @@ export class ResourceDisplay extends ScreenElement {
   /**
    * Update the graphics to reflect current resource values
    */
-  private updateDisplay(force: boolean): void {
+  private updateDisplay(force: boolean, effectsActive = false): void {
     const resources = this.resourceManager.getAllResourcesRef();
     const buildingsVersion = this.buildingManager.getBuildingsVersion();
     const occupiedPopulation = this.buildingManager.getOccupiedPopulation();
@@ -162,6 +210,7 @@ export class ResourceDisplay extends ScreenElement {
 
     if (
       !force &&
+      !effectsActive &&
       this.lastRendered &&
       this.lastBuildingsVersion === buildingsVersion &&
       this.lastOccupiedPopulation === occupiedPopulation &&
@@ -232,10 +281,11 @@ export class ResourceDisplay extends ScreenElement {
 
       // Icon sprite
       const sprite = this.getIconSprite(config);
+      const shakeX = this.getShakeOffset(config.key);
       if (sprite) {
         members.push({
           graphic: sprite,
-          offset: vec(xOffset, iconY),
+          offset: vec(xOffset + shakeX, iconY),
         });
       }
 
@@ -265,10 +315,34 @@ export class ResourceDisplay extends ScreenElement {
       const textY = padding + (innerHeight - 16) / 2;
       members.push({
         graphic: valueText,
-        offset: vec(xOffset + this.iconSize + iconTextGap, textY),
+        offset: vec(xOffset + this.iconSize + iconTextGap + shakeX, textY),
       });
 
       xOffset += itemWidth + this.spacing;
+    }
+
+    // Render floating spend pulse text below resource items
+    for (const pulse of this.spendPulses) {
+      const rect = this.resourceItemRects[pulse.key];
+      if (!rect) continue;
+
+      const progress = Math.min(1, pulse.ageMs / pulse.durationMs);
+      const alpha = 1 - progress;
+      const floatY = pulse.liftPx * progress;
+      const centerX = rect.x + rect.width / 2 - pulse.textWidth / 2;
+      const startY = rect.y + rect.height;
+
+      pulse.shadow.opacity = alpha * 0.8;
+      pulse.text.opacity = alpha;
+
+      members.push({
+        graphic: pulse.shadow,
+        offset: vec(centerX + 1, startY + floatY + 1),
+      });
+      members.push({
+        graphic: pulse.text,
+        offset: vec(centerX, startY + floatY),
+      });
     }
 
     this.graphics.use(
@@ -293,6 +367,94 @@ export class ResourceDisplay extends ScreenElement {
       return (value / 1000).toFixed(1) + 'K';
     }
     return value.toString();
+  }
+
+  // ============ Spend-feedback effects ============
+
+  private mapToDisplayKey(type: ResourceType): ResourceDisplayKey | undefined {
+    switch (type) {
+      case 'gold':
+      case 'wood':
+      case 'stone':
+      case 'population':
+      case 'politicalPower':
+        return type;
+      case 'meat':
+      case 'bread':
+      case 'fish':
+        return 'food';
+      default:
+        return undefined;
+    }
+  }
+
+  private createSpendPulse(key: ResourceDisplayKey, amount: number): void {
+    const displayText = `-${this.formatValue(amount)}`;
+    const text = new Text({
+      text: displayText,
+      font: new Font({
+        size: 18,
+        unit: FontUnit.Px,
+        color: Color.fromHex('#e05252'),
+        family: FONT_FAMILY,
+      }),
+    });
+    const shadow = new Text({
+      text: displayText,
+      font: new Font({
+        size: 18,
+        unit: FontUnit.Px,
+        color: Color.fromRGB(8, 12, 16),
+        family: FONT_FAMILY,
+      }),
+    });
+    this.spendPulses.push({
+      key,
+      ageMs: 0,
+      durationMs: SPEND_PULSE_DURATION_MS,
+      liftPx: SPEND_PULSE_LIFT_PX,
+      text,
+      shadow,
+      textWidth: text.width,
+      textHeight: text.height,
+    });
+  }
+
+  private startShake(key: ResourceDisplayKey): void {
+    this.shakes.set(key, { ageMs: 0, durationMs: SHAKE_DURATION_MS });
+  }
+
+  private tickEffects(elapsedMs: number): boolean {
+    // Advance spend pulses and prune expired ones
+    let write = 0;
+    for (let i = 0; i < this.spendPulses.length; i++) {
+      const pulse = this.spendPulses[i];
+      pulse.ageMs += elapsedMs;
+      if (pulse.ageMs < pulse.durationMs) {
+        this.spendPulses[write++] = pulse;
+      }
+    }
+    this.spendPulses.length = write;
+
+    // Advance shakes and prune expired ones
+    for (const [key, shake] of this.shakes) {
+      shake.ageMs += elapsedMs;
+      if (shake.ageMs >= shake.durationMs) {
+        this.shakes.delete(key);
+      }
+    }
+
+    return this.spendPulses.length > 0 || this.shakes.size > 0;
+  }
+
+  private getShakeOffset(key: ResourceDisplayKey): number {
+    const shake = this.shakes.get(key);
+    if (!shake) return 0;
+    const progress = shake.ageMs / shake.durationMs;
+    const decay = 1 - progress;
+    return (
+      SHAKE_AMPLITUDE_PX * Math.sin(shake.ageMs * SHAKE_ANGULAR_SPEED) * decay
+    );
   }
 
   private updateHoveredResource(screenX: number, screenY: number): void {

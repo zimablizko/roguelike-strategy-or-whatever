@@ -18,6 +18,7 @@ import type {
   ScreenPopupOptions,
 } from '../../_common/models/ui.models';
 import { FONT_FAMILY } from '../../_common/text';
+import { LAYOUT } from '../constants/LayoutConstants';
 import { UI_Z } from '../constants/ZLayers';
 import { installForegroundPointerBlocker } from '../utils/PointerBlocker';
 import { ScreenButton } from './ScreenButton';
@@ -252,7 +253,11 @@ export class ScreenPopup extends ScreenElement {
       return;
     }
 
-    const backplate = new ScreenElement({ x: 0, y: 0 });
+    const isFullBackplate = this.backplateStyle === 'gray-full';
+    const backplate = new ScreenElement({
+      x: 0,
+      y: isFullBackplate ? 0 : LAYOUT.TOPBAR_HEIGHT,
+    });
     backplate.anchor = vec(0, 0);
     backplate.z = this.z - 1;
     backplate.pointer.useGraphicsBounds = true;
@@ -320,8 +325,11 @@ export class ScreenPopup extends ScreenElement {
     }
 
     const engine = this.scene.engine;
+    const isFullBackplate = this.backplateStyle === 'gray-full';
     const width = engine.drawWidth;
-    const height = engine.drawHeight;
+    const height = isFullBackplate
+      ? engine.drawHeight
+      : engine.drawHeight - LAYOUT.TOPBAR_HEIGHT;
     if (
       width === this.backplateDrawWidth &&
       height === this.backplateDrawHeight

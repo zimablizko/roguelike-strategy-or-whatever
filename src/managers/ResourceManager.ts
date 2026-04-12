@@ -26,6 +26,7 @@ export class ResourceManager {
 
   private resources: ResourceStock;
   private resourcesVersion = 0;
+  private spendNotifications: { type: ResourceType; amount: number }[] = [];
 
   constructor(options: ResourceManagerOptions) {
     this.resources = {
@@ -67,6 +68,19 @@ export class ResourceManager {
   }
 
   /**
+   * Drain the queue of spend notifications (for UI feedback).
+   * Returns the accumulated notifications and clears the queue.
+   */
+  drainSpendNotifications(): readonly { type: ResourceType; amount: number }[] {
+    if (this.spendNotifications.length === 0) {
+      return this.spendNotifications;
+    }
+    const result = this.spendNotifications;
+    this.spendNotifications = [];
+    return result;
+  }
+
+  /**
    * Set a specific resource to an exact value (clamped to 0)
    */
   setResource(type: ResourceType, amount: number): void {
@@ -78,7 +92,14 @@ export class ResourceManager {
    * Add an amount to a specific resource (result clamped to 0)
    */
   addResource(type: ResourceType, amount: number): void {
-    this.resources[type] = Math.max(0, this.resources[type] + amount);
+    const before = this.resources[type];
+    this.resources[type] = Math.max(0, before + amount);
+    if (amount < 0) {
+      const actualLoss = before - this.resources[type];
+      if (actualLoss > 0) {
+        this.spendNotifications.push({ type, amount: actualLoss });
+      }
+    }
     this.resourcesVersion++;
   }
 
@@ -90,6 +111,7 @@ export class ResourceManager {
     if (this.resources[type] >= amount) {
       this.resources[type] -= amount;
       this.resourcesVersion++;
+      this.spendNotifications.push({ type, amount });
       return true;
     }
     return false;
@@ -135,6 +157,7 @@ export class ResourceManager {
       number,
     ][]) {
       this.resources[type] -= amount;
+      this.spendNotifications.push({ type, amount });
     }
     this.resourcesVersion++;
     return true;
@@ -148,7 +171,14 @@ export class ResourceManager {
       ResourceType,
       number,
     ][]) {
-      this.resources[type] = Math.max(0, this.resources[type] + amount);
+      const before = this.resources[type];
+      this.resources[type] = Math.max(0, before + amount);
+      if (amount < 0) {
+        const actualLoss = before - this.resources[type];
+        if (actualLoss > 0) {
+          this.spendNotifications.push({ type, amount: actualLoss });
+        }
+      }
     }
     this.resourcesVersion++;
   }

@@ -3,7 +3,7 @@ import {
   Font,
   FontUnit,
   GraphicsGroup,
-  GraphicsGrouping,
+  type GraphicsGrouping,
   Rectangle,
   ScreenElement,
   Text,
@@ -14,6 +14,23 @@ import type { FocusDisplayOptions } from '../../_common/models/ui.models';
 import { FONT_FAMILY } from '../../_common/text';
 import { TurnManager } from '../../managers/TurnManager';
 import type { TooltipProvider } from '../tooltip/TooltipProvider';
+
+/** Floating red text shown when focus is spent. */
+interface FocusSpendPulse {
+  ageMs: number;
+  durationMs: number;
+  liftPx: number;
+  text: Text;
+  shadow: Text;
+  textWidth: number;
+  textHeight: number;
+}
+
+const SPEND_PULSE_DURATION_MS = 2000;
+const SPEND_PULSE_LIFT_PX = 40;
+const SHAKE_DURATION_MS = 350;
+const SHAKE_AMPLITUDE_PX = 3;
+const SHAKE_ANGULAR_SPEED = 0.07;
 
 /**
  * UI component that displays the focus (action-point) bar.
@@ -35,6 +52,8 @@ export class FocusDisplay extends ScreenElement {
   private lastPanelHeight = 0;
 
   private lastRendered: { apCurrent: number; apMax: number } | undefined;
+  private spendPulses: FocusSpendPulse[] = [];
+  private shake: { ageMs: number; durationMs: number } | undefined;
 
   constructor(options: FocusDisplayOptions) {
     super({ x: options.x, y: options.y });
@@ -84,11 +103,20 @@ export class FocusDisplay extends ScreenElement {
     }
   }
 
-  onPreUpdate(): void {
-    this.updateDisplay(false);
+  onPreUpdate(_engine: unknown, elapsedMs: number): void {
+    const notifications = this.turnManager.drainFocusSpendNotifications();
+    if (notifications.length > 0) {
+      let total = 0;
+      for (const n of notifications) total += n;
+      this.createSpendPulse(total);
+      this.shake = { ageMs: 0, durationMs: SHAKE_DURATION_MS };
+    }
+
+    const hasActiveEffects = this.tickEffects(elapsedMs);
+    this.updateDisplay(false, hasActiveEffects);
   }
 
-  private updateDisplay(force: boolean): void {
+  private updateDisplay(force: boolean, effectsActive = false): void {
     const turnData = this.turnManager.getTurnDataRef();
     const next = {
       apCurrent: turnData.focus.current,
@@ -97,6 +125,7 @@ export class FocusDisplay extends ScreenElement {
 
     if (
       !force &&
+      !effectsActive &&
       this.lastRendered &&
       this.lastRendered.apCurrent === next.apCurrent &&
       this.lastRendered.apMax === next.apMax
@@ -183,13 +212,14 @@ export class FocusDisplay extends ScreenElement {
       }
     );
 
-    // Focus icon + text (centered)
+    // Focus icon + text (centered) with shake offset
+    const shakeX = this.getShakeOffset();
     const focusRowX = panelPaddingX + (contentWidth - focusRowWidth) / 2;
     if (focusIconSprite) {
       members.push({
         graphic: focusIconSprite,
         offset: vec(
-          focusRowX,
+          focusRowX + shakeX,
           panelPaddingY + (apText.height - focusIconSize) / 2
         ),
       });
@@ -197,7 +227,9 @@ export class FocusDisplay extends ScreenElement {
     members.push({
       graphic: apText,
       offset: vec(
-        focusRowX + (focusIconSprite ? focusIconSize + focusIconGap : 0),
+        focusRowX +
+          (focusIconSprite ? focusIconSize + focusIconGap : 0) +
+          shakeX,
         panelPaddingY
       ),
     });
@@ -278,10 +310,96 @@ export class FocusDisplay extends ScreenElement {
       });
     }
 
+    // Floating spend pulse text below the panel
+    for (const pulse of this.spendPulses) {
+      const progress = Math.min(1, pulse.ageMs / pulse.durationMs);
+      const alpha = 1 - progress;
+      const floatY = pulse.liftPx * progress;
+      const centerX = panelWidth / 2 - pulse.textWidth / 2;
+      const startY = panelHeight;
+
+      pulse.shadow.opacity = alpha * 0.8;
+      pulse.text.opacity = alpha;
+
+      members.push({
+        graphic: pulse.shadow,
+        offset: vec(centerX + 1, startY + floatY + 1),
+      });
+      members.push({
+        graphic: pulse.text,
+        offset: vec(centerX, startY + floatY),
+      });
+    }
+
     this.graphics.use(
       new GraphicsGroup({
         members,
       })
+    );
+  }
+
+  // ============ Spend-feedback effects ============
+
+  private createSpendPulse(amount: number): void {
+    const displayText = `-${amount}`;
+    const text = new Text({
+      text: displayText,
+      font: new Font({
+        size: 18,
+        unit: FontUnit.Px,
+        color: Color.fromHex('#e05252'),
+        family: FONT_FAMILY,
+      }),
+    });
+    const shadow = new Text({
+      text: displayText,
+      font: new Font({
+        size: 18,
+        unit: FontUnit.Px,
+        color: Color.fromRGB(8, 12, 16),
+        family: FONT_FAMILY,
+      }),
+    });
+    this.spendPulses.push({
+      ageMs: 0,
+      durationMs: SPEND_PULSE_DURATION_MS,
+      liftPx: SPEND_PULSE_LIFT_PX,
+      text,
+      shadow,
+      textWidth: text.width,
+      textHeight: text.height,
+    });
+  }
+
+  private tickEffects(elapsedMs: number): boolean {
+    let write = 0;
+    for (let i = 0; i < this.spendPulses.length; i++) {
+      const pulse = this.spendPulses[i];
+      pulse.ageMs += elapsedMs;
+      if (pulse.ageMs < pulse.durationMs) {
+        this.spendPulses[write++] = pulse;
+      }
+    }
+    this.spendPulses.length = write;
+
+    if (this.shake) {
+      this.shake.ageMs += elapsedMs;
+      if (this.shake.ageMs >= this.shake.durationMs) {
+        this.shake = undefined;
+      }
+    }
+
+    return this.spendPulses.length > 0 || this.shake !== undefined;
+  }
+
+  private getShakeOffset(): number {
+    if (!this.shake) return 0;
+    const progress = this.shake.ageMs / this.shake.durationMs;
+    const decay = 1 - progress;
+    return (
+      SHAKE_AMPLITUDE_PX *
+      Math.sin(this.shake.ageMs * SHAKE_ANGULAR_SPEED) *
+      decay
     );
   }
 }

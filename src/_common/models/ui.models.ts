@@ -28,11 +28,11 @@ import type {
 } from './buildings.models';
 import type { MapData, MapTileType } from './map.models';
 import type { BattleResult } from './military.models';
+import type { RandomEventSkillCheckPresentation } from './random-events.models';
 import type { TypedResearchDefinition } from './researches.models';
 import type { ResourceType } from './resource.models';
 import type { TooltipOutcome } from './tooltip.models';
 import type { EndTurnIncomePulse } from './turn.models';
-import type { RandomEventSkillCheckPresentation } from './random-events.models';
 
 export interface InteractivePanelOptions {
   x: number;
@@ -135,7 +135,7 @@ export interface ScreenListButtonItem {
 }
 
 export type ScreenPopupAnchor = 'top-left' | 'top-right' | 'center';
-export type ScreenPopupBackplateStyle = 'gray';
+export type ScreenPopupBackplateStyle = 'gray' | 'gray-full';
 
 export type ScreenPopupContentBuilder = (
   contentRoot: ScreenElement,
@@ -481,7 +481,11 @@ export interface RandomEventOption {
   outcomeDescription: string;
   resourceEffects?: Partial<Record<ResourceType, number>>;
   focusDelta?: number;
-  resourceRanges?: Array<{ resourceType: ResourceType; min: number; max: number }>;
+  resourceRanges?: Array<{
+    resourceType: ResourceType;
+    min: number;
+    max: number;
+  }>;
   focusRange?: { min: number; max: number };
   tooltipOutcomes?: TooltipOutcome[];
   skillCheck?: RandomEventSkillCheckPresentation;

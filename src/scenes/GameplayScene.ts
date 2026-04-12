@@ -14,10 +14,10 @@ import { getIconSprite } from '../_common/icons';
 import type { StateBuildingId } from '../_common/models/buildings.models';
 import type { GameSetupData } from '../_common/models/game-setup.models';
 import { FOOD_RESOURCE_TYPES } from '../_common/models/resource.models';
-import type { RandomEventOption } from '../_common/models/ui.models';
 import type { SaveSlotId } from '../_common/models/save.models';
 import type {
   MapBuildPlacementOverlay,
+  RandomEventOption,
   RandomEventPopupOptions,
 } from '../_common/models/ui.models';
 import { createGameTestBridge } from '../_common/testing/gameTestBridge';
@@ -51,11 +51,11 @@ import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
 import { ResearchPopup } from '../ui/popups/ResearchPopup';
 import { RulerPopup } from '../ui/popups/RulerPopup';
 import { StatePopup } from '../ui/popups/StatePopup';
+import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import {
   buildTooltipEffectResourceSections,
   buildTooltipResourceSection,
 } from '../ui/tooltip/TooltipResourceSection';
-import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
 import { LogView } from '../ui/views/LogView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
@@ -930,6 +930,10 @@ export class GameplayScene extends Scene {
       this.gameMenuPopup.close();
       this.gameMenuPopup = undefined;
     }
+    if (this.testPopup) {
+      this.testPopup.close();
+      this.testPopup = undefined;
+    }
 
     const popup = new GameMenuPopup({
       engine,
@@ -1093,6 +1097,10 @@ export class GameplayScene extends Scene {
       this.testPopup.close();
       this.testPopup = undefined;
     }
+    if (this.gameMenuPopup) {
+      this.gameMenuPopup.close();
+      this.gameMenuPopup = undefined;
+    }
 
     const popup = new ScreenPopup({
       x: engine.drawWidth / 2,
@@ -1101,7 +1109,8 @@ export class GameplayScene extends Scene {
       width: 520,
       height: 360,
       title: 'Debug Menu',
-      backplateStyle: 'gray',
+      z: UI_Z.modalPopup,
+      backplateStyle: 'gray-full',
       closeOnBackplateClick: true,
       content: debugButtons,
       onClose: () => {

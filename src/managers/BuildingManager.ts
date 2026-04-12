@@ -305,7 +305,7 @@ export class BuildingManager {
   /**
    * Returns the total rare-resource passive income bonus for a specific
    * building instance, grouped by resource type. Ranges are scaled by the
-   * number of matching tiles (e.g. 2 golden-ore tiles = +10 Gold).
+   * number of matching tiles (e.g. 2 golden-ore tiles = +4 Gold).
    */
   getRareResourceBonusForInstance(
     instanceId: string
@@ -966,7 +966,6 @@ export class BuildingManager {
       if (this.getFreePopulation() < 1) {
         return {
           activatable: false,
-          reason: 'Requires at least 1 free Population.',
           usesRemaining,
           usesMax,
         };
@@ -981,9 +980,6 @@ export class BuildingManager {
         if (missingEntries.length > 0) {
           return {
             activatable: false,
-            reason: `Missing ${missingEntries
-              .map(([resourceType, amount]) => `${amount} ${resourceType}`)
-              .join(', ')}.`,
             usesRemaining,
             usesMax,
           };

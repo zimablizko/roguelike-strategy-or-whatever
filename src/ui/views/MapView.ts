@@ -16,16 +16,16 @@ import {
 } from '../../_common/buildings-sprites';
 import { ICON_LAYOUT, IconsSpritesheet } from '../../_common/icons';
 import type { MapData, MapTileType } from '../../_common/models/map.models';
+import type {
+  MapBuildingOverlay,
+  MapBuildPlacementOverlay,
+  MapViewOptions,
+} from '../../_common/models/ui.models';
 import {
   getTerrainTileFrame,
   TILE_CELL_SIZE,
   TilesSpritesheet,
 } from '../../_common/tiles-sprites';
-import type {
-  MapBuildPlacementOverlay,
-  MapBuildingOverlay,
-  MapViewOptions,
-} from '../../_common/models/ui.models';
 import {
   rareResourceDefinitions,
   type RareResourceId,
@@ -434,7 +434,7 @@ export class MapView extends Actor {
       // Border
       ctx.strokeStyle = selected
         ? 'rgba(245, 196, 15, 0.98)'
-        : 'rgba(34, 35, 37, 0.96)';
+        : 'rgba(128, 128, 128, 0.5)';
       ctx.lineWidth = selected ? borderWidth + 2 : borderWidth;
       ctx.strokeRect(
         blockLeft + borderWidth / 2,
@@ -1401,8 +1401,8 @@ export class MapView extends Actor {
     if (type === 'rocks') return '#8b8f94';
     if (type === 'sand') return '#e5d178';
     if (type === 'river') return '#89d5ff';
-    if (type === 'field') return '#c8a84b';
-    if (type === 'field-empty') return '#8c7a42';
+    if (type === 'field') return '#9bd47f';
+    if (type === 'field-empty') return '#9bd47f';
     return '#2f6fc9';
   }
 

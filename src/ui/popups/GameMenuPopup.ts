@@ -1,4 +1,5 @@
 import { Engine } from 'excalibur';
+import { UI_Z } from '../constants/ZLayers';
 import { ScreenButton } from '../elements/ScreenButton';
 import { ScreenPopup } from '../elements/ScreenPopup';
 
@@ -33,7 +34,8 @@ export class GameMenuPopup extends ScreenPopup {
       width: 300,
       height: 150,
       title: 'Game Menu',
-      backplateStyle: 'gray',
+      z: UI_Z.modalPopup,
+      backplateStyle: 'gray-full',
       closeOnBackplateClick: true,
       content: [exitButton],
       onClose,

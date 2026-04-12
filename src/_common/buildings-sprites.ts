@@ -8,7 +8,8 @@ const CELL_SIZE = 48;
  *
  * Current grid (cell size 48×48 px):
  *
- *  row 0:  castle | house | lumbermill | hunters-hut | farm | field | field-empty | fishery
+ *  row 0:  castle | house | lumbermill | hunters-hut | farm | field | field-empty
+ *  row 1:  bakery | barracks | market | fishery | mine
  *
  * To add a new sprite: add a cell to the spritesheet and register it below.
  * Update `columns` / `rows` in the SpriteSheet grid if the sheet dimensions grow.
@@ -21,7 +22,11 @@ export const SPRITE_LAYOUT = {
   farm: { col: 4, row: 0 },
   field: { col: 5, row: 0 },
   'field-empty': { col: 6, row: 0 },
-  fishery: { col: 7, row: 0 },
+  bakery: { col: 0, row: 1 },
+  barracks: { col: 1, row: 1 },
+  market: { col: 2, row: 1 },
+  fishery: { col: 3, row: 1 },
+  mine: { col: 4, row: 1 },
 } as const;
 
 export type SpriteId = keyof typeof SPRITE_LAYOUT;
@@ -35,7 +40,7 @@ export const BuildingsSpritesheet = new ImageSource(
 const buildingSheet = SpriteSheet.fromImageSource({
   image: BuildingsSpritesheet,
   grid: {
-    rows: 1,
+    rows: 2,
     columns: 8,
     spriteWidth: CELL_SIZE,
     spriteHeight: CELL_SIZE,

@@ -183,11 +183,11 @@ export const stateBuildingDefinitions = {
     buildingTime: 3,
     populationRequired: 3,
     placementRule: {
-      width: 3,
+      width: 2,
       height: 2,
       allowedTiles: ['plains', 'sand'] as MapTileType[],
     },
-    placementDescription: 'Requires 3x2 free Plains/Sand area.',
+    placementDescription: 'Requires 2x2 free Plains/Sand area.',
     requiredTechnologies: ['mil-drill-doctrine'],
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
@@ -323,7 +323,7 @@ export const stateBuildingDefinitions = {
     shortName: 'Fsh',
     name: "Fisherman's Hut",
     description:
-      'A riverside fishing hut built on the shore. Passively produces Fish each turn and can Cast Nets for bonus yield from nearby waters.',
+      'A small riverside hut where fishermen ply their trade, providing fresh fish to the settlement.',
     buildCost: {
       gold: 25,
       wood: 15,

@@ -33,12 +33,12 @@ import {
   QUICK_BUILD_LAYOUT,
 } from '../constants/QuickBuildConstants';
 import { ScreenButton } from '../elements/ScreenButton';
+import { TooltipProvider } from '../tooltip/TooltipProvider';
 import {
   buildTooltipCostEntries,
   buildTooltipResourceSection,
   type TooltipResourceEntry,
 } from '../tooltip/TooltipResourceSection';
-import { TooltipProvider } from '../tooltip/TooltipProvider';
 
 export class QuickBuildView extends ScreenElement {
   private readonly buildingManager: BuildingManager;
@@ -360,18 +360,8 @@ export class QuickBuildView extends ScreenElement {
 
   private buildTooltipDescription(row: BuildRow): string {
     const warnings: string[] = [];
-    const apCurrent = this.turnManager.getTurnDataRef().focus.current;
-    if (apCurrent < 1) {
-      warnings.push('Not enough Focus.');
-    }
     if (!row.status.placementAvailable && row.status.placementReason) {
       warnings.push(row.status.placementReason);
-    }
-    if (row.status.populationInsufficient) {
-      const freePop = this.buildingManager.getFreePopulation();
-      warnings.push(
-        `Not enough free population (need ${row.definition.populationRequired}, have ${freePop}).`
-      );
     }
     return warnings.length > 0
       ? `${row.definition.description}\n\n${warnings.join('\n')}`

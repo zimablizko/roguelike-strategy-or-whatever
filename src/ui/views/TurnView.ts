@@ -3,10 +3,10 @@ import {
   Font,
   FontUnit,
   GraphicsGroup,
-  GraphicsGrouping,
+  type GraphicsGrouping,
   Rectangle,
   ScreenElement,
-  Sprite,
+  type Sprite,
   Text,
   vec,
 } from 'excalibur';
@@ -15,6 +15,25 @@ import type { TurnDisplayOptions } from '../../_common/models/ui.models';
 import { FONT_FAMILY } from '../../_common/text';
 import { TurnManager } from '../../managers/TurnManager';
 import type { TooltipProvider } from '../tooltip/TooltipProvider';
+
+/** Floating red text shown when focus is spent. */
+interface FocusSpendPulse {
+  ageMs: number;
+  durationMs: number;
+  liftPx: number;
+  text: Text;
+  shadow: Text;
+  textWidth: number;
+  textHeight: number;
+}
+
+import {
+  SHAKE_AMPLITUDE_PX,
+  SHAKE_ANGULAR_SPEED,
+  SHAKE_DURATION_MS,
+  SPEND_PULSE_DURATION_MS,
+  SPEND_PULSE_LIFT_PX,
+} from '../constants/SpendFeedbackConstants';
 
 /**
  * UI component that displays the current date plus a compact focus readout.
@@ -35,6 +54,8 @@ export class TurnDisplay extends ScreenElement {
   private lastRendered:
     | { turnNumber: number; focusCurrent: number; focusMax: number }
     | undefined;
+  private spendPulses: FocusSpendPulse[] = [];
+  private shake: { ageMs: number; durationMs: number } | undefined;
 
   constructor(options: TurnDisplayOptions) {
     super({ x: options.x, y: options.y });
@@ -64,11 +85,20 @@ export class TurnDisplay extends ScreenElement {
     this.updateDisplay(true);
   }
 
-  onPreUpdate(): void {
-    this.updateDisplay(false);
+  onPreUpdate(_engine: unknown, elapsedMs: number): void {
+    const notifications = this.turnManager.drainFocusSpendNotifications();
+    if (notifications.length > 0) {
+      let total = 0;
+      for (const n of notifications) total += n;
+      this.createSpendPulse(total);
+      this.shake = { ageMs: 0, durationMs: SHAKE_DURATION_MS };
+    }
+
+    const hasActiveEffects = this.tickEffects(elapsedMs);
+    this.updateDisplay(false, hasActiveEffects);
   }
 
-  private updateDisplay(force: boolean): void {
+  private updateDisplay(force: boolean, effectsActive = false): void {
     const turnData = this.turnManager.getTurnDataRef();
     const next = {
       turnNumber: turnData.turnNumber,
@@ -78,6 +108,7 @@ export class TurnDisplay extends ScreenElement {
 
     if (
       !force &&
+      !effectsActive &&
       this.lastRendered &&
       this.lastRendered.turnNumber === next.turnNumber &&
       this.lastRendered.focusCurrent === next.focusCurrent &&
@@ -176,12 +207,13 @@ export class TurnDisplay extends ScreenElement {
     );
 
     let xOffset = panelPaddingX;
+    const shakeX = this.getShakeOffset();
 
     if (focusIconSprite) {
       members.push({
         graphic: focusIconSprite,
         offset: vec(
-          xOffset,
+          xOffset + shakeX,
           panelPaddingY + (panelHeight - panelPaddingY * 2 - focusIconSize) / 2
         ),
       });
@@ -193,7 +225,7 @@ export class TurnDisplay extends ScreenElement {
       panelPaddingY + (panelHeight - panelPaddingY * 2 - focusText.height) / 2;
     members.push({
       graphic: focusText,
-      offset: vec(focusTextOffsetX, focusTextOffsetY),
+      offset: vec(focusTextOffsetX + shakeX, focusTextOffsetY),
     });
     xOffset += focusText.width + separatorGap;
 
@@ -222,6 +254,30 @@ export class TurnDisplay extends ScreenElement {
       ),
     });
 
+    // Floating spend pulse text below the focus section
+    const focusR = this.focusRect;
+    for (const pulse of this.spendPulses) {
+      const progress = Math.min(1, pulse.ageMs / pulse.durationMs);
+      const alpha = 1 - progress;
+      const floatY = pulse.liftPx * progress;
+      const centerX = focusR
+        ? focusR.x + focusR.width / 2 - pulse.textWidth / 2
+        : panelWidth / 2 - pulse.textWidth / 2;
+      const startY = panelHeight;
+
+      pulse.shadow.opacity = alpha * 0.8;
+      pulse.text.opacity = alpha;
+
+      members.push({
+        graphic: pulse.shadow,
+        offset: vec(centerX + 1, startY + floatY + 1),
+      });
+      members.push({
+        graphic: pulse.text,
+        offset: vec(centerX, startY + floatY),
+      });
+    }
+
     this.graphics.use(
       new GraphicsGroup({
         members,
@@ -234,7 +290,9 @@ export class TurnDisplay extends ScreenElement {
     focusText: Text,
     gap: number
   ): number {
-    return focusText.width + (focusIconSprite ? focusIconSprite.width + gap : 0);
+    return (
+      focusText.width + (focusIconSprite ? focusIconSprite.width + gap : 0)
+    );
   }
 
   private updateFocusHover(screenX: number, screenY: number): void {
@@ -277,5 +335,70 @@ export class TurnDisplay extends ScreenElement {
   private clearFocusHover(): void {
     this.isFocusHovered = false;
     this.tooltipProvider?.hide(this);
+  }
+
+  // ============ Focus spend-feedback effects ============
+
+  private createSpendPulse(amount: number): void {
+    const displayText = `-${amount}`;
+    const text = new Text({
+      text: displayText,
+      font: new Font({
+        size: 18,
+        unit: FontUnit.Px,
+        color: Color.fromHex('#e05252'),
+        family: FONT_FAMILY,
+      }),
+    });
+    const shadow = new Text({
+      text: displayText,
+      font: new Font({
+        size: 18,
+        unit: FontUnit.Px,
+        color: Color.fromRGB(8, 12, 16),
+        family: FONT_FAMILY,
+      }),
+    });
+    this.spendPulses.push({
+      ageMs: 0,
+      durationMs: SPEND_PULSE_DURATION_MS,
+      liftPx: SPEND_PULSE_LIFT_PX,
+      text,
+      shadow,
+      textWidth: text.width,
+      textHeight: text.height,
+    });
+  }
+
+  private tickEffects(elapsedMs: number): boolean {
+    let write = 0;
+    for (let i = 0; i < this.spendPulses.length; i++) {
+      const pulse = this.spendPulses[i];
+      pulse.ageMs += elapsedMs;
+      if (pulse.ageMs < pulse.durationMs) {
+        this.spendPulses[write++] = pulse;
+      }
+    }
+    this.spendPulses.length = write;
+
+    if (this.shake) {
+      this.shake.ageMs += elapsedMs;
+      if (this.shake.ageMs >= this.shake.durationMs) {
+        this.shake = undefined;
+      }
+    }
+
+    return this.spendPulses.length > 0 || this.shake !== undefined;
+  }
+
+  private getShakeOffset(): number {
+    if (!this.shake) return 0;
+    const progress = this.shake.ageMs / this.shake.durationMs;
+    const decay = 1 - progress;
+    return (
+      SHAKE_AMPLITUDE_PX *
+      Math.sin(this.shake.ageMs * SHAKE_ANGULAR_SPEED) *
+      decay
+    );
   }
 }

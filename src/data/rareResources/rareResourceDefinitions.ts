@@ -22,7 +22,7 @@ export const rareResourceDefinitions = {
     id: 'golden-ore',
     name: 'Golden Ore',
     description:
-      'A vein of rare gold-bearing rock. Build a Mine on it for +5 Gold per turn.',
+      'A vein of rare gold-bearing rock. Build a Mine on it for +2 Gold per turn.',
     spawnOnTiles: ['rocks'] as MapTileType[],
     spawnChance: 0.03,
     visible: true,
@@ -31,7 +31,7 @@ export const rareResourceDefinitions = {
     bonusBuilding: 'mine',
     bonus: {
       resourceType: 'gold',
-      amount: 5,
+      amount: 2,
     },
   },
   jewelry: {

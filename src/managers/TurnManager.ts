@@ -111,6 +111,7 @@ export class TurnManager {
   private logManager?: GameLogManager;
   private readonly rng: SeededRandom;
   private turnVersion = 0;
+  private focusSpendNotifications: number[] = [];
   /** Tracks fallow field tiles awaiting recovery. Key: "x,y", value: turns remaining. */
   private emptyFieldRecovery = new Map<string, number>();
 
@@ -389,6 +390,7 @@ export class TurnManager {
     if (this.turnData.focus.current >= amount) {
       this.turnData.focus.current -= amount;
       this.turnVersion++;
+      this.focusSpendNotifications.push(amount);
       return true;
     }
     return false;
@@ -402,8 +404,24 @@ export class TurnManager {
     if (next === this.turnData.focus.current) {
       return;
     }
+    const before = this.turnData.focus.current;
     this.turnData.focus.current = next;
     this.turnVersion++;
+    if (delta < 0) {
+      this.focusSpendNotifications.push(before - next);
+    }
+  }
+
+  /**
+   * Drain the queue of focus-spend notifications (for UI feedback).
+   */
+  drainFocusSpendNotifications(): readonly number[] {
+    if (this.focusSpendNotifications.length === 0) {
+      return this.focusSpendNotifications;
+    }
+    const result = this.focusSpendNotifications;
+    this.focusSpendNotifications = [];
+    return result;
   }
 
   resetFocus(): void {
