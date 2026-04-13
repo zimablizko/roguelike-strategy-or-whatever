@@ -1,5 +1,6 @@
 import { CONFIG } from '../_common/config';
 import type { StateBuildingId } from '../_common/models/buildings.models';
+import type { ConditionEffects } from '../_common/models/condition.models';
 import type { RandomEventPresentation } from '../_common/models/random-events.models';
 import type {
   ResourceCost,
@@ -112,6 +113,8 @@ export class TurnManager {
   private readonly rng: SeededRandom;
   private turnVersion = 0;
   private focusSpendNotifications: number[] = [];
+  private conditionEffectsProvider?: () => ConditionEffects;
+  private conditionTickFn?: () => void;
   /** Tracks fallow field tiles awaiting recovery. Key: "x,y", value: turns remaining. */
   private emptyFieldRecovery = new Map<string, number>();
 
@@ -211,8 +214,23 @@ export class TurnManager {
     }
     actionPulses.push(...fisheryPulses);
 
+    // Tick active conditions (decrement durations, expire finished ones).
+    this.conditionTickFn?.();
+
+    // Apply condition flat resource modifiers.
+    const conditionEffects = this.conditionEffectsProvider?.();
+    if (conditionEffects?.resourceModifiers) {
+      for (const [resourceType, amount] of Object.entries(
+        conditionEffects.resourceModifiers
+      ) as [ResourceType, number][]) {
+        if (amount !== 0) {
+          this.resourceManager.addResource(resourceType, amount);
+        }
+      }
+    }
+
     this.turnData.turnNumber++;
-    this.resetFocus();
+    this.resetFocus(conditionEffects);
     this.turnVersion++;
     this.logManager?.setCurrentDate(
       this.turnData.turnNumber,
@@ -258,6 +276,13 @@ export class TurnManager {
     let upkeepPaid = true;
     if (isMonthStart) {
       const upkeepCost = this.getUpkeepCost();
+      // Apply condition upkeep multiplier if present.
+      const upkeepMul = conditionEffects?.upkeepMultiplier;
+      if (upkeepMul !== undefined && upkeepMul !== 1) {
+        for (const key of Object.keys(upkeepCost) as ResourceType[]) {
+          upkeepCost[key] = Math.round((upkeepCost[key] ?? 0) * upkeepMul);
+        }
+      }
       const resourcesOk = this.resourceManager.spendResources(upkeepCost);
       // Pay food upkeep from the fungible food pool (any food type can cover it).
       const foodOk = resourcesOk ? this.payFoodUpkeep() : false;
@@ -314,6 +339,17 @@ export class TurnManager {
 
   getTurnVersion(): number {
     return this.turnVersion;
+  }
+
+  /**
+   * Set bridge to the condition system for reading aggregated effects and ticking conditions.
+   */
+  setConditionBridge(bridge: {
+    getAggregatedEffects: () => ConditionEffects;
+    tickConditions: () => void;
+  }): void {
+    this.conditionEffectsProvider = bridge.getAggregatedEffects;
+    this.conditionTickFn = bridge.tickConditions;
   }
 
   /**
@@ -424,8 +460,12 @@ export class TurnManager {
     return result;
   }
 
-  resetFocus(): void {
-    this.turnData.focus.current = this.turnData.focus.max;
+  resetFocus(conditionEffects?: ConditionEffects): void {
+    let focusMax = this.turnData.focus.max;
+    if (conditionEffects?.focusModifier) {
+      focusMax = Math.max(0, focusMax + conditionEffects.focusModifier);
+    }
+    this.turnData.focus.current = focusMax;
     this.buildingManager.resetActionUsage();
   }
 
@@ -496,6 +536,8 @@ export class TurnManager {
     const byResource: Partial<Record<ResourceType, number>> = {};
     const pulses: EndTurnIncomePulse[] = [];
     const buildingInstances = this.buildingManager.getBuildingInstancesRef();
+    const conditionMultipliers =
+      this.conditionEffectsProvider?.()?.resourceMultipliers;
 
     const addIncome = (
       tileX: number,
@@ -503,6 +545,15 @@ export class TurnManager {
       resourceType: ResourceType,
       amount: number
     ): void => {
+      // Apply condition resource multipliers to passive building income.
+      if (conditionMultipliers?.[resourceType] !== undefined) {
+        const multiplier = conditionMultipliers[resourceType]!;
+        amount =
+          multiplier >= 1
+            ? Math.ceil(amount * multiplier)
+            : Math.floor(amount * multiplier);
+      }
+
       if (amount <= 0) {
         return;
       }

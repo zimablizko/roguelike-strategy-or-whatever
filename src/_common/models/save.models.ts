@@ -3,8 +3,10 @@ import type {
   StateBuildingInstance,
 } from './building-manager.models';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
+import type { ConditionSaveState } from './condition.models';
 import type { GameSetupData } from './game-setup.models';
 import type { PlayerData } from './game.models';
+import type { GameLogSaveState } from './log.models';
 import type { MapData } from './map.models';
 import type { MilitarySaveState } from './military.models';
 import type { PoliticsSaveState } from './politics.models';
@@ -13,7 +15,6 @@ import type {
   ActiveResearchState,
   CompletedResearchSummary,
 } from './research-manager.models';
-import type { GameLogSaveState } from './log.models';
 import type { ResearchId } from './researches.models';
 import type { ResourceStock } from './resource.models';
 import type { RulerHealth } from './ruler.models';
@@ -64,6 +65,7 @@ export interface GameSaveData {
   military?: MilitarySaveState;
   politics?: PoliticsSaveState;
   randomEvents?: RandomEventSaveState;
+  conditions?: ConditionSaveState;
   logs?: GameLogSaveState;
 }
 

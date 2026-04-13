@@ -2,7 +2,6 @@ import { clamp } from '../_common/math';
 import type {
   BattleAttackQueueItem,
   BattleResult,
-  PendingBattleAction,
   BattleSideState,
   BattleState,
   BattleTurnSummary,
@@ -13,6 +12,7 @@ import type {
   MilitarySnapshot,
   MilitaryTaskType,
   MilitaryThreat,
+  PendingBattleAction,
   StartBattleOptions,
   ThreatOutcome,
   ThreatType,
@@ -63,6 +63,10 @@ export class MilitaryManager {
   private readonly isTechUnlocked: (techId: string) => boolean;
   private readonly grantResources: (resources: ResourceCost) => void;
   private readonly logManager?: GameLogManager;
+  private combatModifierProvider?: () => {
+    attackBonus?: number;
+    defenseBonus?: number;
+  };
 
   constructor(options: MilitaryManagerOptions) {
     this.getBarracksCapacity = options.getBarracksCapacity;
@@ -132,6 +136,15 @@ export class MilitaryManager {
     );
   }
 
+  /**
+   * Set a provider for condition-based combat modifiers (attack/defense bonus).
+   */
+  setCombatModifierProvider(
+    provider: () => { attackBonus?: number; defenseBonus?: number }
+  ): void {
+    this.combatModifierProvider = provider;
+  }
+
   addUnits(
     unitId: UnitRole,
     count: number,
@@ -161,7 +174,10 @@ export class MilitaryManager {
   }
 
   getAvailableTrainingSlots(): number {
-    return Math.max(0, this.getTrainingCapacity() - this.getTrainingSlotUsage());
+    return Math.max(
+      0,
+      this.getTrainingCapacity() - this.getTrainingSlotUsage()
+    );
   }
 
   getMaxGarrison(): number {
@@ -337,7 +353,8 @@ export class MilitaryManager {
     const hasIronWeapons = this.isTechUnlocked('mil-iron-weapons');
 
     for (const stack of this.roster) {
-      composition[stack.unitId] = (composition[stack.unitId] ?? 0) + stack.count;
+      composition[stack.unitId] =
+        (composition[stack.unitId] ?? 0) + stack.count;
 
       const def = getUnitDefinition(stack.unitId);
       let unitPower = def ? def.power : 0;
@@ -455,18 +472,18 @@ export class MilitaryManager {
     }
 
     this.lastBattleResult = undefined;
-      this.activeBattle = {
-        battleId: ++this.battleSerial,
-        name: options.name,
-        phase: 'preparation',
-        turnNumber: 0,
-        roundNumber: 0,
-        rewardMultiplier: Math.max(0, options.rewardMultiplier ?? 1),
-        attackQueue: [],
-        pendingWinner: undefined,
-        pendingRoundNotes: [],
-        battleLog: [],
-        player: this.buildBattleSide(
+    this.activeBattle = {
+      battleId: ++this.battleSerial,
+      name: options.name,
+      phase: 'preparation',
+      turnNumber: 0,
+      roundNumber: 0,
+      rewardMultiplier: Math.max(0, options.rewardMultiplier ?? 1),
+      attackQueue: [],
+      pendingWinner: undefined,
+      pendingRoundNotes: [],
+      battleLog: [],
+      player: this.buildBattleSide(
         playerOptions.label ?? 'Player',
         clamp(playerOptions.morale ?? 65, 0, 100),
         reserveFromRoster,
@@ -518,7 +535,9 @@ export class MilitaryManager {
   adjustBattleGroupSize(battleUnitId: string, delta: number): boolean {
     const battle = this.activeBattle;
     if (!battle || battle.phase !== 'preparation' || delta === 0) return false;
-    const group = battle.player.units.find((unit) => unit.battleUnitId === battleUnitId);
+    const group = battle.player.units.find(
+      (unit) => unit.battleUnitId === battleUnitId
+    );
     if (!group) return false;
     const def = getUnitDefinition(group.unitId);
     if (!def) return false;
@@ -548,7 +567,9 @@ export class MilitaryManager {
   removeBattleGroup(battleUnitId: string): boolean {
     const battle = this.activeBattle;
     if (!battle || battle.phase !== 'preparation') return false;
-    const idx = battle.player.units.findIndex((unit) => unit.battleUnitId === battleUnitId);
+    const idx = battle.player.units.findIndex(
+      (unit) => unit.battleUnitId === battleUnitId
+    );
     if (idx === -1) return false;
     const group = battle.player.units[idx];
     const quantity = this.getBattleUnitAliveCount(group);
@@ -594,8 +615,10 @@ export class MilitaryManager {
 
     while (battle.attackQueue.length > 0) {
       const next = battle.attackQueue.shift()!;
-      const attackerSide = next.side === 'player' ? battle.player : battle.enemy;
-      const defenderSide = next.side === 'player' ? battle.enemy : battle.player;
+      const attackerSide =
+        next.side === 'player' ? battle.player : battle.enemy;
+      const defenderSide =
+        next.side === 'player' ? battle.enemy : battle.player;
       const attacker = attackerSide.units.find(
         (unit) => unit.battleUnitId === next.battleUnitId
       );
@@ -641,7 +664,9 @@ export class MilitaryManager {
   ): boolean {
     const battle = this.activeBattle;
     if (!battle) return false;
-    const unit = battle.player.units.find((entry) => entry.battleUnitId === battleUnitId);
+    const unit = battle.player.units.find(
+      (entry) => entry.battleUnitId === battleUnitId
+    );
     if (!unit) return false;
 
     if (!commandId) {
@@ -760,7 +785,9 @@ export class MilitaryManager {
         if (hasIronWeapons) {
           const footmanCount = matchingAssignment.allocatedUnits.footman ?? 0;
           if (footmanCount > 0) {
-            specialistBonuses.push(`Iron Weapons: +${footmanCount} footman power`);
+            specialistBonuses.push(
+              `Iron Weapons: +${footmanCount} footman power`
+            );
           }
         }
 
@@ -1013,7 +1040,12 @@ export class MilitaryManager {
         const amount = reserveUnits[unitId] ?? 0;
         if (amount <= 0) continue;
         side.units.push(
-          this.createBattleUnit(sidePrefix, unitId, amount, side.units.length + 1)
+          this.createBattleUnit(
+            sidePrefix,
+            unitId,
+            amount,
+            side.units.length + 1
+          )
         );
         side.reserveUnits[unitId] = 0;
       }
@@ -1093,11 +1125,12 @@ export class MilitaryManager {
       battle,
       new Set([...spentPlayerActions, ...spentEnemyActions])
     );
-    const opener = battle.attackQueue[0]?.side === 'player'
-      ? battle.player.label
-      : battle.attackQueue[0]?.side === 'enemy'
-        ? battle.enemy.label
-        : 'No one';
+    const opener =
+      battle.attackQueue[0]?.side === 'player'
+        ? battle.player.label
+        : battle.attackQueue[0]?.side === 'enemy'
+          ? battle.enemy.label
+          : 'No one';
     battle.battleLog.push(
       battle.attackQueue.length > 0
         ? `Round ${battle.roundNumber}: ${opener} act first.`
@@ -1176,9 +1209,13 @@ export class MilitaryManager {
     const defenderDef = getUnitDefinition(defender.unitId);
     if (!attackerDef || !defenderDef) return undefined;
 
-    const attackType =
-      attackerDef.attackType === 'ranged' ? 'ranged' : 'melee';
-    const damage = this.getAttackPower(attacker, attackerSide.morale, attackType, rng);
+    const attackType = attackerDef.attackType === 'ranged' ? 'ranged' : 'melee';
+    const damage = this.getAttackPower(
+      attacker,
+      attackerSide.morale,
+      attackType,
+      rng
+    );
     const counterDamage =
       attackerDef.attackType !== 'ranged' && defenderDef.attackType !== 'ranged'
         ? this.getAttackPower(defender, defenderSide.morale, 'melee', rng) * 0.1
@@ -1235,7 +1272,11 @@ export class MilitaryManager {
     );
     let returnDamage = 0;
     if (action.counterDamage > 0) {
-      returnDamage = this.applyDamageToBattleUnit(attacker, action.counterDamage, false);
+      returnDamage = this.applyDamageToBattleUnit(
+        attacker,
+        action.counterDamage,
+        false
+      );
     }
 
     const playerAfter = this.captureBattleSnapshot(battle.player);
@@ -1352,7 +1393,11 @@ export class MilitaryManager {
       if (!command) continue;
 
       const obeyChance = isPlayerSide
-        ? clamp(side.morale / 100 + 0.25 - command.disciplineDifficulty, 0.2, 0.95)
+        ? clamp(
+            side.morale / 100 + 0.25 - command.disciplineDifficulty,
+            0.2,
+            0.95
+          )
         : clamp(side.morale / 100 + 0.15, 0.35, 0.9);
 
       if (rng.next() > obeyChance) {
@@ -1428,12 +1473,18 @@ export class MilitaryManager {
       if (rng.next() > routChance) continue;
 
       const fleeFraction = 0.08 + rng.next() * 0.12 + (35 - side.morale) / 180;
-      const fleeing = Math.min(alive, Math.max(1, Math.floor(alive * fleeFraction)));
+      const fleeing = Math.min(
+        alive,
+        Math.max(1, Math.floor(alive * fleeFraction))
+      );
       if (fleeing <= 0) continue;
 
       const def = getUnitDefinition(unit.unitId);
       if (!def) continue;
-      unit.remainingHealth = Math.max(0, unit.remainingHealth - fleeing * def.health);
+      unit.remainingHealth = Math.max(
+        0,
+        unit.remainingHealth - fleeing * def.health
+      );
       unit.routedCount += fleeing;
       highlights.push(
         `${side.label}: ${fleeing} ${this.getUnitLabel(unit.unitId)} rout.`
@@ -1480,12 +1531,18 @@ export class MilitaryManager {
       multiplier *= statusDef.powerMultiplier ?? 1;
       multiplier *=
         phase === 'ranged'
-          ? statusDef.rangedPowerMultiplier ?? 1
-          : statusDef.meleePowerMultiplier ?? 1;
+          ? (statusDef.rangedPowerMultiplier ?? 1)
+          : (statusDef.meleePowerMultiplier ?? 1);
     }
 
     if (def.attackType === 'support' && phase === 'melee') {
       multiplier *= 0.75;
+    }
+
+    // Apply condition-based attack bonus (player side only).
+    const combatMods = this.combatModifierProvider?.();
+    if (combatMods?.attackBonus) {
+      multiplier *= Math.max(0.5, 1 + combatMods.attackBonus);
     }
 
     const variance = 0.88 + rng.next() * 0.24;
@@ -1501,6 +1558,13 @@ export class MilitaryManager {
     if (!def || rawDamage <= 0) return 0;
 
     let defenseMultiplier = def.defense;
+
+    // Apply condition-based defense bonus.
+    const combatMods = this.combatModifierProvider?.();
+    if (combatMods?.defenseBonus) {
+      defenseMultiplier *= Math.max(0.5, 1 + combatMods.defenseBonus);
+    }
+
     for (const status of unit.activeStatuses) {
       const statusDef = getBattleStatusDefinition(status.statusId);
       if (!statusDef) continue;
@@ -1557,10 +1621,16 @@ export class MilitaryManager {
     if (enemyAlive <= 0) return 'player';
     if (playerAlive <= 0) return 'enemy';
 
-    if (battle.enemy.morale <= 5 && enemyAlive <= this.getInitialSideSize(battle.enemy) * 0.5) {
+    if (
+      battle.enemy.morale <= 5 &&
+      enemyAlive <= this.getInitialSideSize(battle.enemy) * 0.5
+    ) {
       return 'player';
     }
-    if (battle.player.morale <= 5 && playerAlive <= this.getInitialSideSize(battle.player) * 0.5) {
+    if (
+      battle.player.morale <= 5 &&
+      playerAlive <= this.getInitialSideSize(battle.player) * 0.5
+    ) {
       return 'enemy';
     }
 
@@ -1660,11 +1730,15 @@ export class MilitaryManager {
       this.sumUnitCounts(this.collectBattleCounts(battle.enemy, 'routed'));
     const gold = Math.max(
       6,
-      Math.round((enemyLosses * 2 + battle.turnNumber * 2) * battle.rewardMultiplier)
+      Math.round(
+        (enemyLosses * 2 + battle.turnNumber * 2) * battle.rewardMultiplier
+      )
     );
     const meat = Math.max(
       2,
-      Math.round((enemyLosses + battle.turnNumber) * 0.4 * battle.rewardMultiplier)
+      Math.round(
+        (enemyLosses + battle.turnNumber) * 0.4 * battle.rewardMultiplier
+      )
     );
 
     const rewards: ResourceCost = { gold, meat };
@@ -1764,7 +1838,9 @@ export class MilitaryManager {
       ...state,
       attackQueue: state.attackQueue.map((entry) => ({ ...entry })),
       pendingWinner: state.pendingWinner,
-      pendingAction: state.pendingAction ? { ...state.pendingAction } : undefined,
+      pendingAction: state.pendingAction
+        ? { ...state.pendingAction }
+        : undefined,
       pendingRoundNotes: [...state.pendingRoundNotes],
       battleLog: [...state.battleLog],
       player: this.cloneBattleSide(state.player),

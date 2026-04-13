@@ -31,6 +31,8 @@ export class ResearchManager {
   private latestCompletion?: CompletedResearchSummary;
   private researchVersion = 0;
   private readonly logManager?: GameLogManager;
+  private researchSpeedProvider?: () => number;
+  private researchSpeedAccumulator = 0;
 
   constructor(
     buildingManager: BuildingManager,
@@ -72,6 +74,14 @@ export class ResearchManager {
 
   getResearchVersion(): number {
     return this.researchVersion;
+  }
+
+  /**
+   * Set a provider that returns the current research speed multiplier from conditions.
+   * 1.0 = normal, 1.15 = 15% faster, etc.
+   */
+  setResearchSpeedProvider(provider: () => number): void {
+    this.researchSpeedProvider = provider;
   }
 
   getActiveResearch(): ResearchProgress | undefined {
@@ -211,9 +221,15 @@ export class ResearchManager {
       return {};
     }
 
+    // Accumulator-based research speed: condition multiplier adjusts effective progress.
+    const speedMod = this.researchSpeedProvider?.() ?? 1;
+    this.researchSpeedAccumulator += speedMod;
+    const progressTicks = Math.floor(this.researchSpeedAccumulator);
+    this.researchSpeedAccumulator -= progressTicks;
+
     this.activeResearch.remainingTurns = Math.max(
       0,
-      this.activeResearch.remainingTurns - 1
+      this.activeResearch.remainingTurns - progressTicks
     );
 
     let completedResearch: CompletedResearchSummary | undefined;

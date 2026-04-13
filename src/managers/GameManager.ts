@@ -10,6 +10,7 @@ import {
   BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
 } from '../data/military';
 import { BuildingManager } from './BuildingManager';
+import { ConditionManager } from './ConditionManager';
 import { GameLogManager } from './GameLogManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
@@ -53,6 +54,7 @@ export class GameManager {
   militaryManager: MilitaryManager;
   politicsManager: PoliticsManager;
   randomEventManager: RandomEventManager;
+  conditionManager: ConditionManager;
   readonly setup?: GameSetupData;
   readonly rng: SeededRandom;
 
@@ -195,6 +197,11 @@ export class GameManager {
       initial: saveData?.politics ?? undefined,
     });
 
+    this.conditionManager = new ConditionManager({
+      logManager: this.logManager,
+      initial: saveData?.conditions ?? undefined,
+    });
+
     this.randomEventManager = new RandomEventManager({
       rng: this.rng,
       rulerManager: this.rulerManager,
@@ -297,6 +304,7 @@ export class GameManager {
       military: this.militaryManager.getSaveState(),
       politics: this.politicsManager.getSaveState(),
       randomEvents: this.randomEventManager.getSaveState(),
+      conditions: this.conditionManager.getSaveState(),
       logs: this.logManager.getSaveState(),
     };
   }

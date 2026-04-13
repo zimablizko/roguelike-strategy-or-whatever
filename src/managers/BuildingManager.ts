@@ -56,6 +56,8 @@ export class BuildingManager {
   private onTileChanged?: (change: BuildingTileChange) => void;
   /** Tracks how many times each action has been used this turn. Key: "instanceId:actionId". */
   private actionUsesThisTurn = new Map<string, number>();
+  private buildSpeedProvider?: () => number;
+  private buildSpeedAccumulator = 0;
 
   constructor(options: BuildingManagerOptions) {
     this.mapManager = options.mapManager;
@@ -175,18 +177,36 @@ export class BuildingManager {
   }
 
   /**
+   * Set a provider that returns the current build speed multiplier from conditions.
+   * 1.0 = normal, 0.8 = 20% slower, etc.
+   */
+  setBuildSpeedProvider(provider: () => number): void {
+    this.buildSpeedProvider = provider;
+  }
+
+  /**
    * Advances construction progress for all in-progress building instances by one turn.
    * Buildings whose `turnsRemaining` reaches 0 become fully operational.
    * Call this once per end-turn cycle.
    */
   advanceBuildingConstruction(): void {
+    // Accumulator-based build speed: condition multiplier adjusts effective progress.
+    const speedMod = this.buildSpeedProvider?.() ?? 1;
+    this.buildSpeedAccumulator += speedMod;
+    const progressTicks = Math.floor(this.buildSpeedAccumulator);
+    this.buildSpeedAccumulator -= progressTicks;
+    if (progressTicks <= 0) return;
+
     let changed = false;
     for (const instance of this.buildingInstances) {
       if (
         instance.turnsRemaining !== undefined &&
         instance.turnsRemaining > 0
       ) {
-        instance.turnsRemaining--;
+        instance.turnsRemaining = Math.max(
+          0,
+          instance.turnsRemaining - progressTicks
+        );
         if (instance.turnsRemaining === 0) {
           instance.turnsRemaining = undefined;
           const definition = this.getBuildingDefinition(instance.buildingId);

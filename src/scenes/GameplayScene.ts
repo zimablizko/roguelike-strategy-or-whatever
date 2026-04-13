@@ -21,6 +21,7 @@ import type {
   RandomEventPopupOptions,
 } from '../_common/models/ui.models';
 import { createGameTestBridge } from '../_common/testing/gameTestBridge';
+import { getAllConditionDefinitions } from '../data/conditions';
 import {
   createDefaultGameSetup,
   getMapSizeDefinition,
@@ -57,6 +58,7 @@ import {
   buildTooltipResourceSection,
 } from '../ui/tooltip/TooltipResourceSection';
 import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
+import { ConditionStatusView } from '../ui/views/ConditionStatusView';
 import { LogView } from '../ui/views/LogView';
 import { MapIncomeEffectsView } from '../ui/views/MapIncomeEffectsView';
 import { MapView } from '../ui/views/MapView';
@@ -279,6 +281,37 @@ export class GameplayScene extends Scene {
       getFocusCurrent: () => this.turnManager.getTurnDataRef().focus.current,
       spendFocus: (amount) => this.turnManager.spendFocus(amount),
     });
+    this.turnManager.setConditionBridge({
+      getAggregatedEffects: () =>
+        this.gameManager.conditionManager.getAggregatedEffects(),
+      tickConditions: () => this.gameManager.conditionManager.tickConditions(),
+    });
+    this.gameManager.randomEventManager.setConditionBridge({
+      applyCondition: (conditionId, currentTurn, options) =>
+        this.gameManager.conditionManager.applyCondition(
+          conditionId,
+          currentTurn,
+          options
+        ),
+    });
+    this.gameManager.researchManager.setResearchSpeedProvider(() => {
+      return (
+        this.gameManager.conditionManager.getAggregatedEffects()
+          .researchSpeedModifier ?? 1
+      );
+    });
+    this.gameManager.buildingManager.setBuildSpeedProvider(() => {
+      return (
+        this.gameManager.conditionManager.getAggregatedEffects()
+          .buildSpeedModifier ?? 1
+      );
+    });
+    this.gameManager.militaryManager.setCombatModifierProvider(() => {
+      return (
+        this.gameManager.conditionManager.getAggregatedEffects()
+          .combatModifiers ?? {}
+      );
+    });
     this.gameManager.logManager.setCurrentDate(
       this.turnManager.getTurnDataRef().turnNumber,
       this.turnManager.getDateLabel()
@@ -305,6 +338,7 @@ export class GameplayScene extends Scene {
     this.addTurnDisplay(engine);
     this.addResearchStatusDisplay(engine);
     this.addMilitaryStatusDisplay(engine);
+    this.addConditionStatusView(engine);
     this.addLogView(engine);
     this.addButtons(engine);
     this.addQuickBuildView();
@@ -701,6 +735,16 @@ export class GameplayScene extends Scene {
     this.addHudElement(view);
   }
 
+  private addConditionStatusView(engine: Engine): void {
+    const view = new ConditionStatusView({
+      conditionManager: this.gameManager.conditionManager,
+      tooltipProvider: this.tooltipProvider,
+      rightX: engine.drawWidth - LAYOUT.MARGIN,
+      topY: LAYOUT.TOPBAR_HEIGHT + LAYOUT.MARGIN,
+    });
+    this.addHudElement(view);
+  }
+
   private addLogView(engine: Engine): void {
     const view = new LogView({
       x: SIDEBAR_LAYOUT.panelX,
@@ -1089,7 +1133,34 @@ export class GameplayScene extends Scene {
           if (!this.turnManager.spendFocus(1)) return;
           this.resourceManager.addResource('meat', 5);
         },
-      })
+      }),
+
+      // --- Condition debug buttons ---
+      ...getAllConditionDefinitions().map(
+        (def, i) =>
+          new ScreenButton({
+            x: 150,
+            y: 110 + i * 32,
+            width: 160,
+            height: 28,
+            title: `+ ${def.name}`,
+            idleBgColor:
+              def.sentiment === 'positive'
+                ? Color.fromHex('#2a6e2a')
+                : def.sentiment === 'negative'
+                  ? Color.fromHex('#6e2a2a')
+                  : Color.fromHex('#4a4a4a'),
+            onClick: () => {
+              this.gameManager.conditionManager.applyCondition(
+                def.id as Parameters<
+                  typeof this.gameManager.conditionManager.applyCondition
+                >[0],
+                this.turnManager.getTurnDataRef().turnNumber,
+                { sourceType: 'system', sourceId: 'debug' }
+              );
+            },
+          })
+      )
     );
 
     // Close existing popup if any
@@ -1107,7 +1178,7 @@ export class GameplayScene extends Scene {
       y: engine.drawHeight / 2,
       anchor: 'center',
       width: 520,
-      height: 360,
+      height: 420,
       title: 'Debug Menu',
       z: UI_Z.modalPopup,
       backplateStyle: 'gray-full',

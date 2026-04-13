@@ -1,4 +1,6 @@
-import type { TechnologyId, StateBuildingId } from './buildings.models';
+import type { StateBuildingId, TechnologyId } from './buildings.models';
+import type { ConditionId } from './condition.models';
+import type { StatePrehistoryId } from './game-setup.models';
 import type {
   StartBattleOptions,
   UnitReadiness,
@@ -6,7 +8,6 @@ import type {
 } from './military.models';
 import type { PoliticalEntityId } from './politics.models';
 import type { ResourceType } from './resource.models';
-import type { StatePrehistoryId } from './game-setup.models';
 import type { RulerSkillId } from './ruler.models';
 
 export type RandomEventRarity = 'common' | 'uncommon' | 'rare';
@@ -57,6 +58,7 @@ export interface RandomEventOutcome {
   reputationEffects?: Partial<Record<PoliticalEntityId, number>>;
   unitRewards?: RandomEventUnitReward[];
   signalEffects?: Partial<Record<RandomEventSignalId, number>>;
+  conditionEffects?: Array<{ conditionId: ConditionId; duration?: number }>;
   startBattle?: StartBattleOptions;
   resultText: string;
   logSeverity?: 'good' | 'bad' | 'neutral';
@@ -77,8 +79,7 @@ export interface RandomEventSkillCheckPresentation {
   target: number;
 }
 
-export interface RandomEventSkillCheckResult
-  extends RandomEventSkillCheckPresentation {
+export interface RandomEventSkillCheckResult extends RandomEventSkillCheckPresentation {
   skillValue: number;
   roll: number;
   total: number;
@@ -125,7 +126,11 @@ export interface RandomEventPresentationOption {
   outcomeDescription: string;
   resourceEffects?: Partial<Record<ResourceType, number>>;
   focusDelta?: number;
-  resourceRanges?: Array<{ resourceType: ResourceType; min: number; max: number }>;
+  resourceRanges?: Array<{
+    resourceType: ResourceType;
+    min: number;
+    max: number;
+  }>;
   focusRange?: { min: number; max: number };
   skillCheck?: RandomEventSkillCheckPresentation;
   disabled: boolean;

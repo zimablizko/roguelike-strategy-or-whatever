@@ -1,39 +1,44 @@
-import type { StateBuildingId, TechnologyId } from '../_common/models/buildings.models';
-import type { GameSetupData } from '../_common/models/game-setup.models';
 import type {
-  UnitRole,
-} from '../_common/models/military.models';
+  StateBuildingId,
+  TechnologyId,
+} from '../_common/models/buildings.models';
+import type {
+  ConditionId,
+  ConditionSourceType,
+} from '../_common/models/condition.models';
+import type { GameSetupData } from '../_common/models/game-setup.models';
+import type { UnitRole } from '../_common/models/military.models';
 import type { PoliticalEntityId } from '../_common/models/politics.models';
 import type {
   PendingRandomEventState,
   RandomEventConditionSet,
   RandomEventDefinition,
-  RandomEventOutcome,
   RandomEventOptionDefinition,
   RandomEventOptionRequirements,
+  RandomEventOutcome,
   RandomEventPresentation,
   RandomEventPresentationOption,
   RandomEventResolution,
   RandomEventSaveState,
+  RandomEventSignalId,
   RandomEventSkillCheckDefinition,
   RandomEventSkillCheckPresentation,
   RandomEventSkillCheckResult,
-  RandomEventSignalId,
 } from '../_common/models/random-events.models';
 import type { ResourceType } from '../_common/models/resource.models';
 import type { SeededRandom } from '../_common/random';
+import { getUnitDefinition } from '../data/military';
 import {
   getAllRandomEventDefinitions,
+  getRandomEventDefinition,
   getRandomEventSkillCheckLabel,
   getRandomEventSkillCheckTarget,
-  getRandomEventDefinition,
   hasAvailableRandomEventOption,
   isRandomEventId,
   RANDOM_EVENT_INTERVAL_TURNS,
   RANDOM_EVENT_RARITY_WEIGHTS,
   RANDOM_EVENT_WEEKLY_TRIGGER_CHANCE,
 } from '../data/randomEvents';
-import { getUnitDefinition } from '../data/military';
 import { getResearchDefinition, isResearchId } from '../data/researches';
 import type { BuildingManager } from './BuildingManager';
 import type { GameLogManager } from './GameLogManager';
@@ -45,6 +50,18 @@ import type { RulerManager } from './RulerManager';
 export interface RandomEventFocusBridge {
   getFocusCurrent(): number;
   adjustFocus(delta: number): void;
+}
+
+export interface RandomEventConditionBridge {
+  applyCondition(
+    conditionId: ConditionId,
+    currentTurn: number,
+    options?: {
+      duration?: number;
+      sourceType?: ConditionSourceType;
+      sourceId?: string;
+    }
+  ): void;
 }
 
 export interface RandomEventManagerOptions {
@@ -75,6 +92,7 @@ export class RandomEventManager {
   private readonly setup?: GameSetupData;
 
   private focusBridge?: RandomEventFocusBridge;
+  private conditionBridge?: RandomEventConditionBridge;
   private cooldowns = new Map<string, number>();
   private seenUniqueEventIds = new Set<string>();
   private signalCounters = new Map<RandomEventSignalId, number>();
@@ -121,6 +139,10 @@ export class RandomEventManager {
 
   setFocusBridge(bridge: RandomEventFocusBridge | undefined): void {
     this.focusBridge = bridge;
+  }
+
+  setConditionBridge(bridge: RandomEventConditionBridge | undefined): void {
+    this.conditionBridge = bridge;
   }
 
   getVersion(): number {
@@ -182,7 +204,8 @@ export class RandomEventManager {
 
     const totalWeight = eligible.reduce(
       (sum, definition) =>
-        sum + definition.weight * RANDOM_EVENT_RARITY_WEIGHTS[definition.rarity],
+        sum +
+        definition.weight * RANDOM_EVENT_RARITY_WEIGHTS[definition.rarity],
       0
     );
     if (totalWeight <= 0) {
@@ -208,8 +231,13 @@ export class RandomEventManager {
     return undefined;
   }
 
-  resolvePendingEventOption(optionId: string): RandomEventResolution | undefined {
-    if (!this.pendingEvent || !isRandomEventId(this.pendingEvent.definitionId)) {
+  resolvePendingEventOption(
+    optionId: string
+  ): RandomEventResolution | undefined {
+    if (
+      !this.pendingEvent ||
+      !isRandomEventId(this.pendingEvent.definitionId)
+    ) {
       return undefined;
     }
 
@@ -218,12 +246,16 @@ export class RandomEventManager {
       return undefined;
     }
 
-    const option = definition.options.find((candidate) => candidate.id === optionId);
+    const option = definition.options.find(
+      (candidate) => candidate.id === optionId
+    );
     if (!option) {
       return undefined;
     }
 
-    const requirementResult = this.evaluateOptionRequirements(option.requirements);
+    const requirementResult = this.evaluateOptionRequirements(
+      option.requirements
+    );
     if (!requirementResult.eligible) {
       return undefined;
     }
@@ -235,7 +267,11 @@ export class RandomEventManager {
     }
 
     const logSeverity = resolvedOutcome.outcome.logSeverity ?? 'neutral';
-    const battleStarted = this.applyOutcome(resolvedOutcome.outcome);
+    const battleStarted = this.applyOutcome(
+      resolvedOutcome.outcome,
+      currentTurn,
+      definition.id
+    );
 
     this.cooldowns.set(definition.id, currentTurn);
     if (definition.unique) {
@@ -375,7 +411,8 @@ export class RandomEventManager {
       id: option.id,
       title: option.title,
       outcomeDescription: option.outcomeDescription,
-      resourceEffects: sharedEffects?.resourceEffects ?? option.outcome?.resourceEffects,
+      resourceEffects:
+        sharedEffects?.resourceEffects ?? option.outcome?.resourceEffects,
       focusDelta: sharedEffects?.focusDelta ?? option.outcome?.focusDelta,
       resourceRanges: effectRanges.resourceRanges,
       focusRange: effectRanges.focusRange,
@@ -400,9 +437,7 @@ export class RandomEventManager {
     };
   }
 
-  private resolveOptionOutcome(
-    option: RandomEventOptionDefinition
-  ):
+  private resolveOptionOutcome(option: RandomEventOptionDefinition):
     | {
         outcome: RandomEventOutcome;
         skillCheck?: RandomEventSkillCheckResult;
@@ -410,7 +445,9 @@ export class RandomEventManager {
     | undefined {
     if (option.skillCheck) {
       const presentation = this.buildSkillCheckPresentation(option.skillCheck);
-      const skillValue = this.rulerManager.getSkillValue(option.skillCheck.skill);
+      const skillValue = this.rulerManager.getSkillValue(
+        option.skillCheck.skill
+      );
       const roll = this.rng.randomInt(1, 20);
       const total = roll + skillValue;
       const success = total >= presentation.target;
@@ -438,7 +475,11 @@ export class RandomEventManager {
     };
   }
 
-  private applyOutcome(outcome: RandomEventOutcome): boolean {
+  private applyOutcome(
+    outcome: RandomEventOutcome,
+    currentTurn?: number,
+    eventId?: string
+  ): boolean {
     if (outcome.resourceEffects) {
       this.resourceManager.addResources(outcome.resourceEffects);
     }
@@ -466,10 +507,25 @@ export class RandomEventManager {
     }
 
     if (outcome.signalEffects) {
-      for (const [signalId, delta] of Object.entries(
-        outcome.signalEffects
-      ) as [RandomEventSignalId, number][]) {
+      for (const [signalId, delta] of Object.entries(outcome.signalEffects) as [
+        RandomEventSignalId,
+        number,
+      ][]) {
         this.adjustSignal(signalId, delta);
+      }
+    }
+
+    if (
+      outcome.conditionEffects &&
+      this.conditionBridge &&
+      currentTurn !== undefined
+    ) {
+      for (const entry of outcome.conditionEffects) {
+        this.conditionBridge.applyCondition(entry.conditionId, currentTurn, {
+          duration: entry.duration,
+          sourceType: 'random-event',
+          sourceId: eventId,
+        });
       }
     }
 
@@ -480,7 +536,9 @@ export class RandomEventManager {
     return this.militaryManager.startBattle(outcome.startBattle) !== undefined;
   }
 
-  private formatSkillCheckResult(skillCheck: RandomEventSkillCheckResult): string {
+  private formatSkillCheckResult(
+    skillCheck: RandomEventSkillCheckResult
+  ): string {
     return `${skillCheck.skillLabel} check (${skillCheck.difficultyLabel}): ${skillCheck.success ? 'Success.' : 'Failure.'}`;
   }
 
@@ -790,13 +848,16 @@ export class RandomEventManager {
   }
 
   private getBuildingLabel(buildingId: StateBuildingId): string {
-    return this.buildingManager.getBuildingDefinition(buildingId)?.name ?? buildingId;
+    return (
+      this.buildingManager.getBuildingDefinition(buildingId)?.name ?? buildingId
+    );
   }
 
   private getEntityLabel(entityId: PoliticalEntityId): string {
     return (
-      this.politicsManager.getEntities().find((entity) => entity.id === entityId)
-        ?.name ?? entityId
+      this.politicsManager
+        .getEntities()
+        .find((entity) => entity.id === entityId)?.name ?? entityId
     );
   }
 
@@ -820,7 +881,11 @@ export class RandomEventManager {
     for (const resourceType of resourceKeys) {
       const aAmount = a.resourceEffects?.[resourceType];
       const bAmount = b.resourceEffects?.[resourceType];
-      if (aAmount !== undefined && bAmount !== undefined && aAmount === bAmount) {
+      if (
+        aAmount !== undefined &&
+        bAmount !== undefined &&
+        aAmount === bAmount
+      ) {
         resourceEffects[resourceType] = aAmount;
       }
     }
@@ -839,10 +904,12 @@ export class RandomEventManager {
     };
   }
 
-  private getOutcomeEffectRanges(
-    option: RandomEventOptionDefinition
-  ): {
-    resourceRanges?: Array<{ resourceType: ResourceType; min: number; max: number }>;
+  private getOutcomeEffectRanges(option: RandomEventOptionDefinition): {
+    resourceRanges?: Array<{
+      resourceType: ResourceType;
+      min: number;
+      max: number;
+    }>;
     focusRange?: { min: number; max: number };
   } {
     const outcomes = option.outcome
@@ -856,8 +923,9 @@ export class RandomEventManager {
     }
 
     const resourceKeys = new Set<ResourceType>(
-      outcomes.flatMap((outcome) =>
-        Object.keys(outcome.resourceEffects ?? {}) as ResourceType[]
+      outcomes.flatMap(
+        (outcome) =>
+          Object.keys(outcome.resourceEffects ?? {}) as ResourceType[]
       )
     );
     const resourceRanges: Array<{
