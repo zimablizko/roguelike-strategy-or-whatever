@@ -122,9 +122,9 @@ export class TurnManager {
     resourceManager: ResourceManager,
     rulerManager: RulerManager,
     buildingManager: BuildingManager,
-    options?: {
+    options: {
+      rng: SeededRandom;
       maxFocus?: number;
-      rng?: SeededRandom;
       mapManager?: MapManager;
       researchManager?: ResearchManager;
       militaryManager?: MilitaryManager;
@@ -138,8 +138,8 @@ export class TurnManager {
       };
     }
   ) {
-    const maxFocus = options?.maxFocus ?? rulerManager.getFocus();
-    const initialData = options?.initial?.data;
+    const maxFocus = options.maxFocus ?? rulerManager.getFocus();
+    const initialData = options.initial?.data;
     const initialMax = Math.max(
       1,
       Math.floor(initialData?.focus.max ?? maxFocus)
@@ -158,15 +158,15 @@ export class TurnManager {
     this.resourceManager = resourceManager;
     this.rulerManager = rulerManager;
     this.buildingManager = buildingManager;
-    this.mapManager = options?.mapManager;
-    this.researchManager = options?.researchManager;
-    this.militaryManager = options?.militaryManager;
-    this.politicsManager = options?.politicsManager;
-    this.randomEventManager = options?.randomEventManager;
-    this.logManager = options?.logManager;
-    this.rng = options?.rng ?? new SeededRandom();
-    this.turnVersion = Math.max(0, Math.floor(options?.initial?.version ?? 0));
-    for (const entry of options?.initial?.emptyFieldQueue ?? []) {
+    this.mapManager = options.mapManager;
+    this.researchManager = options.researchManager;
+    this.militaryManager = options.militaryManager;
+    this.politicsManager = options.politicsManager;
+    this.randomEventManager = options.randomEventManager;
+    this.logManager = options.logManager;
+    this.rng = options.rng;
+    this.turnVersion = Math.max(0, Math.floor(options.initial?.version ?? 0));
+    for (const entry of options.initial?.emptyFieldQueue ?? []) {
       this.emptyFieldRecovery.set(
         `${entry.x},${entry.y}`,
         Math.max(1, entry.turnsLeft)
@@ -256,8 +256,6 @@ export class TurnManager {
         'A trade caravan has arrived at the Market and will remain for 5 days.'
       );
     }
-
-    console.log(`Turn ${this.turnData.turnNumber} ended.`);
 
     // Generate political requests for the new turn.
     this.politicsManager?.generateTurnRequests(

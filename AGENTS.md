@@ -1,5 +1,15 @@
 # Project Patterns
 
+## Inspirations
+
+- **Crusader Kings** — character-driven politics, dynastic intrigue, trait/modifier systems, emergent narrative from systemic interactions
+- **Civilization** — turn-based resource loops, city improvements as progression gates, tech/civic trees, strategic layer over tactical detail
+- **Kingdom Come: Deliverance** — grounded medieval realism, skill-check consequences, reputation with factions shaping available actions, survival weight on decisions
+
+These games inform tone and design instincts. When a mechanic is ambiguous, ask: does it feel systemic and character-driven (CK), strategic and layer-coherent (Civ), or grounded with meaningful consequence (KCD)?
+
+
+
 ## Architecture
 
 - Keep gameplay state in managers. `GameplayScene` composes managers and UI, but should not become the source of truth for resources, turns, buildings, politics, military, or random events.
@@ -40,6 +50,7 @@
 - Resource spend must render under a `Costs` section.
 - Resource gain must render under a `Gains` section.
 - If the interaction spends Focus, include Focus in the same `Costs` section.
+
 - Keep resource rows in the standard format: icon, minimal gap, amount.
 - For `Costs`, amount text is white when affordable, otherwise red with `(-X)` for the missing amount.
 - For `Gains`, amount text is green.

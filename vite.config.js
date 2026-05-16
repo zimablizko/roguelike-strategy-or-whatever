@@ -11,5 +11,12 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          excalibur: ['excalibur'],
+        },
+      },
+    },
   },
 })

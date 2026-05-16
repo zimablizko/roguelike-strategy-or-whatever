@@ -24,7 +24,10 @@ export class Game {
       displayMode: DisplayMode.FitScreen,
       backgroundColor: Color.Black,
       canvasElementId: 'game',
-      pixelRatio: window.devicePixelRatio,
+      // Round up to the nearest integer pixel ratio (min 2) to avoid fractional
+      // sub-pixel blur. E.g. Windows 125% DPI gives devicePixelRatio=1.25 which
+      // blurs; ceil→2 keeps everything crisp without excessive memory use.
+      pixelRatio: Math.max(2, Math.ceil(window.devicePixelRatio)),
       antialiasing: true,
       handleContextLost: (e) => {
         e.preventDefault();

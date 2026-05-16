@@ -222,17 +222,6 @@ export class GameManager {
     }
   }
 
-  logData() {
-    console.log('Player Data:', this.playerData);
-    console.log('Resources:', this.resourceManager.getAllResources());
-    console.log('Ruler:', this.rulerManager.getRuler());
-    console.log('State:', this.stateManager.getState());
-    console.log('Map size:', {
-      width: this.mapManager.getMapRef().width,
-      height: this.mapManager.getMapRef().height,
-    });
-  }
-
   getSnapshot(turnData: GameSaveData['turn']): GameSaveData {
     const map = this.mapManager.getMapRef();
     const ruler = this.rulerManager.getRulerRef();

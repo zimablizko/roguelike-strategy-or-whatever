@@ -19,6 +19,7 @@ export const TOOLTIP_LAYOUT = {
 
 export const TOOLTIP_COLORS = {
   background: Color.fromHex('#12202d'),
+  border: Color.fromHex('#d4a820'),
   text: Color.fromHex('#ecf3fa'),
   headerText: Color.fromHex('#f7fbff'),
   separator: Color.fromRGB(190, 210, 228, 0.38),

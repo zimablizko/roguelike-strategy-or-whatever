@@ -10,23 +10,15 @@ import {
   type SceneActivationContext,
 } from 'excalibur';
 import { CONFIG } from '../_common/config';
-import { getIconSprite } from '../_common/icons';
 import type { StateBuildingId } from '../_common/models/buildings.models';
 import type { GameSetupData } from '../_common/models/game-setup.models';
-import { FOOD_RESOURCE_TYPES } from '../_common/models/resource.models';
 import type { SaveSlotId } from '../_common/models/save.models';
-import type {
-  MapBuildPlacementOverlay,
-  RandomEventOption,
-  RandomEventPopupOptions,
-} from '../_common/models/ui.models';
+import type { MapBuildPlacementOverlay } from '../_common/models/ui.models';
 import { createGameTestBridge } from '../_common/testing/gameTestBridge';
-import { getAllConditionDefinitions } from '../data/conditions';
 import {
   createDefaultGameSetup,
   getMapSizeDefinition,
   getStatePrehistoryDefinition,
-  introductionLoreDefinitions,
 } from '../data/gameSetup';
 import { GameManager } from '../managers/GameManager';
 import { ResourceManager } from '../managers/ResourceManager';
@@ -38,25 +30,9 @@ import {
   SIDEBAR_STACK,
 } from '../ui/constants/LayoutConstants';
 import { UI_Z } from '../ui/constants/ZLayers';
-import { ActionElement } from '../ui/elements/ActionElement';
 import { ScreenButton } from '../ui/elements/ScreenButton';
-import { ScreenPopup } from '../ui/elements/ScreenPopup';
-import { BattlePopup } from '../ui/popups/BattlePopup';
-import { BattleResultPopup } from '../ui/popups/BattleResultPopup';
-import { GameMenuPopup } from '../ui/popups/GameMenuPopup';
-import { IntroductionLorePopup } from '../ui/popups/IntroductionLorePopup';
-import { LogPopup } from '../ui/popups/LogPopup';
-import { MarketTradePopup } from '../ui/popups/MarketTradePopup';
-import { MilitaryPopup } from '../ui/popups/MilitaryPopup';
-import { RandomEventPopup } from '../ui/popups/RandomEventPopup';
-import { ResearchPopup } from '../ui/popups/ResearchPopup';
-import { RulerPopup } from '../ui/popups/RulerPopup';
-import { StatePopup } from '../ui/popups/StatePopup';
+import { PopupController } from '../ui/PopupController';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
-import {
-  buildTooltipEffectResourceSections,
-  buildTooltipResourceSection,
-} from '../ui/tooltip/TooltipResourceSection';
 import { AutoTurnControlView } from '../ui/views/AutoTurnControlView';
 import { ConditionStatusView } from '../ui/views/ConditionStatusView';
 import { LogView } from '../ui/views/LogView';
@@ -82,20 +58,9 @@ export class GameplayScene extends Scene {
   private readonly testBridge = createGameTestBridge();
   private turnManager!: TurnManager;
   private tooltipProvider!: TooltipProvider;
+  private popupController!: PopupController;
   private mapView?: MapView;
   private mapIncomeEffectsView?: MapIncomeEffectsView;
-  private testPopup?: ScreenPopup;
-  private gameMenuPopup?: GameMenuPopup;
-  private statePopup?: StatePopup;
-  private rulerPopup?: ScreenPopup;
-  private researchPopup?: ResearchPopup;
-  private militaryPopup?: MilitaryPopup;
-  private marketTradePopup?: MarketTradePopup;
-  private battlePopup?: BattlePopup;
-  private battleResultPopup?: BattleResultPopup;
-  private introductionLorePopup?: IntroductionLorePopup;
-  private randomEventPopup?: RandomEventPopup;
-  private logPopup?: LogPopup;
   private selectedBuildingView?: SelectedBuildingView;
   private quickBuildView?: QuickBuildView;
   private selectedBuildingInstanceId?: string;
@@ -108,6 +73,7 @@ export class GameplayScene extends Scene {
   private activeSaveSlot?: SaveSlotId;
   private lastSavedSignature = '';
   private autoTurnEnabled = false;
+  private boundBeforeUnload?: () => void;
   private autoTurnCountdownMs = 0;
   private autoTurnCountdownTurnNumber?: number;
   private autoTurnBaselineSignature?: string;
@@ -125,12 +91,10 @@ export class GameplayScene extends Scene {
   }
 
   onPreUpdate(engine: Engine, elapsedMs: number): void {
-    this.syncBattleUi(engine);
-
     const quickBuildExpanded = this.quickBuildView?.isExpanded() ?? false;
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.S)) {
-      this.showStatePopup(engine);
+      this.popupController.showStatePopup();
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.F)) {
@@ -138,27 +102,27 @@ export class GameplayScene extends Scene {
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.X)) {
-      this.showRulerPopup(engine);
+      this.popupController.showRulerPopup();
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.R)) {
-      this.showResearchPopup(engine);
+      this.popupController.showResearchPopup();
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.T)) {
-      this.showMilitaryPopup(engine);
+      this.popupController.showMilitaryPopup();
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.H)) {
-      this.showLogPopup(engine);
+      this.popupController.showLogPopup();
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.M)) {
-      this.showGameMenuPopup(engine);
+      this.popupController.showGameMenuPopup();
     }
 
     if (!quickBuildExpanded && engine.input.keyboard.wasPressed(Keys.D)) {
-      this.showDebugMenu(engine);
+      this.popupController.showDebugMenu();
     }
 
     if (engine.input.keyboard.wasPressed(Keys.Esc)) {
@@ -167,18 +131,19 @@ export class GameplayScene extends Scene {
       } else if (this.pendingManualBuildBuildingId || this.pendingSowField) {
         this.cancelManualBuildPlacement();
       } else {
-        this.closeTopPopup();
+        this.popupController.closeTopPopup();
       }
     }
 
     if (
       !quickBuildExpanded &&
       engine.input.keyboard.wasPressed(Keys.Space) &&
-      !this.hasOpenPopup()
+      !this.popupController.hasOpenPopup()
     ) {
       this.performEndTurn(engine);
     }
 
+    this.popupController.syncBattleUi();
     this.updateAutoTurn(engine, elapsedMs);
     this.autoSaveIfDirty();
   }
@@ -186,21 +151,10 @@ export class GameplayScene extends Scene {
   onDeactivate(): void {
     this.saveCurrentGame();
 
-    // Clean up references so they can be garbage-collected between scene transitions
+    this.popupController.clear();
     this.tooltipProvider = undefined!;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
-    this.testPopup = undefined;
-    this.gameMenuPopup = undefined;
-    this.statePopup = undefined;
-    this.rulerPopup = undefined;
-    this.researchPopup = undefined;
-    this.militaryPopup = undefined;
-    this.battlePopup = undefined;
-    this.battleResultPopup = undefined;
-    this.introductionLorePopup = undefined;
-    this.randomEventPopup = undefined;
-    this.logPopup = undefined;
     this.selectedBuildingView = undefined;
     this.quickBuildView = undefined;
     this.selectedBuildingInstanceId = undefined;
@@ -210,22 +164,15 @@ export class GameplayScene extends Scene {
     this.activeSaveSlot = undefined;
     this.lastSavedSignature = '';
     this.clearAutoTurnCountdown();
+    if (this.boundBeforeUnload) {
+      window.removeEventListener('beforeunload', this.boundBeforeUnload);
+      this.boundBeforeUnload = undefined;
+    }
   }
 
   private resetGame(engine: Engine): void {
     // Remove all actors/entities/timers from the previous run
     this.clear();
-    this.testPopup = undefined;
-    this.gameMenuPopup = undefined;
-    this.statePopup = undefined;
-    this.rulerPopup = undefined;
-    this.researchPopup = undefined;
-    this.militaryPopup = undefined;
-    this.battlePopup = undefined;
-    this.battleResultPopup = undefined;
-    this.introductionLorePopup = undefined;
-    this.randomEventPopup = undefined;
-    this.logPopup = undefined;
     this.mapView = undefined;
     this.mapIncomeEffectsView = undefined;
     this.selectedBuildingView = undefined;
@@ -325,10 +272,17 @@ export class GameplayScene extends Scene {
       );
     }
 
-    this.gameManager.logData();
-
     // Re-add world + UI
     this.addTooltipProvider();
+    this.popupController = new PopupController({
+      addActor: (actor) => this.add(actor),
+      engine,
+      gameManager: this.gameManager,
+      resourceManager: this.resourceManager,
+      turnManager: this.turnManager,
+      tooltipProvider: this.tooltipProvider,
+      onSaveGame: () => this.saveCurrentGame(),
+    });
     this.addMapView();
     this.addMapIncomeEffectsView();
     this.addLayoutBackgrounds(engine);
@@ -344,12 +298,18 @@ export class GameplayScene extends Scene {
     this.addQuickBuildView();
     this.addSelectedBuildingView();
     if (slotSave) {
-      this.showPendingRandomEventPopup(engine);
+      this.popupController.showPendingRandomEventPopup();
     } else {
-      this.showIntroductionLorePopup(engine, newGameSetup);
+      this.popupController.showIntroductionLorePopup(newGameSetup);
     }
 
     this.saveCurrentGame();
+
+    if (this.boundBeforeUnload) {
+      window.removeEventListener('beforeunload', this.boundBeforeUnload);
+    }
+    this.boundBeforeUnload = () => this.saveCurrentGame();
+    window.addEventListener('beforeunload', this.boundBeforeUnload);
   }
 
   private addTooltipProvider(): void {
@@ -385,7 +345,7 @@ export class GameplayScene extends Scene {
       onBuildPlacementCancel: () => {
         this.cancelManualBuildPlacement();
       },
-      isInputBlocked: () => this.hasOpenPopup(),
+      isInputBlocked: () => this.popupController.hasOpenPopup(),
       tooltipProvider: this.tooltipProvider,
       tileSize: 56,
       showGrid: CONFIG.MAP_SHOW_GRID,
@@ -483,35 +443,9 @@ export class GameplayScene extends Scene {
       stateManager: this.gameManager.stateManager,
       politicsManager: this.gameManager.politicsManager,
       widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
-      onClick: () => {
-        this.showStatePopup(_engine);
-      },
+      onClick: () => this.popupController.showStatePopup(),
     });
     this.addHudElement(view);
-  }
-
-  private showStatePopup(engine: Engine): void {
-    if (this.statePopup) {
-      this.statePopup.close();
-      this.statePopup = undefined;
-    }
-
-    const popup = new StatePopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      stateManager: this.gameManager.stateManager,
-      buildingManager: this.gameManager.buildingManager,
-      resourceManager: this.resourceManager,
-      turnManager: this.turnManager,
-      politicsManager: this.gameManager.politicsManager,
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.statePopup = undefined;
-      },
-    });
-
-    this.statePopup = popup;
-    this.add(popup);
   }
 
   private addRulerDisplay(_engine: Engine) {
@@ -521,31 +455,9 @@ export class GameplayScene extends Scene {
       rulerManager: this.gameManager.rulerManager,
       widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
       yProvider: () => SIDEBAR_STACK.rulerY,
-      onClick: () => {
-        this.showRulerPopup(_engine);
-      },
+      onClick: () => this.popupController.showRulerPopup(),
     });
     this.addHudElement(view);
-  }
-
-  private showRulerPopup(engine: Engine): void {
-    if (this.rulerPopup) {
-      this.rulerPopup.close();
-      this.rulerPopup = undefined;
-    }
-
-    const popup = new RulerPopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      rulerManager: this.gameManager.rulerManager,
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.rulerPopup = undefined;
-      },
-    });
-
-    this.rulerPopup = popup;
-    this.add(popup);
   }
 
   private addResourceDisplay(_engine: Engine) {
@@ -590,9 +502,7 @@ export class GameplayScene extends Scene {
         width: btnWidth,
         height: btnHeight,
         title: 'Menu [M]',
-        onClick: () => {
-          this.showGameMenuPopup(engine);
-        },
+        onClick: () => this.popupController.showGameMenuPopup(),
       })
     );
 
@@ -603,9 +513,7 @@ export class GameplayScene extends Scene {
         width: btnWidth,
         height: btnHeight,
         title: 'Debug [D]',
-        onClick: () => {
-          this.showDebugMenu(engine);
-        },
+        onClick: () => this.popupController.showDebugMenu(),
       })
     );
 
@@ -674,42 +582,13 @@ export class GameplayScene extends Scene {
       return;
     }
     if (result.pendingRandomEvent) {
-      this.showPendingRandomEventPopup(engine);
+      this.popupController.showPendingRandomEventPopup();
       return;
     }
     this.armAutoTurnForCurrentTurn();
   }
 
-  private syncBattleUi(engine: Engine): void {
-    const activeBattle = this.gameManager?.militaryManager.getActiveBattle();
-    const lastBattleResult =
-      this.gameManager?.militaryManager.getLastBattleResult();
-
-    if (lastBattleResult) {
-      if (this.battlePopup && !this.battlePopup.isKilled()) {
-        this.battlePopup.close();
-        this.battlePopup = undefined;
-      }
-      if (!this.battleResultPopup || this.battleResultPopup.isKilled()) {
-        this.showBattleResultPopup(engine);
-      }
-      return;
-    }
-
-    if (activeBattle) {
-      if (!this.battlePopup || this.battlePopup.isKilled()) {
-        this.showBattlePopup(engine);
-      }
-      return;
-    }
-
-    if (this.battlePopup && !this.battlePopup.isKilled()) {
-      this.battlePopup.close();
-      this.battlePopup = undefined;
-    }
-  }
-
-  private addResearchStatusDisplay(engine: Engine): void {
+  private addResearchStatusDisplay(_engine: Engine): void {
     const view = new ResearchStatusView({
       x: SIDEBAR_LAYOUT.panelX,
       y: SIDEBAR_STACK.researchY,
@@ -717,12 +596,12 @@ export class GameplayScene extends Scene {
       turnManager: this.turnManager,
       widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
       yProvider: () => SIDEBAR_STACK.researchY,
-      onClick: () => this.showResearchPopup(engine),
+      onClick: () => this.popupController.showResearchPopup(),
     });
     this.addHudElement(view);
   }
 
-  private addMilitaryStatusDisplay(engine: Engine): void {
+  private addMilitaryStatusDisplay(_engine: Engine): void {
     const view = new MilitaryStatusView({
       x: SIDEBAR_LAYOUT.panelX,
       y: SIDEBAR_STACK.militaryY,
@@ -730,7 +609,7 @@ export class GameplayScene extends Scene {
       buildingManager: this.gameManager.buildingManager,
       widthProvider: () => SIDEBAR_LAYOUT.panelWidth,
       yProvider: () => SIDEBAR_STACK.militaryY,
-      onClick: () => this.showMilitaryPopup(engine),
+      onClick: () => this.popupController.showMilitaryPopup(),
     });
     this.addHudElement(view);
   }
@@ -752,117 +631,9 @@ export class GameplayScene extends Scene {
       width: SIDEBAR_LAYOUT.panelWidth,
       height: SIDEBAR_STACK.getLogHeight(engine.drawHeight),
       logManager: this.gameManager.logManager,
-      onClick: () => this.showLogPopup(engine),
+      onClick: () => this.popupController.showLogPopup(),
     });
     this.addHudElement(view);
-  }
-
-  private showLogPopup(engine: Engine): void {
-    if (this.logPopup) {
-      this.logPopup.close();
-      this.logPopup = undefined;
-    }
-
-    const popup = new LogPopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      logManager: this.gameManager.logManager,
-      onClose: () => {
-        this.logPopup = undefined;
-      },
-    });
-
-    this.logPopup = popup;
-    this.add(popup);
-  }
-
-  private showMilitaryPopup(engine: Engine): void {
-    if (this.militaryPopup) {
-      this.militaryPopup.close();
-      this.militaryPopup = undefined;
-    }
-
-    const popup = new MilitaryPopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      militaryManager: this.gameManager.militaryManager,
-      buildingManager: this.gameManager.buildingManager,
-      resourceManager: this.resourceManager,
-      turnManager: this.turnManager,
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.militaryPopup = undefined;
-      },
-    });
-
-    this.militaryPopup = popup;
-    this.add(popup);
-  }
-
-  private showBattlePopup(engine: Engine): void {
-    if (this.battlePopup) {
-      this.battlePopup.close();
-      this.battlePopup = undefined;
-    }
-
-    const popup = new BattlePopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      militaryManager: this.gameManager.militaryManager,
-      rng: this.gameManager.rng,
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.battlePopup = undefined;
-      },
-    });
-
-    this.battlePopup = popup;
-    this.add(popup);
-  }
-
-  private showBattleResultPopup(engine: Engine): void {
-    const result = this.gameManager.militaryManager.getLastBattleResult();
-    if (!result) return;
-
-    if (this.battleResultPopup) {
-      this.battleResultPopup.close();
-      this.battleResultPopup = undefined;
-    }
-
-    const popup = new BattleResultPopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      result,
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.battleResultPopup = undefined;
-        this.gameManager.militaryManager.clearLastBattleResult();
-      },
-    });
-
-    this.battleResultPopup = popup;
-    this.add(popup);
-  }
-
-  private showResearchPopup(engine: Engine): void {
-    if (this.researchPopup) {
-      this.researchPopup.close();
-      this.researchPopup = undefined;
-    }
-
-    const popup = new ResearchPopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      researchManager: this.gameManager.researchManager,
-      turnManager: this.turnManager,
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.researchPopup = undefined;
-      },
-    });
-
-    this.researchPopup = popup;
-    this.add(popup);
   }
 
   private addSelectedBuildingView(): void {
@@ -891,7 +662,7 @@ export class GameplayScene extends Scene {
           actionId === 'trade' &&
           popupId === 'market-trade'
         ) {
-          this.showMarketTradePopup(instanceId);
+          this.popupController.showMarketTradePopup(instanceId);
         }
       },
       onActionHover: (buildingId, actionId, instanceId, hovered) => {
@@ -969,559 +740,6 @@ export class GameplayScene extends Scene {
     this.mapView?.setSelectedField(tileX, tileY);
   }
 
-  private showGameMenuPopup(engine: Engine): void {
-    if (this.gameMenuPopup) {
-      this.gameMenuPopup.close();
-      this.gameMenuPopup = undefined;
-    }
-    if (this.testPopup) {
-      this.testPopup.close();
-      this.testPopup = undefined;
-    }
-
-    const popup = new GameMenuPopup({
-      engine,
-      onClose: () => {
-        this.gameMenuPopup = undefined;
-      },
-      onSaveAndExit: () => {
-        this.saveCurrentGame();
-        engine.goToScene('main-menu');
-      },
-    });
-
-    this.gameMenuPopup = popup;
-    this.add(popup);
-  }
-
-  private showMarketTradePopup(marketInstanceId: string): void {
-    if (this.marketTradePopup) {
-      this.marketTradePopup.close();
-      this.marketTradePopup = undefined;
-    }
-
-    const engine = this.engine;
-    const popup = new MarketTradePopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      buildingManager: this.gameManager.buildingManager,
-      resourceManager: this.resourceManager,
-      turnManager: this.turnManager,
-      logManager: this.gameManager.logManager,
-      marketInstanceId,
-      onClose: () => {
-        this.marketTradePopup = undefined;
-      },
-    });
-    this.marketTradePopup = popup;
-    this.add(popup);
-  }
-
-  private showDebugMenu(engine: Engine) {
-    const debugButtons: Actor[] = [];
-    debugButtons.push(
-      //test button to add resources in left top corner below back button
-      new ScreenButton({
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 40,
-        title: 'Add Resources',
-        onClick: () => {
-          this.resourceManager.addResources({
-            gold: 50,
-            wood: 15,
-            stone: 15,
-            wheat: 20,
-            meat: 10,
-            bread: 10,
-          });
-        },
-      }),
-
-      //test button to spend resources in left top corner below add resources button
-      new ScreenButton({
-        x: 0,
-        y: 50,
-        width: 100,
-        height: 40,
-        title: 'Spend Resources',
-        onClick: () => {
-          if (!this.turnManager.spendFocus(1)) return;
-          this.resourceManager.spendResources({
-            gold: 30,
-            wood: 5,
-            stone: 5,
-            bread: 5,
-            meat: 5,
-          });
-        },
-      }),
-
-      new ScreenButton({
-        x: 0,
-        y: 100,
-        width: 120,
-        height: 40,
-        title: 'New Ruler',
-        onClick: () => {
-          this.gameManager.rulerManager.regenerate();
-        },
-      }),
-
-      new ScreenButton({
-        x: 0,
-        y: 150,
-        width: 120,
-        height: 40,
-        title: 'Test Battle',
-        onClick: () => {
-          this.startDebugBattle(engine);
-        },
-      }),
-
-      new ScreenButton({
-        x: 0,
-        y: 200,
-        width: 120,
-        height: 40,
-        title: 'Peasants',
-        onClick: () => {
-          this.showAngryPeasantsEvent(engine);
-        },
-      }),
-
-      new ActionElement({
-        x: 150,
-        y: 0,
-        width: 330,
-        height: 44,
-        title: 'Harvest Forest',
-        description:
-          'Send workers to gather wood from nearby forest tiles. Costs 1 AP and grants Wood.',
-        icon: getIconSprite('resources'),
-        outcomes: buildTooltipEffectResourceSections({
-          resourceEffects: { wood: 4 },
-          focusDelta: -1,
-          resourceManager: this.resourceManager,
-          focusAvailable: this.turnManager.getTurnDataRef().focus.current,
-        }),
-        tooltipProvider: this.tooltipProvider,
-        onClick: () => {
-          if (!this.turnManager.spendFocus(1)) return;
-          this.resourceManager.addResource('wood', 4);
-        },
-      }),
-
-      new ActionElement({
-        x: 150,
-        y: 54,
-        width: 330,
-        height: 44,
-        title: 'Fishing Boats',
-        description:
-          'Launch small boats on water tiles to secure meat supplies for the next turn.',
-        icon: getIconSprite('food'),
-        outcomes: buildTooltipEffectResourceSections({
-          resourceEffects: { meat: 5 },
-          focusDelta: -1,
-          resourceManager: this.resourceManager,
-          focusAvailable: this.turnManager.getTurnDataRef().focus.current,
-        }),
-        tooltipProvider: this.tooltipProvider,
-        onClick: () => {
-          if (!this.turnManager.spendFocus(1)) return;
-          this.resourceManager.addResource('meat', 5);
-        },
-      }),
-
-      // --- Condition debug buttons ---
-      ...getAllConditionDefinitions().map(
-        (def, i) =>
-          new ScreenButton({
-            x: 150,
-            y: 110 + i * 32,
-            width: 160,
-            height: 28,
-            title: `+ ${def.name}`,
-            idleBgColor:
-              def.sentiment === 'positive'
-                ? Color.fromHex('#2a6e2a')
-                : def.sentiment === 'negative'
-                  ? Color.fromHex('#6e2a2a')
-                  : Color.fromHex('#4a4a4a'),
-            onClick: () => {
-              this.gameManager.conditionManager.applyCondition(
-                def.id as Parameters<
-                  typeof this.gameManager.conditionManager.applyCondition
-                >[0],
-                this.turnManager.getTurnDataRef().turnNumber,
-                { sourceType: 'system', sourceId: 'debug' }
-              );
-            },
-          })
-      )
-    );
-
-    // Close existing popup if any
-    if (this.testPopup) {
-      this.testPopup.close();
-      this.testPopup = undefined;
-    }
-    if (this.gameMenuPopup) {
-      this.gameMenuPopup.close();
-      this.gameMenuPopup = undefined;
-    }
-
-    const popup = new ScreenPopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      anchor: 'center',
-      width: 520,
-      height: 420,
-      title: 'Debug Menu',
-      z: UI_Z.modalPopup,
-      backplateStyle: 'gray-full',
-      closeOnBackplateClick: true,
-      content: debugButtons,
-      onClose: () => {
-        this.testPopup = undefined;
-      },
-      contentBuilder: () => {},
-    });
-
-    this.testPopup = popup;
-    this.add(popup);
-  }
-
-  private startDebugBattle(engine: Engine): void {
-    if (this.testPopup && !this.testPopup.isKilled()) {
-      this.testPopup.close();
-      this.testPopup = undefined;
-    }
-    if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
-      this.battleResultPopup.close();
-      this.battleResultPopup = undefined;
-      this.gameManager.militaryManager.clearLastBattleResult();
-    }
-
-    this.gameManager.militaryManager.startBattle({
-      name: 'Debug Skirmish',
-      player: {
-        label: 'Player',
-        morale: 68,
-      },
-      enemy: {
-        label: 'Militia',
-        morale: 52,
-        units: { militia: 10 },
-      },
-      rewardMultiplier: 1,
-    });
-    this.showBattlePopup(engine);
-  }
-
-  private showRandomEventPopup(
-    engine: Engine,
-    config: Omit<
-      RandomEventPopupOptions,
-      'x' | 'y' | 'anchor' | 'tooltipProvider' | 'onClose'
-    >,
-    announceInLog = true
-  ): void {
-    if (this.randomEventPopup && !this.randomEventPopup.isKilled()) {
-      this.randomEventPopup.close();
-      this.randomEventPopup = undefined;
-    }
-
-    const popup = new RandomEventPopup({
-      ...config,
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      anchor: 'center',
-      tooltipProvider: this.tooltipProvider,
-      onClose: () => {
-        this.randomEventPopup = undefined;
-      },
-    });
-
-    this.randomEventPopup = popup;
-    if (announceInLog) {
-      this.gameManager.logManager.addNeutral(`Event: ${config.title}.`);
-    }
-    this.add(popup);
-  }
-
-  private showPendingRandomEventPopup(engine: Engine): void {
-    const pending =
-      this.gameManager.randomEventManager.getPendingEventPresentation();
-    if (!pending) {
-      return;
-    }
-
-    this.showRandomEventPopup(engine, {
-      title: pending.title,
-      description: pending.description,
-      options: pending.options.map((option) => ({
-        title: option.title,
-        outcomeDescription: option.outcomeDescription,
-        resourceEffects: option.resourceEffects,
-        focusDelta: option.focusDelta,
-        resourceRanges: option.resourceRanges,
-        focusRange: option.focusRange,
-        tooltipOutcomes: this.buildRandomEventTooltipOutcomes(option),
-        skillCheck: option.skillCheck,
-        disabled: option.disabled,
-        disabledReason: option.disabledReason,
-        onSelect: () => {
-          const resolution =
-            this.gameManager.randomEventManager.resolvePendingEventOption(
-              option.id
-            );
-          if (!resolution) {
-            return;
-          }
-          this.saveCurrentGame();
-          if (!resolution.battleStarted) {
-            this.showRandomEventResolutionPopup(engine, resolution);
-          }
-        },
-      })),
-    });
-  }
-
-  private showRandomEventResolutionPopup(
-    engine: Engine,
-    resolution: {
-      title: string;
-      description: string;
-    }
-  ): void {
-    this.showRandomEventPopup(
-      engine,
-      {
-        title: `${resolution.title} Resolved`,
-        description: resolution.description,
-        options: [
-          {
-            title: 'Continue',
-            outcomeDescription: 'Resume the turn.',
-            onSelect: () => {},
-          },
-        ],
-      },
-      false
-    );
-  }
-
-  private showAngryPeasantsEvent(engine: Engine): void {
-    if (this.testPopup && !this.testPopup.isKilled()) {
-      this.testPopup.close();
-      this.testPopup = undefined;
-    }
-
-    const foodDemand = 8;
-    const totalFood = this.getTotalFoodStock();
-    const canGiveFood = totalFood >= foodDemand;
-    const canNegotiate =
-      this.turnManager.getTurnDataRef().focus.current >= 1 &&
-      this.resourceManager.getResource('gold') >= 4;
-
-    this.showRandomEventPopup(engine, {
-      title: 'Angry Peasants',
-      description:
-        'A hungry crowd has gathered before the granary doors. They shout that the winter levies were harsh, the bakeries bare, and the lordly storehouses too full for honest folk to go unfed. The reeve waits for your word before the mood turns from anger to riot.',
-      options: [
-        {
-          title: 'Open the Granaries',
-          disabled: !canGiveFood,
-          disabledReason: canGiveFood
-            ? undefined
-            : 'Not enough food in reserve.',
-          tooltipOutcomes: buildTooltipResourceSection('Costs', [
-            {
-              resourceType: 'food',
-              amount: foodDemand,
-              available: totalFood,
-            },
-          ]),
-          outcomeDescription: canGiveFood
-            ? 'Open the stores and feed the crowd before dusk.'
-            : 'Open the stores and try to satisfy the crowd.',
-          onSelect: () => {
-            if (!this.spendFoodFromStores(foodDemand)) {
-              return;
-            }
-            this.gameManager.logManager.addGood(
-              'The angry peasants were fed from the granaries.'
-            );
-          },
-        },
-        {
-          title: 'Send the Steward',
-          disabled: !canNegotiate,
-          disabledReason: canNegotiate
-            ? undefined
-            : 'Not enough Focus or Gold.',
-          tooltipOutcomes: buildTooltipEffectResourceSections({
-            resourceEffects: { gold: -4 },
-            focusDelta: -1,
-            resourceManager: this.resourceManager,
-            focusAvailable: this.turnManager.getTurnDataRef().focus.current,
-          }),
-          outcomeDescription: canNegotiate
-            ? 'Send your steward to promise relief, record grievances, and quiet the square without bloodshed.'
-            : 'Without coin and personal attention, no peaceful settlement can be arranged.',
-          onSelect: () => {
-            if (!this.turnManager.spendFocus(1)) return;
-            if (!this.resourceManager.spendResource('gold', 4)) return;
-            this.gameManager.logManager.addGood(
-              'The steward calmed the angry peasants.'
-            );
-          },
-        },
-        {
-          title: 'Break the Crowd',
-          outcomeDescription:
-            'Begin a battle against Angry Peasants. Order will be restored by force if your troops prevail.',
-          onSelect: () => {
-            if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
-              this.battleResultPopup.close();
-              this.battleResultPopup = undefined;
-              this.gameManager.militaryManager.clearLastBattleResult();
-            }
-            this.gameManager.militaryManager.startBattle({
-              name: 'Angry Peasants',
-              player: {
-                label: 'Player',
-                morale: 66,
-              },
-              enemy: {
-                label: 'Peasants',
-                morale: 44,
-                units: { militia: 14 },
-              },
-              rewardMultiplier: 0.6,
-            });
-            this.gameManager.logManager.addBad(
-              'The angry peasants were confronted by force.'
-            );
-            this.showBattlePopup(engine);
-          },
-        },
-      ],
-    });
-  }
-
-  private getTotalFoodStock(): number {
-    let total = 0;
-    for (const type of FOOD_RESOURCE_TYPES) {
-      total += this.resourceManager.getResource(type);
-    }
-    return total;
-  }
-
-  private spendFoodFromStores(amount: number): boolean {
-    let remaining = amount;
-    if (this.getTotalFoodStock() < amount) {
-      return false;
-    }
-
-    for (const type of FOOD_RESOURCE_TYPES) {
-      const available = this.resourceManager.getResource(type);
-      const spend = Math.min(available, remaining);
-      if (spend > 0) {
-        this.resourceManager.spendResource(type, spend);
-        remaining -= spend;
-      }
-      if (remaining <= 0) {
-        break;
-      }
-    }
-
-    return remaining <= 0;
-  }
-
-  private buildRandomEventTooltipOutcomes(
-    option: Pick<
-      RandomEventOption,
-      'resourceEffects' | 'focusDelta' | 'resourceRanges' | 'focusRange'
-    >
-  ) {
-    const fixedEffects = buildTooltipEffectResourceSections({
-      resourceEffects: option.resourceEffects,
-      focusDelta: option.focusDelta,
-      resourceManager: this.resourceManager,
-      focusAvailable: this.turnManager.getTurnDataRef().focus.current,
-    });
-
-    const coveredResources = new Set<string>([
-      ...Object.keys(option.resourceEffects ?? {}),
-      ...(option.focusDelta ? ['focus'] : []),
-    ]);
-
-    const rangeCosts: Array<{
-      resourceType: import('../ui/tooltip/TooltipResourceSection').TooltipResourceKey;
-      amount: string;
-    }> = [];
-    const rangeGains: Array<{
-      resourceType: import('../ui/tooltip/TooltipResourceSection').TooltipResourceKey;
-      amount: string;
-    }> = [];
-
-    const addRange = (
-      resourceType: import('../ui/tooltip/TooltipResourceSection').TooltipResourceKey,
-      min: number,
-      max: number
-    ) => {
-      if (coveredResources.has(resourceType)) {
-        return;
-      }
-
-      if (max <= 0) {
-        rangeCosts.push({
-          resourceType,
-          amount: this.formatTooltipRange(Math.abs(max), Math.abs(min)),
-        });
-        return;
-      }
-
-      if (min >= 0) {
-        rangeGains.push({
-          resourceType,
-          amount: this.formatTooltipRange(min, max),
-        });
-        return;
-      }
-
-      rangeCosts.push({
-        resourceType,
-        amount: this.formatTooltipRange(0, Math.abs(min)),
-      });
-      rangeGains.push({
-        resourceType,
-        amount: this.formatTooltipRange(0, max),
-      });
-    };
-
-    for (const range of option.resourceRanges ?? []) {
-      addRange(range.resourceType, range.min, range.max);
-    }
-
-    if (option.focusRange) {
-      addRange('focus', option.focusRange.min, option.focusRange.max);
-    }
-
-    return [
-      ...fixedEffects,
-      ...buildTooltipResourceSection('Costs', rangeCosts),
-      ...buildTooltipResourceSection('Gains', rangeGains),
-    ];
-  }
-
-  private formatTooltipRange(min: number, max: number): string {
-    return min === max ? `${max}` : `${min}-${max}`;
-  }
 
   private autoSaveIfDirty(): void {
     if (!this.activeSaveSlot) {
@@ -1628,7 +846,7 @@ export class GameplayScene extends Scene {
 
   private canAutoTurnContinue(): boolean {
     return (
-      !this.hasOpenPopup() &&
+      !this.popupController.hasOpenPopup() &&
       !(this.quickBuildView?.isExpanded() ?? false) &&
       !this.pendingManualBuildBuildingId &&
       !this.pendingSowField &&
@@ -1682,107 +900,6 @@ export class GameplayScene extends Scene {
     return actor;
   }
 
-  private hasOpenPopup(): boolean {
-    return (
-      (this.testPopup !== undefined && !this.testPopup.isKilled()) ||
-      (this.gameMenuPopup !== undefined && !this.gameMenuPopup.isKilled()) ||
-      (this.statePopup !== undefined && !this.statePopup.isKilled()) ||
-      (this.rulerPopup !== undefined && !this.rulerPopup.isKilled()) ||
-      (this.researchPopup !== undefined && !this.researchPopup.isKilled()) ||
-      (this.militaryPopup !== undefined && !this.militaryPopup.isKilled()) ||
-      (this.introductionLorePopup !== undefined &&
-        !this.introductionLorePopup.isKilled()) ||
-      (this.randomEventPopup !== undefined &&
-        !this.randomEventPopup.isKilled()) ||
-      (this.logPopup !== undefined && !this.logPopup.isKilled()) ||
-      (this.battlePopup !== undefined && !this.battlePopup.isKilled()) ||
-      (this.battleResultPopup !== undefined &&
-        !this.battleResultPopup.isKilled())
-    );
-  }
-
-  private closeTopPopup(): void {
-    if (this.introductionLorePopup && !this.introductionLorePopup.isKilled()) {
-      this.introductionLorePopup.close();
-      this.introductionLorePopup = undefined;
-      return;
-    }
-    if (this.gameMenuPopup && !this.gameMenuPopup.isKilled()) {
-      this.gameMenuPopup.close();
-      this.gameMenuPopup = undefined;
-      return;
-    }
-    if (this.militaryPopup && !this.militaryPopup.isKilled()) {
-      this.militaryPopup.close();
-      this.militaryPopup = undefined;
-      return;
-    }
-    if (this.logPopup && !this.logPopup.isKilled()) {
-      this.logPopup.close();
-      this.logPopup = undefined;
-      return;
-    }
-    if (this.battleResultPopup && !this.battleResultPopup.isKilled()) {
-      this.battleResultPopup.close();
-      this.battleResultPopup = undefined;
-      return;
-    }
-    if (this.battlePopup && !this.battlePopup.isKilled()) {
-      this.battlePopup.close();
-      this.battlePopup = undefined;
-      return;
-    }
-    if (this.researchPopup && !this.researchPopup.isKilled()) {
-      this.researchPopup.close();
-      this.researchPopup = undefined;
-      return;
-    }
-    if (this.statePopup && !this.statePopup.isKilled()) {
-      this.statePopup.close();
-      this.statePopup = undefined;
-      return;
-    }
-    if (this.rulerPopup && !this.rulerPopup.isKilled()) {
-      this.rulerPopup.close();
-      this.rulerPopup = undefined;
-      return;
-    }
-    if (this.testPopup && !this.testPopup.isKilled()) {
-      this.testPopup.close();
-      this.testPopup = undefined;
-    }
-  }
-
-  private showIntroductionLorePopup(
-    engine: Engine,
-    setup: GameSetupData
-  ): void {
-    if (this.introductionLorePopup) {
-      this.introductionLorePopup.close();
-      this.introductionLorePopup = undefined;
-    }
-
-    const prehistory = getStatePrehistoryDefinition(setup.prehistory);
-    const loreDefinition =
-      introductionLoreDefinitions[setup.prehistory] ??
-      introductionLoreDefinitions['distant-colony'];
-    const stateName = this.gameManager.stateManager.getStateRef().name;
-    const rulerName = this.gameManager.rulerManager.getRulerRef().name;
-
-    const popup = new IntroductionLorePopup({
-      x: engine.drawWidth / 2,
-      y: engine.drawHeight / 2,
-      title: loreDefinition.title,
-      body: `${stateName} now stands beneath the authority of ${rulerName}. ${prehistory.description} ${loreDefinition.body}`,
-      onClose: () => {
-        this.introductionLorePopup = undefined;
-        this.showPendingRandomEventPopup(engine);
-      },
-    });
-
-    this.introductionLorePopup = popup;
-    this.add(popup);
-  }
 
   private startManualBuildPlacement(buildingId: StateBuildingId): void {
     const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;

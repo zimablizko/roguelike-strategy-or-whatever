@@ -182,6 +182,14 @@ export class TooltipProvider extends ScreenElement {
     const members: GraphicsGrouping[] = [
       {
         graphic: new Rectangle({
+          width: this.tooltipWidth + 2,
+          height: this.tooltipHeight + 2,
+          color: TOOLTIP_COLORS.border,
+        }),
+        offset: vec(-1, -1),
+      },
+      {
+        graphic: new Rectangle({
           width: this.tooltipWidth,
           height: this.tooltipHeight,
           color: request.bgColor ?? this.defaultBgColor,
