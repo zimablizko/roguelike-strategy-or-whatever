@@ -208,6 +208,7 @@ export class GameplayScene extends Scene {
         politicsManager: this.gameManager.politicsManager,
         randomEventManager: this.gameManager.randomEventManager,
         logManager: this.gameManager.logManager,
+        personManager: this.gameManager.personManager,
         initial: slotSave?.turn
           ? {
               data: slotSave.turn.data,
@@ -472,6 +473,7 @@ export class GameplayScene extends Scene {
         buildingManager: this.gameManager.buildingManager,
         tooltipProvider: this.tooltipProvider,
         anchor: 'top-left',
+        onPopulationClick: () => this.popupController.showStatePopup('population'),
       })
     );
   }
@@ -664,6 +666,23 @@ export class GameplayScene extends Scene {
         ) {
           this.popupController.showMarketTradePopup(instanceId);
         }
+      },
+      personManager: this.gameManager.personManager,
+      onHireWorker: (instanceId) => {
+        const bm = this.gameManager.buildingManager;
+        const pm = this.gameManager.personManager;
+        const instance = bm.getBuildingInstances().find((i) => i.instanceId === instanceId);
+        if (!instance) return;
+        const def = bm.getBuildingDefinition(instance.buildingId);
+        if (!def?.workerOccupation) return;
+        const free = pm.getFreePeasants();
+        if (free.length === 0) return;
+        bm.assignWorker(instanceId, free[0].id);
+        pm.assignToBuilding(free[0].id, instanceId, def.workerOccupation as import('../_common/models/person.models').PersonOccupation);
+        this.gameManager.logManager.addNeutral(`${free[0].name} hired as ${def.workerOccupation}.`);
+      },
+      onShowWorkerNpc: (personId) => {
+        this.popupController.showNpcPopup(personId);
       },
       onActionHover: (buildingId, actionId, instanceId, hovered) => {
         if (

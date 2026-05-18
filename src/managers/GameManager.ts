@@ -3,8 +3,10 @@ import type {
   GameManagerOptions,
   PlayerData,
 } from '../_common/models/game.models';
+import type { PersonOccupation } from '../_common/models/person.models';
 import type { GameSaveData } from '../_common/models/save.models';
 import { SeededRandom } from '../_common/random';
+import { stateBuildingDefinitions } from '../data/buildings';
 import {
   BARRACKS_GARRISON_PER_INSTANCE,
   BARRACKS_TRAINING_SLOTS_PER_INSTANCE,
@@ -14,6 +16,7 @@ import { ConditionManager } from './ConditionManager';
 import { GameLogManager } from './GameLogManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
+import { PersonManager } from './PersonManager';
 import { PoliticsManager } from './PoliticsManager';
 import { RandomEventManager } from './RandomEventManager';
 import { ResearchManager } from './ResearchManager';
@@ -48,6 +51,7 @@ export class GameManager {
   rulerManager: RulerManager;
   stateManager: StateManager;
   buildingManager: BuildingManager;
+  personManager: PersonManager;
   logManager: GameLogManager;
   mapManager: MapManager;
   researchManager: ResearchManager;
@@ -123,6 +127,44 @@ export class GameManager {
         applyMapSummary: (summary) =>
           this.stateManager.applyMapSummary(summary),
       },
+      onBuildingCompleted: (instance) => {
+        const def = stateBuildingDefinitions[instance.buildingId];
+        if ('workerOccupation' in def && def.workerOccupation && !instance.workerId) {
+          const free = this.personManager.getFreePeasants();
+          if (free.length > 0) {
+            const peasant = free[0];
+            this.buildingManager.assignWorker(instance.instanceId, peasant.id);
+            this.personManager.assignToBuilding(
+              peasant.id,
+              instance.instanceId,
+              def.workerOccupation as PersonOccupation
+            );
+            this.logManager.addNeutral(
+              `${peasant.name} assigned as ${def.workerOccupation} at ${def.name}.`
+            );
+          }
+        }
+        if ('housingSlots' in def && def.housingSlots) {
+          this.personManager.reallocateHousing(
+            this.buildingManager.getBuildingInstances()
+          );
+          this.resourceManager.setResource(
+            'population',
+            this.personManager.getPeopleCount()
+          );
+        }
+      },
+      personManager: {
+        getFreePeasants: () => this.personManager.getFreePeasants(),
+        assignAsSoldier: (personId, unitRole) =>
+          this.personManager.assignAsSoldier(personId, unitRole),
+      },
+      militaryManager: {
+        trainUnitInstant: (unitRole) =>
+          this.militaryManager.trainUnitInstant(
+            unitRole as import('../_common/models/military.models').UnitRole
+          ),
+      },
       initial: saveData?.buildings
         ? {
             technologies: saveData.buildings.technologies,
@@ -135,6 +177,21 @@ export class GameManager {
             technologies: options.startingTechnologies,
           },
     });
+
+    this.personManager = new PersonManager({
+      rng: this.rng,
+      initial: saveData?.persons,
+    });
+
+    if (!saveData) {
+      const rulerName = this.rulerManager.getRulerRef().name;
+      this.personManager.addPerson('ruler', this.rng, rulerName);
+      for (let i = 0; i < 3; i++) this.personManager.addPerson('noble', this.rng);
+      for (let i = 0; i < 12; i++) this.personManager.addPerson('peasant', this.rng);
+      this.personManager.reallocateHousing(this.buildingManager.getBuildingInstances());
+    }
+    this.resourceManager.setResource('population', this.personManager.getPeopleCount());
+
     this.researchManager = new ResearchManager(this.buildingManager, {
       logManager: this.logManager,
       initial: saveData?.research
@@ -159,6 +216,8 @@ export class GameManager {
       grantResources: (resources) =>
         this.resourceManager.addResources(resources),
       logManager: this.logManager,
+      onSoldierDied: (unitRole, count) =>
+        this.personManager.removeSoldiers(unitRole, count),
       initial: saveData?.military ?? undefined,
     });
     if (!saveData) {
@@ -291,6 +350,7 @@ export class GameManager {
       },
       turn: turnData,
       military: this.militaryManager.getSaveState(),
+      persons: this.personManager.getSaveState(),
       politics: this.politicsManager.getSaveState(),
       randomEvents: this.randomEventManager.getSaveState(),
       conditions: this.conditionManager.getSaveState(),

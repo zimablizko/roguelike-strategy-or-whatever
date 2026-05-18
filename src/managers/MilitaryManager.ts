@@ -63,6 +63,7 @@ export class MilitaryManager {
   private readonly isTechUnlocked: (techId: string) => boolean;
   private readonly grantResources: (resources: ResourceCost) => void;
   private readonly logManager?: GameLogManager;
+  private readonly onSoldierDied?: (unitRole: UnitRole, count: number) => void;
   private combatModifierProvider?: () => {
     attackBonus?: number;
     defenseBonus?: number;
@@ -74,6 +75,7 @@ export class MilitaryManager {
     this.isTechUnlocked = options.isTechnologyUnlocked;
     this.grantResources = options.grantResources ?? (() => {});
     this.logManager = options.logManager;
+    this.onSoldierDied = options.onSoldierDied;
 
     if (options.initial) {
       this.roster = options.initial.roster.map((stack) => ({
@@ -806,6 +808,7 @@ export class MilitaryManager {
             const lost = Math.max(1, Math.round(amount * lossFraction));
             casualties[unitId] = lost;
             this.removeFromRoster(unitId, lost, 'assigned');
+            this.onSoldierDied?.(unitId, lost);
           }
         } else {
           const lossFraction = rng.next() * 0.2;
@@ -818,6 +821,7 @@ export class MilitaryManager {
             if (lost > 0) {
               casualties[unitId] = lost;
               this.removeFromRoster(unitId, lost, 'assigned');
+              this.onSoldierDied?.(unitId, lost);
             }
           }
         }
@@ -903,8 +907,21 @@ export class MilitaryManager {
     if (removed < count) {
       removed += this.removeFromRoster(unitId, count - removed, 'available');
     }
-    if (removed > 0) this.version++;
+    if (removed > 0) {
+      this.onSoldierDied?.(unitId, removed);
+      this.version++;
+    }
     return removed;
+  }
+
+  // ─── Instant training ────────────────────────────────────────────
+
+  trainUnitInstant(unitId: UnitRole): boolean {
+    const def = getUnitDefinition(unitId);
+    if (!def) return false;
+    this.addToRoster(unitId, 1, 'available');
+    this.version++;
+    return true;
   }
 
   // ─── Serialization ──────────────────────────────────────────────
@@ -1697,12 +1714,18 @@ export class MilitaryManager {
       summaryLines.push(...battle.lastTurnSummary.highlights.slice(0, 3));
     }
 
+    const playerKilled = this.collectBattleCounts(battle.player, 'killed');
+    for (const [unitId, count] of Object.entries(playerKilled) as [UnitRole, number | undefined][]) {
+      const amount = count ?? 0;
+      if (amount > 0) this.onSoldierDied?.(unitId, amount);
+    }
+
     this.lastBattleResult = {
       battleId: battle.battleId,
       name: battle.name,
       winner,
       turns: battle.turnNumber,
-      playerKilled: this.collectBattleCounts(battle.player, 'killed'),
+      playerKilled,
       enemyKilled: this.collectBattleCounts(battle.enemy, 'killed'),
       playerRouted: this.collectBattleCounts(battle.player, 'routed'),
       enemyRouted: this.collectBattleCounts(battle.enemy, 'routed'),

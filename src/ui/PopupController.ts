@@ -29,6 +29,7 @@ import { MilitaryPopup } from './popups/MilitaryPopup';
 import { RandomEventPopup } from './popups/RandomEventPopup';
 import { ResearchPopup } from './popups/ResearchPopup';
 import { RulerPopup } from './popups/RulerPopup';
+import { NpcPopup } from './popups/NpcPopup';
 import { StatePopup } from './popups/StatePopup';
 import type { TooltipProvider } from './tooltip/TooltipProvider';
 import {
@@ -67,6 +68,7 @@ export class PopupController {
   private battleResultPopup?: BattleResultPopup;
   private introductionLorePopup?: IntroductionLorePopup;
   private randomEventPopup?: RandomEventPopup;
+  private npcPopup?: NpcPopup;
   private logPopup?: LogPopup;
 
   constructor(opts: PopupControllerOptions) {
@@ -203,7 +205,7 @@ export class PopupController {
     }
   }
 
-  showStatePopup(): void {
+  showStatePopup(initialTab?: string): void {
     if (this.statePopup) {
       this.statePopup.close();
       this.statePopup = undefined;
@@ -217,12 +219,41 @@ export class PopupController {
       resourceManager: this.rm,
       turnManager: this.tm,
       politicsManager: this.gm.politicsManager,
+      personManager: this.gm.personManager,
       tooltipProvider: this.tp,
+      initialTab,
+      onShowNpc: (personId) => this.showNpcPopup(personId),
       onClose: () => {
         this.statePopup = undefined;
       },
     });
     this.statePopup = popup;
+    this.addActor(popup);
+  }
+
+  showNpcPopup(personId: string): void {
+    if (this.npcPopup && !this.npcPopup.isKilled()) {
+      this.npcPopup.close();
+      this.npcPopup = undefined;
+    }
+    const { drawWidth, drawHeight } = this.engine;
+    const popup = new NpcPopup({
+      x: drawWidth / 2,
+      y: drawHeight / 2,
+      personId,
+      personManager: this.gm.personManager,
+      buildingManager: this.gm.buildingManager,
+      resourceManager: this.rm,
+      turnManager: this.tm,
+      militaryManager: this.gm.militaryManager,
+      logManager: this.gm.logManager,
+      tooltipProvider: this.tp,
+      rng: this.gm.rng,
+      onClose: () => {
+        this.npcPopup = undefined;
+      },
+    });
+    this.npcPopup = popup;
     this.addActor(popup);
   }
 

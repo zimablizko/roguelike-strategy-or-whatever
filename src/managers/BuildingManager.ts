@@ -4,6 +4,8 @@ import type {
   BuildingManagerOptions,
   BuildingManagerStateBridge,
   BuildingMapCell,
+  BuildingMilitaryManagerBridge,
+  BuildingPersonManagerBridge,
   BuildingTileChange,
   PlacementCandidate,
   StateBuildingActionStatus,
@@ -54,10 +56,13 @@ export class BuildingManager {
   private additionalOccupiedPopulationProvider: () => number = () => 0;
   private readonly logManager?: GameLogManager;
   private onTileChanged?: (change: BuildingTileChange) => void;
+  private onBuildingCompleted?: (instance: StateBuildingInstance) => void;
   /** Tracks how many times each action has been used this turn. Key: "instanceId:actionId". */
   private actionUsesThisTurn = new Map<string, number>();
   private buildSpeedProvider?: () => number;
   private buildSpeedAccumulator = 0;
+  private personManagerBridge?: BuildingPersonManagerBridge;
+  private militaryManagerBridge?: BuildingMilitaryManagerBridge;
 
   constructor(options: BuildingManagerOptions) {
     this.mapManager = options.mapManager;
@@ -66,6 +71,9 @@ export class BuildingManager {
     this.currentTurnProvider = options.currentTurnProvider ?? (() => 1);
     this.logManager = options.logManager;
     this.onTileChanged = options.onTileChanged;
+    this.onBuildingCompleted = options.onBuildingCompleted;
+    this.personManagerBridge = options.personManager;
+    this.militaryManagerBridge = options.militaryManager;
     this.buildingCounts = createEmptyBuildingRecord();
     this.applyProgress(options.initial);
     this.ensureStartingCastle();
@@ -215,6 +223,7 @@ export class BuildingManager {
               `${definition.name} construction finished.`
             );
           }
+          this.onBuildingCompleted?.(instance);
         }
         changed = true;
       }
@@ -234,41 +243,65 @@ export class BuildingManager {
     this.buildingsVersion++;
   }
 
-  // ─── Population helpers ──────────────────────────────────────────
+  // ─── Population / Housing helpers ────────────────────────────────
 
-  /**
-   * Total population provided by all buildings with `populationProvided`.
-   * Only completed (non-in-progress) buildings count.
-   */
+  /** Total housing slots from all complete buildings (castle + houses). */
   getTotalPopulation(): number {
     let total = 0;
     for (const instance of this.buildingInstances) {
       if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
         continue;
       const definition = this.getBuildingDefinition(instance.buildingId);
-      if (definition?.populationProvided) {
-        total += definition.populationProvided;
+      if (definition?.housingSlots) {
+        total += definition.housingSlots;
       }
     }
     return total;
   }
 
-  /**
-   * Population occupied by all buildings with `populationRequired`.
-   * Only completed (non-in-progress) buildings count.
-   */
+  /** Occupied population count (military only). Building-level occupancy removed. */
   getOccupiedPopulation(): number {
-    let occupied = 0;
-    for (const instance of this.buildingInstances) {
-      if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
-        continue;
-      const definition = this.getBuildingDefinition(instance.buildingId);
-      if (definition?.populationRequired) {
-        occupied += definition.populationRequired;
-      }
-    }
-    occupied += Math.max(0, this.additionalOccupiedPopulationProvider());
-    return occupied;
+    return Math.max(0, this.additionalOccupiedPopulationProvider());
+  }
+
+  // ─── Worker helpers ───────────────────────────────────────────────
+
+  assignWorker(instanceId: string, personId: string): void {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance) return;
+    instance.workerId = personId;
+    this.buildingsVersion++;
+  }
+
+  /** Remove worker from instance. Returns the freed person ID (or undefined). */
+  removeWorker(instanceId: string): string | undefined {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance?.workerId) return undefined;
+    const personId = instance.workerId;
+    instance.workerId = undefined;
+    this.buildingsVersion++;
+    return personId;
+  }
+
+  getWorkerForInstance(instanceId: string): string | undefined {
+    return this.buildingInstances.find((i) => i.instanceId === instanceId)
+      ?.workerId;
+  }
+
+  /** True if the instance is complete AND (no workerOccupation OR has a worker). */
+  canInstanceOperate(instanceId: string): boolean {
+    const instance = this.buildingInstances.find(
+      (i) => i.instanceId === instanceId
+    );
+    if (!instance) return false;
+    if (instance.turnsRemaining && instance.turnsRemaining > 0) return false;
+    const def = this.getBuildingDefinition(instance.buildingId);
+    if (!def?.workerOccupation) return true;
+    return instance.workerId !== undefined;
   }
 
   advanceBuildingActionProgress(
@@ -512,19 +545,15 @@ export class BuildingManager {
       (tech) => !this.isTechnologyUnlocked(tech)
     );
     const placement = this.findBestPlacement(id, false);
-    const populationInsufficient =
-      (definition.populationRequired ?? 0) > 0 &&
-      this.getFreePopulation() < (definition.populationRequired ?? 0);
 
     return {
       buildable:
         Object.keys(missingResources).length === 0 &&
         missingTechnologies.length === 0 &&
-        !populationInsufficient &&
         placement !== undefined,
       missingResources,
       missingTechnologies,
-      populationInsufficient,
+      populationInsufficient: false,
       nextCost,
       placementAvailable: placement !== undefined,
       placementReason:
@@ -572,19 +601,15 @@ export class BuildingManager {
       (tech) => !this.isTechnologyUnlocked(tech)
     );
     const placement = this.findPlacementAt(id, x, y, false);
-    const populationInsufficient =
-      (definition.populationRequired ?? 0) > 0 &&
-      this.getFreePopulation() < (definition.populationRequired ?? 0);
 
     return {
       buildable:
         Object.keys(missingResources).length === 0 &&
         missingTechnologies.length === 0 &&
-        !populationInsufficient &&
         placement !== undefined,
       missingResources,
       missingTechnologies,
-      populationInsufficient,
+      populationInsufficient: false,
       nextCost,
       placementAvailable: placement !== undefined,
       placementReason:
@@ -616,13 +641,6 @@ export class BuildingManager {
       definition.requiredTechnologies.some(
         (technology) => !this.isTechnologyUnlocked(technology)
       )
-    ) {
-      return [];
-    }
-
-    if (
-      (definition.populationRequired ?? 0) > 0 &&
-      this.getFreePopulation() < (definition.populationRequired ?? 0)
     ) {
       return [];
     }
@@ -874,6 +892,16 @@ export class BuildingManager {
         this.syncStateWithMapSummary();
         this.buildingsVersion++;
       },
+      getFreePeasants: this.personManagerBridge
+        ? () => this.personManagerBridge!.getFreePeasants()
+        : undefined,
+      trainUnitInstant: this.militaryManagerBridge
+        ? (unitRole: string) => this.militaryManagerBridge!.trainUnitInstant(unitRole)
+        : undefined,
+      assignPeasantAsSoldier: this.personManagerBridge
+        ? (personId: string, unitRole: string) =>
+            this.personManagerBridge!.assignAsSoldier(personId, unitRole)
+        : undefined,
     };
   }
 
@@ -983,14 +1011,6 @@ export class BuildingManager {
         };
       }
 
-      if (this.getFreePopulation() < 1) {
-        return {
-          activatable: false,
-          usesRemaining,
-          usesMax,
-        };
-      }
-
       if (resources) {
         const missing = this.getMissingResources(
           militaryAction.cost,
@@ -1090,6 +1110,7 @@ export class BuildingManager {
               ? rawInstance.lumbermillCooldown
               : undefined,
           fisheryWorkMode: rawInstance.fisheryWorkMode,
+          workerId: rawInstance.workerId,
         });
         this.buildingCounts[rawInstance.buildingId] += 1;
       }
@@ -1398,6 +1419,7 @@ export class BuildingManager {
       if (instance.buildingId !== 'farm') continue;
       if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
         continue;
+      if (!instance.workerId) continue;
 
       const mode = instance.farmWorkMode ?? 'idle';
 
@@ -1569,6 +1591,7 @@ export class BuildingManager {
       if (instance.buildingId !== 'lumbermill') continue;
       if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
         continue;
+      if (!instance.workerId) continue;
 
       const mode = instance.lumbermillWorkMode ?? 'idle';
 
@@ -1718,6 +1741,7 @@ export class BuildingManager {
       if (instance.buildingId !== 'fishery') continue;
       if (instance.turnsRemaining !== undefined && instance.turnsRemaining > 0)
         continue;
+      if (!instance.workerId) continue;
 
       const mode = instance.fisheryWorkMode ?? 'line-fishing';
       const centerX = instance.x + (instance.width - 1) / 2;

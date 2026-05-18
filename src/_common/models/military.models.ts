@@ -333,6 +333,8 @@ export interface MilitaryManagerOptions {
   grantResources?: (resources: ResourceCost) => void;
   /** Shared gameplay log manager. */
   logManager?: import('../../managers/GameLogManager').GameLogManager;
+  /** Called when player-side soldier NPCs are permanently lost (battle or removal). */
+  onSoldierDied?: (unitRole: UnitRole, count: number) => void;
   /** Restore from save data. */
   initial?: MilitarySaveState;
 }

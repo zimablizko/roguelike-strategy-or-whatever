@@ -4,8 +4,18 @@ import type { SeededRandom } from '../random';
 import type { StateBuildingId, TechnologyId } from './buildings.models';
 import type { MapPlayerStateSummary, MapTileType } from './map.models';
 import type { UnitRole } from './military.models';
+import type { Person } from './person.models';
 import type { ResourceCost } from './resource.models';
 import type { StateData } from './state.models';
+
+export interface BuildingPersonManagerBridge {
+  getFreePeasants(): ReadonlyArray<Person>;
+  assignAsSoldier(personId: string, unitRole: string): void;
+}
+
+export interface BuildingMilitaryManagerBridge {
+  trainUnitInstant(unitRole: string): boolean;
+}
 
 export type FarmWorkMode = 'idle' | 'sow' | 'harvest';
 export type LumbermillWorkMode = 'idle' | 'harvest' | 'plant';
@@ -57,6 +67,8 @@ export interface StateBuildingInstance {
   lumbermillCooldown?: number;
   /** Fishery-only: current work mode. */
   fisheryWorkMode?: FisheryWorkMode;
+  /** ID of the Person assigned as worker to this production building. */
+  workerId?: string;
 }
 
 export interface BuildingActionProgress {
@@ -114,6 +126,10 @@ export interface BuildingManagerOptions {
   currentTurnProvider?: () => number;
   logManager?: GameLogManager;
   onTileChanged?: (change: BuildingTileChange) => void;
+  /** Called when a building finishes construction (turnsRemaining reaches 0). */
+  onBuildingCompleted?: (instance: StateBuildingInstance) => void;
+  personManager?: BuildingPersonManagerBridge;
+  militaryManager?: BuildingMilitaryManagerBridge;
   initial?: {
     technologies?: TechnologyId[];
     builtBuildings?: Partial<Record<StateBuildingId, number | boolean>>;

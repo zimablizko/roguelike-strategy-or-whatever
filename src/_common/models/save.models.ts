@@ -10,6 +10,7 @@ import type { GameLogSaveState } from './log.models';
 import type { MapData } from './map.models';
 import type { MilitarySaveState } from './military.models';
 import type { PoliticsSaveState } from './politics.models';
+import type { PersonSaveState } from './person.models';
 import type { RandomEventSaveState } from './random-events.models';
 import type {
   ActiveResearchState,
@@ -66,6 +67,7 @@ export interface GameSaveData {
   politics?: PoliticsSaveState;
   randomEvents?: RandomEventSaveState;
   conditions?: ConditionSaveState;
+  persons?: PersonSaveState;
   logs?: GameLogSaveState;
 }
 

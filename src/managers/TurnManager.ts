@@ -14,7 +14,7 @@ import type {
   UpkeepBreakdown,
 } from '../_common/models/turn.models';
 import { SeededRandom } from '../_common/random';
-import { buildingPassiveIncome } from '../data/buildings';
+import { buildingPassiveIncome, stateBuildingDefinitions } from '../data/buildings';
 import { isMarketCaravanArrivalTurn } from '../data/marketCommerce';
 import {
   rareResourceDefinitions,
@@ -22,6 +22,7 @@ import {
 } from '../data/rareResources';
 import { BuildingManager } from './BuildingManager';
 import type { GameLogManager } from './GameLogManager';
+import type { PersonManager } from './PersonManager';
 import { MapManager } from './MapManager';
 import { MilitaryManager } from './MilitaryManager';
 import { PoliticsManager } from './PoliticsManager';
@@ -115,6 +116,7 @@ export class TurnManager {
   private focusSpendNotifications: number[] = [];
   private conditionEffectsProvider?: () => ConditionEffects;
   private conditionTickFn?: () => void;
+  private personManager?: PersonManager;
   /** Tracks fallow field tiles awaiting recovery. Key: "x,y", value: turns remaining. */
   private emptyFieldRecovery = new Map<string, number>();
 
@@ -131,6 +133,7 @@ export class TurnManager {
       politicsManager?: PoliticsManager;
       randomEventManager?: RandomEventManager;
       logManager?: GameLogManager;
+      personManager?: PersonManager;
       initial?: {
         data?: TurnData;
         version?: number;
@@ -164,6 +167,7 @@ export class TurnManager {
     this.politicsManager = options.politicsManager;
     this.randomEventManager = options.randomEventManager;
     this.logManager = options.logManager;
+    this.personManager = options.personManager;
     this.rng = options.rng;
     this.turnVersion = Math.max(0, Math.floor(options.initial?.version ?? 0));
     for (const entry of options.initial?.emptyFieldQueue ?? []) {
@@ -237,6 +241,26 @@ export class TurnManager {
       this.getDateLabel()
     );
     let pendingRandomEvent: RandomEventPresentation | undefined;
+
+    // Housing + population sync every turn.
+    if (this.personManager) {
+      const instances = this.buildingManager.getBuildingInstancesRef();
+      this.personManager.reallocateHousing(instances);
+      this.resourceManager.setResource(
+        'population',
+        this.personManager.getPeopleCount()
+      );
+      // Weekly arrival check (every 7 turns).
+      if (this.turnData.turnNumber % 7 === 0) {
+        const housingCap = this.buildingManager.getTotalPopulation();
+        const newPerson = this.personManager.tryWeeklyArrival(housingCap, this.rng);
+        if (newPerson) {
+          this.logManager?.addNeutral(
+            `A new ${newPerson.class} (${newPerson.name}) has arrived and joined your settlement.`
+          );
+        }
+      }
+    }
 
     // Age increments once per year (every 360 days = 12 months, when January 1 starts).
     if ((this.turnData.turnNumber - 1) % 360 === 0) {
@@ -363,9 +387,12 @@ export class TurnManager {
     return base;
   }
 
-  /** Total food required this month (population * 2). */
+  /** Total food required this month (one food per person). */
   getFoodUpkeepTotal(): number {
-    return this.buildingManager.getTotalPopulation() * 2;
+    const pop = this.personManager
+      ? this.personManager.getPeopleCount()
+      : this.buildingManager.getTotalPopulation();
+    return pop;
   }
 
   /**
@@ -579,6 +606,12 @@ export class TurnManager {
         instance.turnsRemaining !== undefined &&
         instance.turnsRemaining > 0
       ) {
+        continue;
+      }
+
+      // Skip worker-dependent buildings that have no assigned worker.
+      const def = stateBuildingDefinitions[instance.buildingId as StateBuildingId];
+      if (def && 'workerOccupation' in def && def.workerOccupation && !instance.workerId) {
         continue;
       }
 

@@ -20,6 +20,7 @@ import type { StatePopupOptions } from '../../_common/models/ui.models';
 import { FONT_FAMILY, wrapText } from '../../_common/text';
 import { getPoliticalRequestDefinition } from '../../data/politicalRequests';
 import { BuildingManager } from '../../managers/BuildingManager';
+import type { PersonManager } from '../../managers/PersonManager';
 import { PoliticsManager } from '../../managers/PoliticsManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { StateManager } from '../../managers/StateManager';
@@ -31,7 +32,7 @@ import { ScreenPopup } from '../elements/ScreenPopup';
 import { buildTooltipEffectResourceSections } from '../tooltip/TooltipResourceSection';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 
-type TabId = 'town-hall' | 'storage' | 'statistics';
+type TabId = 'town-hall' | 'storage' | 'statistics' | 'population';
 
 /**
  * Dedicated popup for state details.
@@ -44,6 +45,8 @@ export class StatePopup extends ScreenPopup {
   private turnManager: TurnManager;
   private politicsManager: PoliticsManager;
   private tooltipProvider: TooltipProvider;
+  private personManager?: PersonManager;
+  private onShowNpc?: (personId: string) => void;
   private contentRootRef?: ScreenElement;
   private bodyRoot?: ScreenElement;
   private activeTab: TabId = 'town-hall';
@@ -52,6 +55,7 @@ export class StatePopup extends ScreenPopup {
   private lastPoliticsVersion = -1;
   private lastResourceVersion = -1;
   private lastTurnVersion = -1;
+  private lastPersonVersion = -1;
   private requestScrollOffset = 0;
   private requestMaxScrollOffset = 0;
 
@@ -69,6 +73,10 @@ export class StatePopup extends ScreenPopup {
       onClose: options.onClose,
       contentBuilder: (contentRoot) => {
         this.contentRootRef = contentRoot;
+        const validTabs: TabId[] = ['town-hall', 'storage', 'statistics', 'population'];
+        if (options.initialTab && validTabs.includes(options.initialTab as TabId)) {
+          this.activeTab = options.initialTab as TabId;
+        }
         this.buildTabBar();
         this.renderActiveTab();
       },
@@ -80,6 +88,8 @@ export class StatePopup extends ScreenPopup {
     this.turnManager = options.turnManager;
     this.politicsManager = options.politicsManager;
     this.tooltipProvider = options.tooltipProvider;
+    this.personManager = options.personManager;
+    this.onShowNpc = options.onShowNpc;
 
     this.on('pointerwheel', (ev: WheelEvent) => {
       if (this.activeTab !== 'town-hall') return;
@@ -120,6 +130,14 @@ export class StatePopup extends ScreenPopup {
         this.renderActiveTab();
       }
     }
+
+    if (this.activeTab === 'population' && this.personManager) {
+      const pVer = this.personManager.getVersion();
+      if (pVer !== this.lastPersonVersion) {
+        this.lastPersonVersion = pVer;
+        this.renderActiveTab();
+      }
+    }
   }
 
   // ─── Tab Bar ─────────────────────────────────────────────────────
@@ -133,6 +151,7 @@ export class StatePopup extends ScreenPopup {
       { id: 'town-hall', label: 'Town Hall' },
       { id: 'storage', label: 'Storage' },
       { id: 'statistics', label: 'Statistics' },
+      { id: 'population', label: 'Population' },
     ];
 
     let tabX = 0;
@@ -203,6 +222,8 @@ export class StatePopup extends ScreenPopup {
       this.populateTownHall(body);
     } else if (this.activeTab === 'storage') {
       this.populateStorage(body);
+    } else if (this.activeTab === 'population') {
+      this.populatePopulation(body);
     } else {
       this.populateStatistics(body);
     }
@@ -847,6 +868,114 @@ export class StatePopup extends ScreenPopup {
         return 'Military';
       case 'politics-advisor':
         return 'Politics';
+    }
+  }
+
+  // ─── Population Tab ──────────────────────────────────────────────
+
+  private populatePopulation(root: ScreenElement): void {
+    if (!this.personManager) {
+      root.addChild(StatePopup.createLine(0, 0, 'Person system not active.', 14, Color.fromHex('#8fa8c0')));
+      return;
+    }
+
+    const L = STATE_POPUP_LAYOUT;
+    const contentWidth = L.width - L.padding * 2;
+    const classPriority: Record<string, number> = { ruler: 0, noble: 1, peasant: 2, beggar: 3 };
+    const classColors: Record<string, string> = {
+      ruler: '#f7d87c',
+      noble: '#c9a0f7',
+      peasant: '#9fe6aa',
+      beggar: '#c07070',
+    };
+
+    const people = [...this.personManager.getAllPeople()].sort((a, b) => {
+      const pa = classPriority[a.class] ?? 9;
+      const pb = classPriority[b.class] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return a.name.localeCompare(b.name);
+    });
+
+    const instances = this.buildingManager.getBuildingInstances();
+    const instanceNameMap = new Map<string, string>();
+    for (const inst of instances) {
+      instanceNameMap.set(inst.instanceId, inst.buildingId);
+    }
+
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    // Column positions
+    const COL_NAME = 0;
+    const COL_CLASS = 220;
+    const COL_OCC = 330;
+    const COL_LIVING = 510;
+    const HDR_COLOR = Color.fromHex('#7a8fa3');
+    const CELL_COLOR = Color.fromHex('#b0bcc8');
+    const ROW_H = 22;
+    const ROW_GAP = 2;
+    const FONT_SIZE = 12;
+    const CELL_PAD = 4;
+
+    // Header row
+    const addHdr = (text: string, colX: number) => {
+      root.addChild(StatePopup.createLine(colX + CELL_PAD, 3, text, 11, HDR_COLOR));
+    };
+    addHdr('Name', COL_NAME);
+    addHdr('Class', COL_CLASS);
+    addHdr('Occupation', COL_OCC);
+    addHdr('Living', COL_LIVING);
+
+    // Separator
+    const sep = new ScreenElement({ x: 0, y: 16 });
+    sep.graphics.use(new Rectangle({ width: contentWidth, height: 1, color: Color.fromHex('#2a3a4a') }));
+    root.addChild(sep);
+
+    if (people.length === 0) {
+      root.addChild(StatePopup.createLine(0, 24, 'No people in settlement.', 14, Color.fromHex('#8fa8c0')));
+      return;
+    }
+
+    let y = 20;
+    for (const person of people) {
+      const classColor = Color.fromHex(classColors[person.class] ?? '#b0bcc8');
+      const occupation = person.occupation ? cap(person.occupation) : '—';
+      const housingId = person.housingInstanceId;
+      const housingLabel = housingId
+        ? cap(instanceNameMap.get(housingId) ?? 'Unknown')
+        : 'Homeless';
+
+      if (this.onShowNpc) {
+        const personId = person.id;
+        const row = new ScreenButton({
+          x: 0, y,
+          width: contentWidth,
+          height: ROW_H,
+          title: '',
+          idleBgColor: Color.fromHex('#0d1822'),
+          hoverBgColor: Color.fromHex('#1d2f42'),
+          clickedBgColor: Color.fromHex('#162536'),
+          onClick: () => this.onShowNpc!(personId),
+        });
+
+        const addCell = (text: string, colX: number, color: Color) => {
+          const el = new ScreenElement({ x: colX + CELL_PAD, y: 4 });
+          el.graphics.use(new Text({
+            text,
+            font: new Font({ size: FONT_SIZE, unit: FontUnit.Px, color, family: FONT_FAMILY }),
+          }));
+          row.addChild(el);
+        };
+        addCell(person.name, COL_NAME, classColor);
+        addCell(cap(person.class), COL_CLASS, CELL_COLOR);
+        addCell(occupation, COL_OCC, CELL_COLOR);
+        addCell(housingLabel, COL_LIVING, housingId ? CELL_COLOR : Color.fromHex('#c07070'));
+        root.addChild(row);
+      } else {
+        const label = `${person.name}  ${cap(person.class)}  ${occupation}  ${housingLabel}`;
+        root.addChild(StatePopup.createLine(COL_NAME + CELL_PAD, y + 4, label, FONT_SIZE, classColor));
+      }
+
+      y += ROW_H + ROW_GAP;
     }
   }
 

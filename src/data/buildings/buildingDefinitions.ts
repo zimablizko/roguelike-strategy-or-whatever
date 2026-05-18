@@ -23,7 +23,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: true,
     buildingTime: 2,
-    populationProvided: 10,
+    housingSlots: 20,
     placementRule: {
       width: 3,
       height: 3,
@@ -38,10 +38,24 @@ export const stateBuildingDefinitions = {
     ],
     actions: [
       {
-        id: 'call-to-arms',
-        name: 'Call to Arms',
-        description: 'Raise a levy of local militia.',
-        run: () => {},
+        id: 'train-militia',
+        name: 'Train Militia',
+        description: 'Light infantry. Cheap to raise, suited for early defense and garrison duty.',
+        canRun: (ctx: BuildingActionContext) => {
+          const free = ctx.getFreePeasants?.() ?? [];
+          if (free.length === 0) return { activatable: false, reason: 'No free peasants available.' };
+          if (ctx.getResource('gold') < 5) return { activatable: false, reason: 'Requires 5 Gold.' };
+          if (ctx.getResource('meat') < 2) return { activatable: false, reason: 'Requires 2 Meat.' };
+          return { activatable: true };
+        },
+        run: (ctx: BuildingActionContext) => {
+          const free = ctx.getFreePeasants?.() ?? [];
+          if (free.length === 0) return;
+          ctx.resources.addResource('gold', -5);
+          ctx.resources.addResource('meat', -2);
+          ctx.trainUnitInstant?.('militia');
+          ctx.assignPeasantAsSoldier?.(free[0].id, 'militia');
+        },
       },
     ],
   },
@@ -58,7 +72,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.15,
     unique: false,
     buildingTime: 3,
-    populationProvided: 5,
+    housingSlots: 5,
     placementRule: {
       width: 2,
       height: 2,
@@ -68,7 +82,7 @@ export const stateBuildingDefinitions = {
     requiredTechnologies: [],
     getStats: (_state: unknown, count: number) => [
       `Built: ${count}`,
-      `Population provided: +${count * 5}`,
+      `Housing slots: +${count * 5}`,
       'Tax Collection: +1 Gold/turn per House',
     ],
     actions: [],
@@ -86,7 +100,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: false,
     buildingTime: 2,
-    populationRequired: 2,
+    workerOccupation: 'woodcutter',
     placementRule: {
       width: 2,
       height: 2,
@@ -113,7 +127,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: false,
     buildingTime: 4,
-    populationRequired: 3,
+    workerOccupation: 'miner',
     placementRule: {
       width: 2,
       height: 2,
@@ -156,7 +170,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: false,
     buildingTime: 2,
-    populationRequired: 2,
+    workerOccupation: 'farmer',
     placementRule: {
       width: 2,
       height: 2,
@@ -181,7 +195,6 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.25,
     unique: false,
     buildingTime: 3,
-    populationRequired: 3,
     placementRule: {
       width: 2,
       height: 2,
@@ -196,18 +209,50 @@ export const stateBuildingDefinitions = {
     ],
     actions: [
       {
-        id: 'train-footmen',
-        name: 'Train Footmen',
-        description:
-          'Begin drilling a batch of Footmen. Requires at least 1 free Population.',
-        run: () => {},
+        id: 'train-footman',
+        name: 'Train Footman',
+        description: 'Heavy infantry. Well-armed and armored, holds the line in pitched battle.',
+        requiredTechnologies: ['mil-drill-doctrine'],
+        canRun: (ctx: BuildingActionContext) => {
+          const free = ctx.getFreePeasants?.() ?? [];
+          if (free.length === 0) return { activatable: false, reason: 'No free peasants available.' };
+          if (ctx.getResource('gold') < 12) return { activatable: false, reason: 'Requires 12 Gold.' };
+          if (ctx.getResource('stone') < 5) return { activatable: false, reason: 'Requires 5 Stone.' };
+          if (ctx.getResource('meat') < 5) return { activatable: false, reason: 'Requires 5 Meat.' };
+          return { activatable: true };
+        },
+        run: (ctx: BuildingActionContext) => {
+          const free = ctx.getFreePeasants?.() ?? [];
+          if (free.length === 0) return;
+          ctx.resources.addResource('gold', -12);
+          ctx.resources.addResource('stone', -5);
+          ctx.resources.addResource('meat', -5);
+          ctx.trainUnitInstant?.('footman');
+          ctx.assignPeasantAsSoldier?.(free[0].id, 'footman');
+        },
       },
       {
-        id: 'train-archers',
-        name: 'Train Archers',
-        description:
-          'Begin drilling a batch of Archers. Requires Fletching and at least 1 free Population.',
-        run: () => {},
+        id: 'train-archer',
+        name: 'Train Archer',
+        description: 'Ranged unit. Effective at distance before melee is joined.',
+        requiredTechnologies: ['mil-fletching'],
+        canRun: (ctx: BuildingActionContext) => {
+          const free = ctx.getFreePeasants?.() ?? [];
+          if (free.length === 0) return { activatable: false, reason: 'No free peasants available.' };
+          if (ctx.getResource('gold') < 10) return { activatable: false, reason: 'Requires 10 Gold.' };
+          if (ctx.getResource('wood') < 2) return { activatable: false, reason: 'Requires 2 Wood.' };
+          if (ctx.getResource('meat') < 2) return { activatable: false, reason: 'Requires 2 Meat.' };
+          return { activatable: true };
+        },
+        run: (ctx: BuildingActionContext) => {
+          const free = ctx.getFreePeasants?.() ?? [];
+          if (free.length === 0) return;
+          ctx.resources.addResource('gold', -10);
+          ctx.resources.addResource('wood', -2);
+          ctx.resources.addResource('meat', -2);
+          ctx.trainUnitInstant?.('archer');
+          ctx.assignPeasantAsSoldier?.(free[0].id, 'archer');
+        },
       },
     ],
   },
@@ -223,7 +268,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: false,
     buildingTime: 2,
-    populationRequired: 1,
+    workerOccupation: 'hunter',
     placementRule: {
       width: 2,
       height: 2,
@@ -251,7 +296,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: false,
     buildingTime: 2,
-    populationRequired: 1,
+    workerOccupation: 'baker',
     placementRule: {
       width: 2,
       height: 2,
@@ -280,7 +325,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: true,
     buildingTime: 3,
-    populationRequired: 2,
+    workerOccupation: 'merchant',
     placementRule: {
       width: 2,
       height: 2,
@@ -331,7 +376,7 @@ export const stateBuildingDefinitions = {
     costGrowth: 1.2,
     unique: false,
     buildingTime: 2,
-    populationRequired: 1,
+    workerOccupation: 'fisherman',
     placementRule: {
       width: 2,
       height: 2,

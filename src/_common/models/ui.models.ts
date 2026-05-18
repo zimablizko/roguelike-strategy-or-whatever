@@ -8,7 +8,9 @@ import type {
 } from 'excalibur';
 import type { BuildingManager } from '../../managers/BuildingManager';
 import type { MilitaryManager } from '../../managers/MilitaryManager';
+import type { PersonManager } from '../../managers/PersonManager';
 import type { PoliticsManager } from '../../managers/PoliticsManager';
+
 import type { ResearchManager } from '../../managers/ResearchManager';
 import type { ResourceManager } from '../../managers/ResourceManager';
 import type { RulerManager } from '../../managers/RulerManager';
@@ -214,6 +216,7 @@ export interface ResourceDisplayOptions {
   spacing?: number;
   bgColor?: Color;
   textColor?: Color;
+  onPopulationClick?: () => void;
 }
 
 export type ResourceDisplayKey = ResourceType | 'food';
@@ -292,6 +295,9 @@ export interface SelectedBuildingViewOptions {
     instanceId: string,
     popupId: string
   ) => void;
+  personManager?: PersonManager;
+  onHireWorker?: (instanceId: string) => void;
+  onShowWorkerNpc?: (personId: string) => void;
 }
 
 export interface MapIncomeEffectsViewOptions {
@@ -370,8 +376,11 @@ export interface StatePopupOptions {
   resourceManager: ResourceManager;
   turnManager: TurnManager;
   politicsManager: PoliticsManager;
+  personManager?: PersonManager;
   tooltipProvider: TooltipProvider;
   anchor?: ScreenPopupAnchor;
+  initialTab?: string;
+  onShowNpc?: (personId: string) => void;
   onClose?: () => void;
 }
 

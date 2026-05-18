@@ -29,9 +29,11 @@ import type { SelectedBuildingViewOptions } from '../../_common/models/ui.models
 import { FONT_FAMILY, measureTextWidth } from '../../_common/text';
 import { buildingPassiveIncome } from '../../data/buildings';
 import { BuildingManager } from '../../managers/BuildingManager';
+import type { PersonManager } from '../../managers/PersonManager';
 import { ResourceManager } from '../../managers/ResourceManager';
 import { StateManager } from '../../managers/StateManager';
 import { TurnManager } from '../../managers/TurnManager';
+import { ScreenButton } from '../elements/ScreenButton';
 import { ActionElement } from '../elements/ActionElement';
 import { TooltipProvider } from '../tooltip/TooltipProvider';
 import {
@@ -49,6 +51,7 @@ interface BuildingInfoRow {
   label: string;
   segments: BuildingInfoRowSegment[];
   isDetail?: boolean;
+  isWorkerRow?: boolean;
 }
 
 export class SelectedBuildingView extends ScreenElement {
@@ -81,6 +84,9 @@ export class SelectedBuildingView extends ScreenElement {
     x: number,
     y: number
   ) => MapTileType | undefined;
+  private readonly personManager?: PersonManager;
+  private readonly onHireWorker?: (instanceId: string) => void;
+  private readonly onShowWorkerNpc?: (personId: string) => void;
   private readonly minPanelWidth: number;
   private readonly maxPanelWidth: number;
   private readonly panelHeight: number;
@@ -93,6 +99,7 @@ export class SelectedBuildingView extends ScreenElement {
   private selectedBuildingInstanceId?: string;
   private selectedFieldTile?: { x: number; y: number };
   private actionRows: ActionElement[] = [];
+  private workerInfoRows: ScreenElement[] = [];
   private lastBuildingsVersion = -1;
   private lastResourcesVersion = -1;
   private lastTurnVersion = -1;
@@ -111,6 +118,9 @@ export class SelectedBuildingView extends ScreenElement {
     this.onActionPlacementRequest = options.onActionPlacementRequest;
     this.onActionPopupRequest = options.onActionPopupRequest;
     this.mapTileProvider = options.mapTileProvider;
+    this.personManager = options.personManager;
+    this.onHireWorker = options.onHireWorker;
+    this.onShowWorkerNpc = options.onShowWorkerNpc;
     this.minPanelWidth = 420;
     this.maxPanelWidth = options.width ?? 560;
     this.panelHeight = options.height ?? 118;
@@ -254,6 +264,10 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     const infoRows = this.getInfoRows(definition, selected.instanceId);
+    const workerId = definition.workerOccupation
+      ? this.buildingManager.getBuildingInstances().find((i) => i.instanceId === selected.instanceId)?.workerId
+      : undefined;
+    const isInactive = !!definition.workerOccupation && !workerId;
     const LABEL_INDENT = 76;
 
     const leftSectionMaxLineWidth = Math.max(
@@ -382,6 +396,7 @@ export class SelectedBuildingView extends ScreenElement {
       )
     );
 
+    let workerRowY: number | undefined;
     let rowY = INFO_ROW_START_Y;
     for (const row of infoRows) {
       if (rowY + 14 > this.currentPanelHeight - 4) break;
@@ -396,35 +411,49 @@ export class SelectedBuildingView extends ScreenElement {
           )
         );
       }
-      const fontSize = row.isDetail ? 11 : 12;
-      const valueX = 12 + (row.label || !row.isDetail ? LABEL_INDENT : 8);
-      let segX = valueX;
-      for (const seg of row.segments) {
-        const valueColor = row.isDetail
-          ? DETAIL_COLOR
-          : seg.isPositive
-            ? POS_COLOR
-            : NEG_COLOR;
-        members.push(
-          this.createTextMember(seg.value, fontSize, valueColor, segX, rowY)
-        );
-        const textW = measureTextWidth(seg.value, fontSize);
-        segX += textW + 3;
-        if (seg.resource && !row.isDetail) {
-          const iconSprite = this.getResourceIconLocal(
-            seg.resource,
-            INFO_ICON_SIZE
+      if (row.isWorkerRow) {
+        workerRowY = rowY;
+        if (!workerId) {
+          members.push(this.createTextMember('None', 12, NEG_COLOR, 12 + LABEL_INDENT, rowY));
+        }
+      } else {
+        const fontSize = row.isDetail ? 11 : 12;
+        const valueX = 12 + (row.label || !row.isDetail ? LABEL_INDENT : 8);
+        let segX = valueX;
+        for (const seg of row.segments) {
+          const valueColor = row.isDetail
+            ? DETAIL_COLOR
+            : seg.isPositive
+              ? POS_COLOR
+              : NEG_COLOR;
+          members.push(
+            this.createTextMember(seg.value, fontSize, valueColor, segX, rowY)
           );
-          if (iconSprite) {
-            members.push({
-              graphic: iconSprite,
-              offset: vec(segX, rowY - 1),
-            });
-            segX += INFO_ICON_SIZE + 4;
+          const textW = measureTextWidth(seg.value, fontSize);
+          segX += textW + 3;
+          if (seg.resource && !row.isDetail) {
+            const iconSprite = this.getResourceIconLocal(
+              seg.resource,
+              INFO_ICON_SIZE
+            );
+            if (iconSprite) {
+              members.push({
+                graphic: iconSprite,
+                offset: vec(segX, rowY - 1),
+              });
+              segX += INFO_ICON_SIZE + 4;
+            }
           }
         }
       }
       rowY += INFO_ROW_GAP;
+    }
+
+    if (isInactive) {
+      members.push(
+        { graphic: new Rectangle({ width: this.currentPanelWidth, height: 2, color: Color.fromHex('#c87020') }), offset: vec(0, 0) },
+        { graphic: new Rectangle({ width: this.currentPanelWidth, height: 2, color: Color.fromHex('#c87020') }), offset: vec(0, this.currentPanelHeight - 1) }
+      );
     }
 
     members.push(
@@ -438,6 +467,53 @@ export class SelectedBuildingView extends ScreenElement {
     );
 
     this.graphics.use(new GraphicsGroup({ members }));
+
+    if (workerRowY !== undefined) {
+      const VALUE_X = 12 + LABEL_INDENT;
+      if (workerId) {
+        const person = this.personManager?.getPersonById(workerId);
+        const workerName = person?.name ?? 'Unknown';
+        const IDLE = Color.fromHex('#78d989');
+        const HOVER = Color.White;
+        const makeFont = (color: Color) =>
+          new Font({ size: 12, unit: FontUnit.Px, color, family: FONT_FAMILY });
+        const nameEl = new ScreenElement({ x: VALUE_X, y: workerRowY });
+        nameEl.graphics.use(new Text({ text: workerName, font: makeFont(IDLE) }));
+        if (this.onShowWorkerNpc) {
+          const wid = workerId;
+          nameEl.on('pointerenter', () =>
+            nameEl.graphics.use(new Text({ text: workerName, font: makeFont(HOVER) }))
+          );
+          nameEl.on('pointerleave', () =>
+            nameEl.graphics.use(new Text({ text: workerName, font: makeFont(IDLE) }))
+          );
+          nameEl.on('pointerup', () => this.onShowWorkerNpc!(wid));
+        }
+        this.workerInfoRows.push(nameEl);
+        this.addChild(nameEl);
+      } else if (this.onHireWorker) {
+        const freePeasants = this.personManager?.getFreePeasants() ?? [];
+        if (freePeasants.length > 0) {
+          const noneW = Math.ceil(measureTextWidth('None', 12));
+          const hireBtn = new ScreenButton({
+            x: VALUE_X + noneW + 10,
+            y: workerRowY - 3,
+            width: 46,
+            height: 20,
+            title: 'Hire',
+            idleBgColor: Color.fromHex('#1a4a28'),
+            hoverBgColor: Color.fromHex('#267538'),
+            clickedBgColor: Color.fromHex('#1a4028'),
+            idleTextColor: Color.White,
+            hoverTextColor: Color.White,
+            clickedTextColor: Color.White,
+            onClick: () => this.onHireWorker!(selected.instanceId),
+          });
+          this.workerInfoRows.push(hireBtn);
+          this.addChild(hireBtn);
+        }
+      }
+    }
 
     if (isFarm) {
       this.createFarmWorkModeRows(
@@ -730,6 +806,19 @@ export class SelectedBuildingView extends ScreenElement {
     startY: number,
     rowWidth: number
   ): void {
+    const instanceId = this.selectedBuildingInstanceId ?? '';
+
+    if (!this.buildingManager.canInstanceOperate(instanceId)) {
+      this.addChild(this.createStaticTextElement(
+        '⚠ No worker — building inactive',
+        12,
+        Color.fromHex('#c87020'),
+        startX,
+        startY + 10
+      ));
+      return;
+    }
+
     if (actions.length === 0) {
       this.addChild(
         this.createStaticTextElement(
@@ -744,7 +833,6 @@ export class SelectedBuildingView extends ScreenElement {
     }
 
     let y = startY;
-    const instanceId = this.selectedBuildingInstanceId ?? '';
     const hasActionPoint = this.turnManager.getTurnDataRef().focus.current >= 1;
     for (const action of actions) {
       if (y + 36 > this.currentPanelHeight - 8) {
@@ -1143,7 +1231,7 @@ export class SelectedBuildingView extends ScreenElement {
       }
       if (
         definition.id === 'barracks' &&
-        action.id === 'train-archers' &&
+        action.id === 'train-archer' &&
         !this.buildingManager.isTechnologyUnlocked('mil-fletching')
       ) {
         return false;
@@ -1158,17 +1246,21 @@ export class SelectedBuildingView extends ScreenElement {
   ): BuildingInfoRow[] {
     const rows: BuildingInfoRow[] = [];
 
-    if (definition.populationProvided) {
+    if (definition.housingSlots) {
       rows.push({
-        label: 'Permanent:',
+        label: 'Housing:',
         segments: [
           {
-            value: `+${definition.populationProvided}`,
+            value: `+${definition.housingSlots} slots`,
             resource: 'population',
             isPositive: true,
           },
         ],
       });
+    }
+
+    if (definition.workerOccupation) {
+      rows.push({ label: 'Worker:', segments: [], isWorkerRow: true });
     }
 
     if (definition.id === 'farm') {
@@ -1334,66 +1426,41 @@ export class SelectedBuildingView extends ScreenElement {
     );
     const focusAvailable = this.turnManager.getTurnDataRef().focus.current;
 
-    if (definition.id === 'castle' && action.id === 'call-to-arms') {
+    const PEASANT_REQ = { label: 'Requires', value: '1 Peasant', color: Color.fromHex('#b0bcc8') };
+
+    if (definition.id === 'castle' && action.id === 'train-militia') {
       return [
+        PEASANT_REQ,
         ...buildTooltipEffectResourceSections({
-          resourceEffects: { gold: -10 },
+          resourceEffects: { gold: -5, meat: -2 },
           focusDelta: -1,
           resourceManager: this.resourceManager,
           focusAvailable,
         }),
-        {
-          label: 'Muster',
-          value: '+4-6 Militia',
-          color: Color.fromHex('#9fe6aa'),
-        },
-        {
-          label: 'Time',
-          value: '1 turn',
-          color: Color.fromHex('#a9bbcb'),
-        },
       ];
     }
 
-    if (definition.id === 'barracks' && action.id === 'train-footmen') {
+    if (definition.id === 'barracks' && action.id === 'train-footman') {
       return [
+        PEASANT_REQ,
         ...buildTooltipEffectResourceSections({
-          resourceEffects: { gold: -50 },
+          resourceEffects: { gold: -12, stone: -5, meat: -5 },
           focusDelta: -1,
           resourceManager: this.resourceManager,
           focusAvailable,
         }),
-        {
-          label: 'Training',
-          value: '+3-5 Footmen',
-          color: Color.fromHex('#9fe6aa'),
-        },
-        {
-          label: 'Time',
-          value: '2 turns',
-          color: Color.fromHex('#a9bbcb'),
-        },
       ];
     }
 
-    if (definition.id === 'barracks' && action.id === 'train-archers') {
+    if (definition.id === 'barracks' && action.id === 'train-archer') {
       return [
+        PEASANT_REQ,
         ...buildTooltipEffectResourceSections({
-          resourceEffects: { gold: -75, wood: -25 },
+          resourceEffects: { gold: -10, wood: -2, meat: -2 },
           focusDelta: -1,
           resourceManager: this.resourceManager,
           focusAvailable,
         }),
-        {
-          label: 'Training',
-          value: '+3-5 Archers',
-          color: Color.fromHex('#9fe6aa'),
-        },
-        {
-          label: 'Time',
-          value: '2 turns',
-          color: Color.fromHex('#a9bbcb'),
-        },
       ];
     }
 
@@ -1456,6 +1523,10 @@ export class SelectedBuildingView extends ScreenElement {
   }
 
   private clearActionRows(): void {
+    for (const el of this.workerInfoRows) {
+      if (!el.isKilled()) el.kill();
+    }
+    this.workerInfoRows = [];
     for (const row of this.actionRows) {
       if (!row.isKilled()) {
         row.kill();

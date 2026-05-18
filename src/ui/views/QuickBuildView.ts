@@ -375,16 +375,13 @@ export class QuickBuildView extends ScreenElement {
     const neutralColor = QUICK_BUILD_COLORS.neutral;
     const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-    // Permanent bonus (population)
-    if (row.definition.populationProvided) {
-      outcomes.push(
-        ...buildTooltipResourceSection('Permanent', [
-          {
-            resourceType: 'population',
-            amount: row.definition.populationProvided,
-          },
-        ])
-      );
+    // Permanent bonus (housing)
+    if (row.definition.housingSlots) {
+      outcomes.push({
+        label: 'Housing',
+        value: `+${row.definition.housingSlots} slots`,
+        color: neutralColor,
+      });
     }
 
     // Each turn passive income
@@ -424,12 +421,11 @@ export class QuickBuildView extends ScreenElement {
       ...buildTooltipCostEntries(row.status.nextCost, this.resourceManager),
     ];
 
-    if (row.definition.populationRequired) {
-      const freePop = this.buildingManager.getFreePopulation();
-      costEntries.push({
-        resourceType: 'population',
-        amount: row.definition.populationRequired,
-        available: freePop,
+    if (row.definition.workerOccupation) {
+      outcomes.push({
+        label: 'Worker',
+        value: row.definition.workerOccupation,
+        color: neutralColor,
       });
     }
 

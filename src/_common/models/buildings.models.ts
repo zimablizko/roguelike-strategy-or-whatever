@@ -1,4 +1,5 @@
 import type { MapTileType } from './map.models';
+import type { Person } from './person.models';
 import type { ResourceCost, ResourceType } from './resource.models';
 
 export type TechnologyId = string;
@@ -29,6 +30,12 @@ export interface BuildingActionContext {
   isInPlayerZone: (x: number, y: number) => boolean;
   /** Write a map tile. Triggers state re-sync and version bump automatically. */
   mapSetTile: (x: number, y: number, tile: MapTileType) => void;
+  /** Returns housed peasants with no current occupation. Undefined if person system not wired. */
+  getFreePeasants?: () => ReadonlyArray<Person>;
+  /** Instantly adds 1 unit of the given role to the military roster. */
+  trainUnitInstant?: (unitRole: string) => boolean;
+  /** Assigns a person (by ID) as a soldier with the given unit role. */
+  assignPeasantAsSoldier?: (personId: string, unitRole: string) => void;
 }
 
 export interface BuildingActionCanRunResult {
@@ -75,10 +82,10 @@ export interface StateBuildingDefinition {
    * 0 or undefined means it completes instantly (same turn). Default: 0.
    */
   buildingTime?: number;
-  /** Population this building adds to the total cap (e.g. House +5, Castle +10). */
-  populationProvided?: number;
-  /** Free population required to operate this building (occupied, not consumed). */
-  populationRequired?: number;
+  /** Housing slots this building provides (Castle: 20, House: 5). Replaces populationProvided. */
+  housingSlots?: number;
+  /** Occupation assigned to the worker NPC for this building. Undefined = no worker needed. */
+  workerOccupation?: string;
   placementRule: {
     width: number;
     height: number;

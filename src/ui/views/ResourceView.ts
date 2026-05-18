@@ -80,7 +80,7 @@ export class ResourceDisplay extends ScreenElement {
     bread: 'Bread: baked from Wheat, consumed as food.',
     fish: 'Fish: caught from rivers and coastlines by Fisheries.',
     food: 'Food: total edible supplies (Meat + Bread + Fish). Consumed each turn.',
-    population: 'Population: occupied / total workforce. Build Houses to grow.',
+    population: 'Population: people / housing capacity. Click to view all people.',
     politicalPower:
       'Political Power: influence reserved for major political decisions.',
   };
@@ -89,6 +89,7 @@ export class ResourceDisplay extends ScreenElement {
   private lastOccupiedPopulation = -1;
   private lastTotalPopulation = -1;
   private spendPulses: ResourceSpendPulse[] = [];
+  private readonly onPopulationClick?: () => void;
   private shakes = new Map<
     ResourceDisplayKey,
     { ageMs: number; durationMs: number }
@@ -106,6 +107,7 @@ export class ResourceDisplay extends ScreenElement {
     this.spacing = options.spacing ?? 16;
     this.bgColor = options.bgColor ?? Color.fromHex('#1a252f');
     this.textColor = options.textColor ?? Color.White;
+    this.onPopulationClick = options.onPopulationClick;
 
     // Map resource types to their icons (sprites cloned from the shared spritesheet).
     this.resourceConfigs = [
@@ -151,6 +153,21 @@ export class ResourceDisplay extends ScreenElement {
     });
     this.on('pointerleave', () => {
       this.clearHoveredResource();
+    });
+    this.on('pointerup', (evt) => {
+      if (!this.onPopulationClick) return;
+      const rect = this.resourceItemRects.population;
+      if (!rect) return;
+      const localX = evt.screenPos.x - this.pos.x;
+      const localY = evt.screenPos.y - this.pos.y;
+      if (
+        localX >= rect.x &&
+        localX <= rect.x + rect.width &&
+        localY >= rect.y &&
+        localY <= rect.y + rect.height
+      ) {
+        this.onPopulationClick();
+      }
     });
     this.on('prekill', () => {
       this.clearHoveredResource();
@@ -261,7 +278,7 @@ export class ResourceDisplay extends ScreenElement {
     for (const config of this.resourceConfigs) {
       let displayText: string;
       if (config.key === 'population') {
-        displayText = `${occupiedPopulation}/${totalPopulation}`;
+        displayText = `${resources.population}/${totalPopulation}`;
       } else if (config.key === 'food') {
         // Virtual aggregate: sum of all food-type resources
         let foodTotal = 0;

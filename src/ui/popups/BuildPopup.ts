@@ -95,9 +95,9 @@ export class BuildPopup extends ScreenPopup {
 
     const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-    if (definition.populationProvided) {
+    if (definition.housingSlots) {
       line(
-        `Permanent: +${definition.populationProvided} Population`,
+        `Housing: +${definition.housingSlots} slots`,
         13,
         okColor,
         4
@@ -157,15 +157,8 @@ export class BuildPopup extends ScreenPopup {
       y += 4;
     }
 
-    if (definition.populationRequired) {
-      const freePop = buildingManager.getFreePopulation();
-      const enough = freePop >= definition.populationRequired;
-      line(
-        `Population required: ${definition.populationRequired} (free: ${freePop})`,
-        14,
-        enough ? okColor : warnColor,
-        8
-      );
+    if (definition.workerOccupation) {
+      line(`Needs a worker: ${definition.workerOccupation}`, 14, lineColor, 8);
     }
 
     if (status.buildable) {
