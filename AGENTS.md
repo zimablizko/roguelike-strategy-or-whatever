@@ -1,14 +1,36 @@
 # Project Patterns
 
+## Tech Stack
+
+- **Game Engine**: Excalibur.js v0.32.0
+- **Build Tool**: Vite v7.3.1
+- **Language**: TypeScript v5.9.3
+- **Module System**: ES Modules
+- **Target**: ES2020
+
+## Development Commands
+
+- **Development server**: `npm run dev` (runs on port 3000)
+- **Build**: `npm run build` (runs TypeScript compiler then Vite build)
+- **Preview**: `npm run preview` (preview production build)
+- **Deploy**: `npm run deploy` (build and deploy to GitHub Pages)
+
+## Coding Conventions
+
+- **TypeScript**: Strict mode enabled, no unused locals/parameters allowed
+- **Imports**: Use named imports from Excalibur (e.g., `import { Actor, Color, vec } from 'excalibur'`)
+- **Vector Creation**: Use `vec(x, y)` helper from Excalibur
+- **Color Creation**: Use `Color.Blue`, `Color.Red` constants or hex strings
+- **Randomness**: Use `SeededRandom` from `src/_common/random.ts` — never call `Math.random()` directly
+- **Shared utilities**: Import from `src/_common/` — do not duplicate `clamp`, `randomInt`, etc.
+
 ## Inspirations
 
 - **Crusader Kings** — character-driven politics, dynastic intrigue, trait/modifier systems, emergent narrative from systemic interactions
 - **Civilization** — turn-based resource loops, city improvements as progression gates, tech/civic trees, strategic layer over tactical detail
-- **Kingdom Come: Deliverance** — grounded medieval realism, skill-check consequences, reputation with factions shaping available actions, survival weight on decisions
+- **Kingdom Come: Deliverance** — grounded medieval realism, skill-check consequences, reputation with factions shaping available actions, survival weight on decisions, occasional references to real-world culture and memes
 
 These games inform tone and design instincts. When a mechanic is ambiguous, ask: does it feel systemic and character-driven (CK), strategic and layer-coherent (Civ), or grounded with meaningful consequence (KCD)?
-
-
 
 ## Architecture
 

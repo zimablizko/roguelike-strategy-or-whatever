@@ -1,4 +1,5 @@
 import {
+  Actor,
   Color,
   Engine,
   Font,
@@ -30,6 +31,7 @@ import {
 } from '../data/gameSetup';
 import {
   BASE_POSITIVE_RULER_TRAIT_LIMIT,
+  BONUS_POSITIVE_RULER_TRAITS_PER_NEGATIVE,
   countRulerTraitsByPolarity,
   getPositiveRulerTraitSelectionLimit,
   getRulerTraitDefinition,
@@ -42,6 +44,16 @@ import { ScreenButton } from '../ui/elements/ScreenButton';
 import { ScreenList } from '../ui/elements/ScreenList';
 import { TooltipProvider } from '../ui/tooltip/TooltipProvider';
 
+type SectionName =
+  | 'saveSlots'
+  | 'mapPanel'
+  | 'statePanel'
+  | 'rulerPanel'
+  | 'footer';
+
+const PANEL_Y = 194;
+const PANEL_HEIGHT = 436;
+
 export class InitializationScene extends Scene {
   private selectedSlot: SaveSlotId = 1;
   private readonly setupRng = new SeededRandom();
@@ -49,9 +61,20 @@ export class InitializationScene extends Scene {
   private setup: GameSetupData = createDefaultGameSetup(this.setupRng);
   private tooltipProvider?: TooltipProvider;
 
+  private readonly sectionActors = new Map<SectionName, Actor[]>();
+  private _section: SectionName | null = null;
+
+  // Stored rebuild closures — set by addSetupColumns, called by panel interactions.
+  private rebuildMapPanel?: () => void;
+  private rebuildStatePanel?: () => void;
+  private rebuildRulerPanel?: () => void;
+
   onInitialize(engine: Engine): void {
     this.backgroundColor = Color.fromHex('#0d1620');
-    this.render(engine);
+    this.addBackdrop(engine);
+    this.addHeader(engine);
+    this.addTooltipProvider();
+    this.refreshDynamic(engine);
   }
 
   onActivate(): void {
@@ -59,7 +82,7 @@ export class InitializationScene extends Scene {
     this.testBridge.setControl('startPreparationGame', () => {
       this.startSelectedSlot(this.engine);
     });
-    this.render(this.engine);
+    this.refreshDynamic(this.engine);
   }
 
   onDeactivate(): void {
@@ -70,49 +93,109 @@ export class InitializationScene extends Scene {
     if (engine.input.keyboard.wasPressed(Keys.Escape)) {
       engine.goToScene('main-menu');
     }
-
     if (engine.input.keyboard.wasPressed(Keys.Enter)) {
       this.startSelectedSlot(engine);
     }
-
     if (engine.input.keyboard.wasPressed(Keys.Delete)) {
       const deleted = SaveManager.deleteSlot(this.selectedSlot);
       if (deleted) {
-        this.render(engine);
+        this.refreshSaveSlots(engine);
+        this.refreshAllPanels(engine);
+        this.refreshFooter(engine);
       }
     }
-
     if (engine.input.keyboard.wasPressed(Keys.Digit1)) {
-      this.selectedSlot = 1;
-      this.render(engine);
+      this.selectSlot(1, engine);
     }
     if (engine.input.keyboard.wasPressed(Keys.Digit2)) {
-      this.selectedSlot = 2;
-      this.render(engine);
+      this.selectSlot(2, engine);
     }
     if (engine.input.keyboard.wasPressed(Keys.Digit3)) {
-      this.selectedSlot = 3;
-      this.render(engine);
+      this.selectSlot(3, engine);
     }
   }
 
-  private render(engine: Engine): void {
-    this.clear();
+  // ── Section helpers ─────────────────────────────────────────────────────────
 
+  private addActor(actor: Actor): void {
+    if (this._section !== null) {
+      const arr = this.sectionActors.get(this._section) ?? [];
+      arr.push(actor);
+      this.sectionActors.set(this._section, arr);
+    }
+    this.add(actor);
+  }
+
+  private killSection(section: SectionName): void {
+    for (const actor of this.sectionActors.get(section) ?? []) {
+      actor.kill();
+    }
+    this.sectionActors.set(section, []);
+  }
+
+  // ── Refresh methods ──────────────────────────────────────────────────────────
+
+  private refreshDynamic(engine: Engine): void {
     const summaries = SaveManager.getSlotSummaries();
     this.syncSelectedSlot(summaries);
-    const selectedSummary = summaries.find(
-      (summary) => summary.slot === this.selectedSlot
-    );
+    const selectedSummary = summaries.find((s) => s.slot === this.selectedSlot);
     const settingsLocked = selectedSummary?.used ?? false;
 
-    this.addBackdrop(engine);
-    this.addTooltipProvider();
-    this.addHeader(engine);
+    this.killSection('saveSlots');
+    this._section = 'saveSlots';
     this.addSaveSlots(engine, summaries, selectedSummary);
+
+    this.killSection('mapPanel');
+    this.killSection('statePanel');
+    this.killSection('rulerPanel');
     this.addSetupColumns(engine, settingsLocked);
+
+    this.killSection('footer');
+    this._section = 'footer';
     this.addFooter(engine, selectedSummary);
+    this._section = null;
   }
+
+  private refreshSaveSlots(engine: Engine): void {
+    const summaries = SaveManager.getSlotSummaries();
+    this.syncSelectedSlot(summaries);
+    const selectedSummary = summaries.find((s) => s.slot === this.selectedSlot);
+    this.killSection('saveSlots');
+    this._section = 'saveSlots';
+    this.addSaveSlots(engine, summaries, selectedSummary);
+    this._section = null;
+  }
+
+  private refreshAllPanels(engine: Engine): void {
+    const selectedSummary = SaveManager.getSlotSummaries().find(
+      (s) => s.slot === this.selectedSlot
+    );
+    const settingsLocked = selectedSummary?.used ?? false;
+    this.killSection('mapPanel');
+    this.killSection('statePanel');
+    this.killSection('rulerPanel');
+    this.addSetupColumns(engine, settingsLocked);
+  }
+
+  private refreshFooter(engine: Engine): void {
+    const selectedSummary = SaveManager.getSlotSummaries().find(
+      (s) => s.slot === this.selectedSlot
+    );
+    this.killSection('footer');
+    this._section = 'footer';
+    this.addFooter(engine, selectedSummary);
+    this._section = null;
+  }
+
+  private selectSlot(slot: SaveSlotId, engine: Engine): void {
+    if (this.selectedSlot === slot) return;
+    this.selectedSlot = slot;
+    this.refreshSaveSlots(engine);
+    this.refreshAllPanels(engine);
+    this.refreshFooter(engine);
+  }
+
+  // ── Static elements (built once in onInitialize) ─────────────────────────────
 
   private addTooltipProvider(): void {
     this.tooltipProvider = new TooltipProvider();
@@ -171,6 +254,8 @@ export class InitializationScene extends Scene {
     this.add(subtitle);
   }
 
+  // ── Dynamic sections ─────────────────────────────────────────────────────────
+
   private addSaveSlots(
     engine: Engine,
     summaries: SaveSlotSummary[],
@@ -200,18 +285,18 @@ export class InitializationScene extends Scene {
           ? Color.fromHex('#743a1c')
           : Color.fromHex('#223748'),
         onClick: () => {
-          this.selectedSlot = summary.slot;
-          this.render(engine);
+          this.selectSlot(summary.slot, engine);
         },
       });
-      this.add(button);
+      this.addActor(button);
     }
 
-    const statusText = this.buildSelectedSlotStatus(selectedSummary);
-    const statusLabel = new Label({
-      text: wrapText(statusText, 940, 15).join('\n'),
+    const { line1, line2 } = this.buildSelectedSlotStatus(selectedSummary);
+
+    const line1Label = new Label({
+      text: line1,
       x: engine.drawWidth / 2,
-      y: 158,
+      y: 157,
       font: new Font({
         size: 15,
         color: Color.fromHex('#d2dbe4'),
@@ -219,58 +304,73 @@ export class InitializationScene extends Scene {
         family: FONT_FAMILY,
       }),
     });
-    this.add(statusLabel);
+    this.addActor(line1Label);
+
+    if (line2) {
+      const line2Label = new Label({
+        text: line2,
+        x: engine.drawWidth / 2,
+        y: 175,
+        font: new Font({
+          size: 13,
+          color: Color.fromHex('#8fa0b0'),
+          textAlign: TextAlign.Center,
+          family: FONT_FAMILY,
+        }),
+      });
+      this.addActor(line2Label);
+    }
   }
 
   private addSetupColumns(engine: Engine, settingsLocked: boolean): void {
-    const panelY = 194;
-    const panelHeight = 418;
     const gap = 18;
     const panelWidth = Math.floor((engine.drawWidth - 40 - gap * 2) / 3);
     const startX = 20;
 
-    this.addPanelChrome(
-      startX,
-      panelY,
-      panelWidth,
-      panelHeight,
-      'Map settings',
-      '#476d87'
-    );
-    this.addPanelChrome(
-      startX + panelWidth + gap,
-      panelY,
-      panelWidth,
-      panelHeight,
-      'State settings',
-      '#8f4b25'
-    );
-    this.addPanelChrome(
-      startX + (panelWidth + gap) * 2,
-      panelY,
-      panelWidth,
-      panelHeight,
-      'Ruler settings',
-      '#6b5d3b'
-    );
+    const mapPanelX = startX;
+    const statePanelX = startX + panelWidth + gap;
+    const rulerPanelX = startX + (panelWidth + gap) * 2;
 
-    this.addMapSettings(panelY, panelWidth, startX, settingsLocked);
-    this.addStateSettings(
-      panelY,
-      panelWidth,
-      startX + panelWidth + gap,
-      settingsLocked
-    );
-    this.addRulerSettings(
-      panelY,
-      panelWidth,
-      startX + (panelWidth + gap) * 2,
-      settingsLocked
-    );
+    this.rebuildMapPanel = () => {
+      this.killSection('mapPanel');
+      this._section = 'mapPanel';
+      this.addPanelChrome(mapPanelX, PANEL_Y, panelWidth, PANEL_HEIGHT, 'Map settings', '#476d87');
+      this.addMapSettings(panelWidth, mapPanelX, settingsLocked);
+      this._section = null;
+    };
+
+    this.rebuildStatePanel = () => {
+      this.killSection('statePanel');
+      this._section = 'statePanel';
+      this.addPanelChrome(statePanelX, PANEL_Y, panelWidth, PANEL_HEIGHT, 'State settings', '#8f4b25');
+      this.addStateSettings(panelWidth, statePanelX, settingsLocked);
+      this._section = null;
+    };
+
+    this.rebuildRulerPanel = () => {
+      this.killSection('rulerPanel');
+      this._section = 'rulerPanel';
+      this.addPanelChrome(rulerPanelX, PANEL_Y, panelWidth, PANEL_HEIGHT, 'Ruler settings', '#6b5d3b');
+      this.addRulerSettings(panelWidth, rulerPanelX, settingsLocked);
+      this._section = null;
+    };
+
+    this._section = 'mapPanel';
+    this.addPanelChrome(mapPanelX, PANEL_Y, panelWidth, PANEL_HEIGHT, 'Map settings', '#476d87');
+    this.addMapSettings(panelWidth, mapPanelX, settingsLocked);
+
+    this._section = 'statePanel';
+    this.addPanelChrome(statePanelX, PANEL_Y, panelWidth, PANEL_HEIGHT, 'State settings', '#8f4b25');
+    this.addStateSettings(panelWidth, statePanelX, settingsLocked);
+
+    this._section = 'rulerPanel';
+    this.addPanelChrome(rulerPanelX, PANEL_Y, panelWidth, PANEL_HEIGHT, 'Ruler settings', '#6b5d3b');
+    this.addRulerSettings(panelWidth, rulerPanelX, settingsLocked);
+
+    this._section = null;
   }
 
   private addMapSettings(
-    panelY: number,
     panelWidth: number,
     panelX: number,
     settingsLocked: boolean
@@ -280,7 +380,7 @@ export class InitializationScene extends Scene {
       const selected = this.setup.mapSize === mapSizeId;
       const button = new ScreenButton({
         x: panelX + 18,
-        y: panelY + 58 + index * 58,
+        y: PANEL_Y + 58 + index * 58,
         width: panelWidth - 36,
         height: 44,
         title: definition.label,
@@ -295,41 +395,40 @@ export class InitializationScene extends Scene {
           : Color.fromHex('#192935'),
         onClick: () => {
           this.setup = { ...this.setup, mapSize: mapSizeId };
-          this.render(this.engine);
+          this.rebuildMapPanel?.();
         },
       });
-      if (settingsLocked) {
-        button.toggle(false);
-      }
-      this.add(button);
+      if (settingsLocked) button.toggle(false);
+      this.addActor(button);
     }
 
     const selectedMap = getMapSizeDefinition(this.setup.mapSize);
     this.addParagraph(
-      `Selected map: ${selectedMap.label} (${selectedMap.width}x${selectedMap.height})`,
+      `${selectedMap.label}  (${selectedMap.width}×${selectedMap.height})`,
       panelX + 18,
-      panelY + 246,
+      PANEL_Y + 248,
       panelWidth - 36,
-      16,
+      15,
       '#f0e6d2',
       TextAlign.Left
     );
     this.addParagraph(
       selectedMap.description,
       panelX + 18,
-      panelY + 280,
+      PANEL_Y + 272,
       panelWidth - 36,
-      15,
+      14,
       '#b7c4d1',
       TextAlign.Left
     );
+
     if (settingsLocked) {
       this.addParagraph(
-        'Settings are locked while this slot contains a save.',
+        'Settings locked — this slot contains a save.',
         panelX + 18,
-        panelY + 336,
+        PANEL_Y + 406,
         panelWidth - 36,
-        14,
+        13,
         '#c6a98e',
         TextAlign.Left
       );
@@ -337,7 +436,6 @@ export class InitializationScene extends Scene {
   }
 
   private addStateSettings(
-    panelY: number,
     panelWidth: number,
     panelX: number,
     settingsLocked: boolean
@@ -345,7 +443,7 @@ export class InitializationScene extends Scene {
     this.addParagraph(
       this.setup.stateName,
       panelX + panelWidth / 2,
-      panelY + 58,
+      PANEL_Y + 58,
       panelWidth - 36,
       22,
       '#f4e3c2',
@@ -354,7 +452,7 @@ export class InitializationScene extends Scene {
 
     const regenerateStateNameButton = new ScreenButton({
       x: panelX + (panelWidth - 170) / 2,
-      y: panelY + 108,
+      y: PANEL_Y + 108,
       width: 170,
       height: 40,
       title: 'Regenerate Name',
@@ -366,20 +464,18 @@ export class InitializationScene extends Scene {
           ...this.setup,
           stateName: generateStateName(this.setupRng),
         };
-        this.render(this.engine);
+        this.rebuildStatePanel?.();
       },
     });
-    if (settingsLocked) {
-      regenerateStateNameButton.toggle(false);
-    }
-    this.add(regenerateStateNameButton);
+    if (settingsLocked) regenerateStateNameButton.toggle(false);
+    this.addActor(regenerateStateNameButton);
 
     for (const [index, prehistoryId] of statePrehistoryOrder.entries()) {
       const definition = getStatePrehistoryDefinition(prehistoryId);
       const selected = this.setup.prehistory === prehistoryId;
       const button = new ScreenButton({
         x: panelX + 18,
-        y: panelY + 170 + index * 54,
+        y: PANEL_Y + 170 + index * 54,
         width: panelWidth - 36,
         height: 40,
         title: `${index + 1}. ${definition.label}`,
@@ -394,22 +490,53 @@ export class InitializationScene extends Scene {
           : Color.fromHex('#2a211b'),
         onClick: () => {
           this.setup = { ...this.setup, prehistory: prehistoryId };
-          this.render(this.engine);
+          this.rebuildStatePanel?.();
         },
       });
-      if (settingsLocked) {
-        button.toggle(false);
-      }
+      if (settingsLocked) button.toggle(false);
       this.registerTooltip(button, definition.label, [
         definition.description,
         definition.effectSummary,
       ]);
-      this.add(button);
+      this.addActor(button);
+    }
+
+    if (!settingsLocked) {
+      const selectedPrehistory = getStatePrehistoryDefinition(
+        this.setup.prehistory
+      );
+      this.addParagraph(
+        selectedPrehistory.description,
+        panelX + 18,
+        PANEL_Y + 326,
+        panelWidth - 36,
+        13,
+        '#b7c4d1',
+        TextAlign.Left
+      );
+      this.addParagraph(
+        `Effect: ${selectedPrehistory.effectSummary}`,
+        panelX + 18,
+        PANEL_Y + 396,
+        panelWidth - 36,
+        13,
+        '#9aab78',
+        TextAlign.Left
+      );
+    } else {
+      this.addParagraph(
+        'Settings locked — this slot contains a save.',
+        panelX + 18,
+        PANEL_Y + 406,
+        panelWidth - 36,
+        13,
+        '#c6a98e',
+        TextAlign.Left
+      );
     }
   }
 
   private addRulerSettings(
-    panelY: number,
     panelWidth: number,
     panelX: number,
     settingsLocked: boolean
@@ -427,16 +554,18 @@ export class InitializationScene extends Scene {
     );
     const positiveTraitLimit =
       getPositiveRulerTraitSelectionLimit(selectedTraitIds);
-    const traitAreaTop = panelY + 184;
-    const traitAreaBottom = panelY + 418 - 20;
     const traitColumnGap = 12;
-    const traitColumnWidth = Math.floor((panelWidth - 36 - traitColumnGap) / 2);
+    const traitColumnWidth = Math.floor(
+      (panelWidth - 36 - traitColumnGap) / 2
+    );
+    const traitAreaTop = PANEL_Y + 202;
+    const traitAreaBottom = PANEL_Y + PANEL_HEIGHT - 20;
     const traitListHeight = traitAreaBottom - traitAreaTop;
 
     this.addParagraph(
       this.setup.rulerName,
       panelX + panelWidth / 2,
-      panelY + 58,
+      PANEL_Y + 58,
       panelWidth - 36,
       22,
       '#f0e6d2',
@@ -445,7 +574,7 @@ export class InitializationScene extends Scene {
 
     const regenerateRulerNameButton = new ScreenButton({
       x: panelX + (panelWidth - 170) / 2,
-      y: panelY + 100,
+      y: PANEL_Y + 100,
       width: 170,
       height: 38,
       title: 'Regenerate Name',
@@ -457,22 +586,62 @@ export class InitializationScene extends Scene {
           ...this.setup,
           rulerName: generateRulerName(this.setupRng),
         };
-        this.render(this.engine);
+        this.rebuildRulerPanel?.();
       },
     });
-    if (settingsLocked) {
-      regenerateRulerNameButton.toggle(false);
-    }
-    this.add(regenerateRulerNameButton);
+    if (settingsLocked) regenerateRulerNameButton.toggle(false);
+    this.addActor(regenerateRulerNameButton);
 
     this.addParagraph(
-      `Selected: ${positiveTraitCount}/${positiveTraitLimit} positive, ${negativeTraitCount}/${MAX_NEGATIVE_RULER_TRAITS} negative`,
+      `Positive: ${positiveTraitCount}/${positiveTraitLimit}  ·  Negative: ${negativeTraitCount}/${MAX_NEGATIVE_RULER_TRAITS}`,
       panelX + 18,
-      panelY + 156,
+      PANEL_Y + 150,
       panelWidth - 36,
       14,
       '#f0e6d2',
       TextAlign.Left
+    );
+
+    if (!settingsLocked) {
+      this.addParagraph(
+        `Each negative trait unlocks +${BONUS_POSITIVE_RULER_TRAITS_PER_NEGATIVE} positive slot`,
+        panelX + 18,
+        PANEL_Y + 166,
+        panelWidth - 36,
+        12,
+        '#8fa0b0',
+        TextAlign.Left
+      );
+    } else {
+      this.addParagraph(
+        'Settings locked — this slot contains a save.',
+        panelX + 18,
+        PANEL_Y + 166,
+        panelWidth - 36,
+        12,
+        '#c6a98e',
+        TextAlign.Left
+      );
+    }
+
+    // Column headers
+    this.addParagraph(
+      'Positive',
+      panelX + 18 + traitColumnWidth / 2,
+      traitAreaTop - 12,
+      traitColumnWidth,
+      11,
+      '#8de0a1',
+      TextAlign.Center
+    );
+    this.addParagraph(
+      'Negative',
+      panelX + 18 + traitColumnWidth + traitColumnGap + traitColumnWidth / 2,
+      traitAreaTop - 12,
+      traitColumnWidth,
+      11,
+      '#eb9090',
+      TextAlign.Center
     );
 
     this.addTraitList({
@@ -500,6 +669,41 @@ export class InitializationScene extends Scene {
     );
     const slotUsed = selectedSummary?.used ?? false;
 
+    // Back — far left
+    const backButton = new ScreenButton({
+      x: 20,
+      y: engine.drawHeight - 66,
+      width: 190,
+      height: 46,
+      title: 'Back to Menu [Esc]',
+      onClick: () => {
+        engine.goToScene('main-menu');
+      },
+    });
+    this.addActor(backButton);
+
+    // Delete — right next to Back, far from Start
+    const deleteButton = new ScreenButton({
+      x: 222,
+      y: engine.drawHeight - 66,
+      width: 190,
+      height: 46,
+      title: 'Delete Save [Del]',
+      idleBgColor: Color.fromHex('#7a2b2b'),
+      hoverBgColor: Color.fromHex('#943434'),
+      clickedBgColor: Color.fromHex('#5e2121'),
+      onClick: () => {
+        const deleted = SaveManager.deleteSlot(this.selectedSlot);
+        if (!deleted) return;
+        this.refreshSaveSlots(engine);
+        this.refreshAllPanels(engine);
+        this.refreshFooter(engine);
+      },
+    });
+    if (!canDeleteSelectedSlot) deleteButton.toggle(false);
+    this.addActor(deleteButton);
+
+    // Start — far right
     const primaryButton = new ScreenButton({
       x: engine.drawWidth - 210,
       y: engine.drawHeight - 66,
@@ -513,43 +717,10 @@ export class InitializationScene extends Scene {
         this.startSelectedSlot(engine);
       },
     });
-    this.add(primaryButton);
-
-    const deleteButton = new ScreenButton({
-      x: engine.drawWidth / 2 - 95,
-      y: engine.drawHeight - 66,
-      width: 190,
-      height: 46,
-      title: 'Delete Save [Del]',
-      idleBgColor: Color.fromHex('#7a2b2b'),
-      hoverBgColor: Color.fromHex('#943434'),
-      clickedBgColor: Color.fromHex('#5e2121'),
-      onClick: () => {
-        const deleted = SaveManager.deleteSlot(this.selectedSlot);
-        if (!deleted) {
-          return;
-        }
-        this.render(engine);
-      },
-    });
-    if (!canDeleteSelectedSlot) {
-      deleteButton.toggle(false);
-    }
-    this.add(deleteButton);
-
-    this.add(
-      new ScreenButton({
-        x: 20,
-        y: engine.drawHeight - 66,
-        width: 190,
-        height: 46,
-        title: 'Back to Menu [Esc]',
-        onClick: () => {
-          engine.goToScene('main-menu');
-        },
-      })
-    );
+    this.addActor(primaryButton);
   }
+
+  // ── Panel chrome ─────────────────────────────────────────────────────────────
 
   private addPanelChrome(
     x: number,
@@ -568,7 +739,7 @@ export class InitializationScene extends Scene {
         color: Color.fromHex('#182430'),
       })
     );
-    this.add(panel);
+    this.addActor(panel);
 
     const header = new ScreenElement({ x, y });
     header.anchor = vec(0, 0);
@@ -579,7 +750,7 @@ export class InitializationScene extends Scene {
         color: Color.fromHex(accentHex),
       })
     );
-    this.add(header);
+    this.addActor(header);
 
     const border = new ScreenElement({ x: x - 1, y: y - 1 });
     border.anchor = vec(0, 0);
@@ -592,7 +763,7 @@ export class InitializationScene extends Scene {
         lineWidth: 2,
       })
     );
-    this.add(border);
+    this.addActor(border);
 
     const titleLabel = new Label({
       text: title,
@@ -605,7 +776,7 @@ export class InitializationScene extends Scene {
         family: FONT_FAMILY,
       }),
     });
-    this.add(titleLabel);
+    this.addActor(titleLabel);
   }
 
   private addParagraph(
@@ -628,8 +799,10 @@ export class InitializationScene extends Scene {
         family: FONT_FAMILY,
       }),
     });
-    this.add(label);
+    this.addActor(label);
   }
+
+  // ── Slot helpers ─────────────────────────────────────────────────────────────
 
   private syncSelectedSlot(
     summaries: ReturnType<typeof SaveManager.getSlotSummaries>
@@ -637,55 +810,61 @@ export class InitializationScene extends Scene {
     const isCurrentSlotValid = summaries.some(
       (summary) => summary.slot === this.selectedSlot
     );
-    if (isCurrentSlotValid) {
-      return;
-    }
+    if (isCurrentSlotValid) return;
 
     const latestSlot = SaveManager.getLatestUsedSlot();
     if (latestSlot) {
       this.selectedSlot = latestSlot;
       return;
     }
-
     this.selectedSlot = 1;
   }
 
   private buildSlotButtonTitle(summary: SaveSlotSummary): string {
+    const hint = ` [${summary.slot}]`;
     if (!summary.used) {
-      return `Slot ${summary.slot} - Empty`;
+      return `Slot ${summary.slot} - Empty${hint}`;
     }
-
-    return `Slot ${summary.slot} - ${summary.stateName ?? 'Saved Realm'}`;
+    return `Slot ${summary.slot} - ${summary.stateName ?? 'Saved Realm'}${hint}`;
   }
 
-  private buildSelectedSlotStatus(summary?: SaveSlotSummary): string {
+  private buildSelectedSlotStatus(summary?: SaveSlotSummary): {
+    line1: string;
+    line2?: string;
+  } {
     if (!summary?.used) {
-      return `Slot ${this.selectedSlot} is empty. Starting a new game will use the selected map, state, and ruler settings.`;
+      return {
+        line1: `Slot ${this.selectedSlot} is empty — configure settings below and start a new game.`,
+      };
     }
 
     const { day, month, year } = TurnManager.turnToDate(
       summary.turnNumber ?? 1
     );
-    const details = [
+    const parts = [
       summary.stateName ? `State: ${summary.stateName}` : undefined,
       summary.rulerName ? `Ruler: ${summary.rulerName}` : undefined,
       `Date: ${day} ${month}, ${year}`,
-      this.formatSavedAt(summary.savedAt),
-    ].filter((value): value is string => Boolean(value));
+    ].filter((v): v is string => Boolean(v));
 
-    return `Slot ${summary.slot} is occupied. ${details.join(' | ')}. Continue to load it, or delete the save to free this slot for a new campaign.`;
+    const savedPart = this.formatSavedAt(summary.savedAt);
+    const line2Parts = [
+      savedPart,
+      'Continue to load, or Delete to free this slot.',
+    ].filter((v): v is string => Boolean(v));
+
+    return {
+      line1: parts.join('  ·  '),
+      line2: line2Parts.join('  ·  '),
+    };
   }
 
   private formatSavedAt(savedAt?: number): string | undefined {
     if (typeof savedAt !== 'number' || !Number.isFinite(savedAt)) {
       return undefined;
     }
-
     const date = new Date(savedAt);
-    if (Number.isNaN(date.getTime())) {
-      return undefined;
-    }
-
+    if (Number.isNaN(date.getTime())) return undefined;
     return `Saved ${date.toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -693,6 +872,8 @@ export class InitializationScene extends Scene {
       minute: '2-digit',
     })}`;
   }
+
+  // ── Tooltip ──────────────────────────────────────────────────────────────────
 
   private registerTooltip(
     button: ScreenButton,
@@ -721,6 +902,8 @@ export class InitializationScene extends Scene {
     });
   }
 
+  // ── Trait list ───────────────────────────────────────────────────────────────
+
   private addTraitList(options: {
     traits: RulerTraitDefinition[];
     x: number;
@@ -740,7 +923,7 @@ export class InitializationScene extends Scene {
         lineWidth: 1,
       })
     );
-    this.add(listBackplate);
+    this.addActor(listBackplate);
 
     const list = new ScreenList<RulerTraitDefinition>({
       x: options.x + 1,
@@ -759,16 +942,11 @@ export class InitializationScene extends Scene {
       scrollbarThumbColor: 'rgba(255,255,255,0.22)',
       scrollbarThumbActiveColor: 'rgba(255,255,255,0.35)',
       onItemActivate: (trait) => {
-        if (options.settingsLocked) {
-          return;
-        }
+        if (options.settingsLocked) return;
         this.toggleRulerTrait(trait.id);
       },
       onItemHoverChange: ({ item: trait, index, anchorRect }) => {
-        if (!this.tooltipProvider || options.settingsLocked) {
-          this.tooltipProvider?.hide(list);
-          return;
-        }
+        if (!this.tooltipProvider) return;
 
         if (!trait || index === null) {
           this.tooltipProvider.hide(list);
@@ -824,14 +1002,12 @@ export class InitializationScene extends Scene {
       },
     });
 
-    this.add(list);
+    this.addActor(list);
   }
 
   private toggleRulerTrait(traitId: string): void {
     const trait = getRulerTraitDefinition(traitId);
-    if (!trait) {
-      return;
-    }
+    if (!trait) return;
 
     const selectedTraitIds = [...this.setup.rulerTraits];
     const isSelected = selectedTraitIds.includes(traitId);
@@ -844,46 +1020,39 @@ export class InitializationScene extends Scene {
       ) {
         return;
       }
-
       this.setup = {
         ...this.setup,
-        rulerTraits: selectedTraitIds.filter(
-          (selectedId) => selectedId !== traitId
-        ),
+        rulerTraits: selectedTraitIds.filter((id) => id !== traitId),
       };
-      this.render(this.engine);
-      return;
-    }
-
-    if (trait.polarity === 'negative') {
-      if (
-        countRulerTraitsByPolarity(selectedTraitIds, 'negative') >=
-        MAX_NEGATIVE_RULER_TRAITS
-      ) {
-        return;
-      }
     } else {
-      const positiveLimit =
-        getPositiveRulerTraitSelectionLimit(selectedTraitIds);
-      if (
-        countRulerTraitsByPolarity(selectedTraitIds, 'positive') >=
-        positiveLimit
-      ) {
-        return;
+      if (trait.polarity === 'negative') {
+        if (
+          countRulerTraitsByPolarity(selectedTraitIds, 'negative') >=
+          MAX_NEGATIVE_RULER_TRAITS
+        ) {
+          return;
+        }
+      } else {
+        const positiveLimit =
+          getPositiveRulerTraitSelectionLimit(selectedTraitIds);
+        if (
+          countRulerTraitsByPolarity(selectedTraitIds, 'positive') >=
+          positiveLimit
+        ) {
+          return;
+        }
       }
+      this.setup = {
+        ...this.setup,
+        rulerTraits: [...selectedTraitIds, traitId],
+      };
     }
 
-    this.setup = {
-      ...this.setup,
-      rulerTraits: [...selectedTraitIds, traitId],
-    };
-    this.render(this.engine);
+    this.rebuildRulerPanel?.();
   }
 
   private isTraitSelectionBlocked(trait: RulerTraitDefinition): boolean {
-    if (this.setup.rulerTraits.includes(trait.id)) {
-      return false;
-    }
+    if (this.setup.rulerTraits.includes(trait.id)) return false;
 
     const selectedTraitIds = this.setup.rulerTraits;
     if (trait.polarity === 'negative') {
@@ -892,7 +1061,6 @@ export class InitializationScene extends Scene {
         MAX_NEGATIVE_RULER_TRAITS
       );
     }
-
     return (
       countRulerTraitsByPolarity(selectedTraitIds, 'positive') >=
       getPositiveRulerTraitSelectionLimit(selectedTraitIds)
@@ -906,27 +1074,24 @@ export class InitializationScene extends Scene {
     hovered: boolean
   ): string {
     if (trait.polarity === 'positive') {
-      if (blocked) {
-        return 'rgba(40, 58, 48, 0.55)';
-      }
-      if (selected) {
+      if (blocked) return 'rgba(40, 58, 48, 0.55)';
+      if (selected)
         return hovered ? 'rgba(63, 116, 83, 0.95)' : 'rgba(50, 94, 68, 0.95)';
-      }
       return hovered ? 'rgba(40, 67, 51, 0.9)' : 'rgba(29, 49, 38, 0.9)';
     }
-
-    if (blocked) {
-      return 'rgba(67, 43, 43, 0.55)';
-    }
-    if (selected) {
+    if (blocked) return 'rgba(67, 43, 43, 0.55)';
+    if (selected)
       return hovered ? 'rgba(129, 64, 64, 0.95)' : 'rgba(104, 51, 51, 0.95)';
-    }
     return hovered ? 'rgba(76, 45, 45, 0.9)' : 'rgba(55, 33, 33, 0.9)';
   }
 
+  // ── Game start ───────────────────────────────────────────────────────────────
+
   private startSelectedSlot(engine: Engine): void {
     const summaries = SaveManager.getSlotSummaries();
-    const selected = summaries.find((summary) => summary.slot === this.selectedSlot);
+    const selected = summaries.find(
+      (summary) => summary.slot === this.selectedSlot
+    );
 
     if (selected?.used) {
       SaveManager.queueContinue(this.selectedSlot);
